@@ -418,7 +418,7 @@ export default function SpiritualDiary() {
                         分析中...
                       </span>
                     ) : (
-                      '🧠 Kiriに読み解いてもらう'
+                      '🐇 Kiriに読み解いてもらう'
                     )}
                   </button>
 
