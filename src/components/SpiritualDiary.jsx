@@ -31,7 +31,25 @@ export default function SpiritualDiary() {
     saju: true
   });
 
-  const emojis = ['😊', '😢', '😡', '😰', '😴', '🤔', '😆', '😌', '😔', '🥺', '😤', '✨', '💪', '🌈', '💤'];
+  // 絵文字を大幅に追加（感情に結びつきやすいもの）
+  const emojis = [
+    // ポジティブ
+    '😊', '😌', '😆', '🥰', '😍', '🤗', '😇', '🌟', '✨', '💫', '⭐', '🌈', '🌸', '🌺', '🌻',
+    // 穏やか・リラックス
+    '😴', '💤', '🛀', '☕', '🍵', '🌙', '💆', '🧘',
+    // エネルギッシュ
+    '💪', '🔥', '⚡', '🚀', '🎯', '👊', '🏃',
+    // ネガティブ・疲れ
+    '😢', '😭', '😔', '😞', '😩', '😫', '🥺', '💔', '😰', '😓', '😥',
+    // 怒り・イライラ
+    '😡', '😤', '💢', '👿', '😠',
+    // 驚き・戸惑い
+    '😮', '😯', '😲', '🤯', '😳', '🤔', '🧐', '🤨',
+    // 天気・自然
+    '☀️', '🌤️', '⛅', '☁️', '🌧️', '⛈️', '🌩️', '❄️', '🌊', '🍃',
+    // ハート系
+    '❤️', '💕', '💖', '💗', '💓', '💞', '💝', '🧡', '💛', '💚', '💙', '💜', '🤍', '🤎'
+  ];
 
   const calcBio = (birth) => {
     const b = new Date(birth);
@@ -174,7 +192,7 @@ export default function SpiritualDiary() {
   };
 
   const BiorhythmGraph = ({ data }) => {
-    const width = 100; // パーセンテージで管理
+    const width = 100;
     const height = 150;
     const padding = 30;
     const graphWidth = width - padding * 2;
@@ -360,9 +378,6 @@ export default function SpiritualDiary() {
   }
 
   if (step === 'input') {
-    const bio = calcBio(birthDate);
-    const bioHistory = calcBioHistory(birthDate);
-
     return (
       <>
         <ErrorBanner />
@@ -377,41 +392,12 @@ export default function SpiritualDiary() {
             </div>
 
             <div className="space-y-3">
-              {/* バイオリズムセクション */}
-              <CollapsibleSection
-                title="⚡ バイオリズム"
-                isExpanded={expandedSections.biorhythm}
-                onToggle={() => setExpandedSections({...expandedSections, biorhythm: !expandedSections.biorhythm})}
-              >
-                <div className="grid grid-cols-3 gap-2 mb-3">
-                  <div className="bg-white/10 rounded-lg p-3 text-center">
-                    <div className="text-2xl mb-1">{bio.p > 0 ? '🔥' : '💤'}</div>
-                    <div className="text-white text-xs font-bold">身体</div>
-                    <div className="text-xl font-bold text-green-400">{bio.p}%</div>
-                  </div>
-                  <div className="bg-white/10 rounded-lg p-3 text-center">
-                    <div className="text-2xl mb-1">{bio.e > 0 ? '✨' : '🌙'}</div>
-                    <div className="text-white text-xs font-bold">感情</div>
-                    <div className="text-xl font-bold text-blue-400">{bio.e}%</div>
-                  </div>
-                  <div className="bg-white/10 rounded-lg p-3 text-center">
-                    <div className="text-2xl mb-1">{bio.i > 0 ? '🧠' : '😴'}</div>
-                    <div className="text-white text-xs font-bold">知性</div>
-                    <div className="text-xl font-bold text-purple-400">{bio.i}%</div>
-                  </div>
-                </div>
-                <div>
-                  <h3 className="text-xs font-bold text-purple-200 mb-2">📈 過去30日間の推移</h3>
-                  <BiorhythmGraph data={bioHistory} />
-                </div>
-              </CollapsibleSection>
-
               {/* 入力フォーム */}
               <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-purple-300/30">
                 <div className="space-y-4">
                   <div>
                     <label className="block text-white text-sm mb-2 font-medium">💖 今日の気分</label>
-                    <div className="flex flex-wrap gap-1.5 mb-2">
+                    <div className="flex flex-wrap gap-1.5 mb-2 max-h-32 overflow-y-auto">
                       {emojis.map(e => (
                         <button
                           key={e}
@@ -526,7 +512,8 @@ export default function SpiritualDiary() {
                   <div className="space-y-3">
                     {/* 生まれた時の四柱 */}
                     <div>
-                      <h3 className="text-xs font-bold text-purple-200 mb-2">🌟 あなたの本命</h3>
+                      <h3 className="text-xs font-bold text-purple-200 mb-1">🌟 あなたの本命</h3>
+                      <p className="text-xs text-purple-300 mb-2">自分自身（本質・性格・運勢の根幹）を表す最も重要な要素</p>
                       <div className="grid grid-cols-2 gap-2">
                         <div className="bg-white/10 p-2 rounded-lg">
                           <p className="text-xs text-purple-200">年柱</p>
@@ -537,12 +524,12 @@ export default function SpiritualDiary() {
                           <p className="font-bold text-sm text-white">{result.saju.birth.month}</p>
                         </div>
                         <div className="bg-white/10 p-2 rounded-lg">
-                          <p className="text-xs text-purple-200">日柱</p>
+                          <p className="text-xs text-purple-200">日柱（最重要）</p>
                           <p className="font-bold text-sm text-white">{result.saju.birth.day}</p>
                         </div>
                         <div className="bg-white/10 p-2 rounded-lg">
                           <p className="text-xs text-purple-200">時柱</p>
-                          <p className="font-bold text-sm text-white">{result.saju.birth.hour}</p>
+                          <p className="font-bold text-sm text-white">{result.saju.birth.hour || '未入力'}</p>
                         </div>
                       </div>
                     </div>
@@ -552,12 +539,12 @@ export default function SpiritualDiary() {
                       <h3 className="text-xs font-bold text-yellow-200 mb-2">📅 今日の運勢</h3>
                       <div className="grid grid-cols-2 gap-2">
                         <div className="bg-yellow-500/20 p-2 rounded-lg">
-                          <p className="text-xs text-yellow-200">日運</p>
+                          <p className="text-xs text-yellow-200">日運（今日）</p>
                           <p className="font-bold text-sm text-white">{result.saju.today.day}</p>
                         </div>
                         {result.saju.today.hour && (
                           <div className="bg-yellow-500/20 p-2 rounded-lg">
-                            <p className="text-xs text-yellow-200">時運</p>
+                            <p className="text-xs text-yellow-200">時運（現在）</p>
                             <p className="font-bold text-sm text-white">{result.saju.today.hour}</p>
                           </div>
                         )}
@@ -569,11 +556,11 @@ export default function SpiritualDiary() {
                       <h3 className="text-xs font-bold text-blue-200 mb-2">📆 月運・年運</h3>
                       <div className="grid grid-cols-2 gap-2">
                         <div className="bg-blue-500/20 p-2 rounded-lg">
-                          <p className="text-xs text-blue-200">月運</p>
+                          <p className="text-xs text-blue-200">月運（今月）</p>
                           <p className="font-bold text-sm text-white">{result.saju.today.month}</p>
                         </div>
                         <div className="bg-blue-500/20 p-2 rounded-lg">
-                          <p className="text-xs text-blue-200">年運</p>
+                          <p className="text-xs text-blue-200">年運（今年）</p>
                           <p className="font-bold text-sm text-white">{result.saju.today.year}</p>
                         </div>
                       </div>
