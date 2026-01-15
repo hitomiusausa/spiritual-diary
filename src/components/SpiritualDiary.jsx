@@ -263,8 +263,8 @@ export default function SpiritualDiary() {
           <div className="w-full max-w-md bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-purple-300/30 shadow-2xl">
             <div className="text-center mb-6">
               <Sparkles className="w-12 h-12 text-yellow-300 mx-auto mb-3" />
-              <h1 className="text-2xl font-bold text-white mb-1">心のエネルギー日記</h1>
-              <p className="text-sm text-purple-200">スピリチュアル×AI分析</p>
+             <h1 className="text-2xl font-bold text-white mb-1">Mind & Energy Diary</h1>
+              <p className="text-sm text-purple-200">バイオリズム×四柱推命で読み解く心の分析日記</p>
             </div>
 
             <div className="space-y-3">
@@ -277,7 +277,7 @@ export default function SpiritualDiary() {
                   placeholder="例: さくら、太郎、ミオ"
                   className="w-full px-3 py-2.5 text-sm rounded-lg bg-white/20 text-white border border-purple-300/50 focus:outline-none focus:ring-2 focus:ring-purple-400 placeholder-purple-300/50"
                 />
-                <p className="text-xs text-purple-200 mt-1">💫 AIがあなたに語りかける時に使います</p>
+                <p className="text-xs text-purple-200 mt-1">💫 Kiriがあなたに語りかける時に使います</p>
               </div>
 
               <div>
@@ -370,7 +370,7 @@ export default function SpiritualDiary() {
                   </div>
 
                   <div>
-                    <label className="block text-white text-sm mb-2 font-medium">📅 記入内容</label>
+                    <label className="block text-white text-sm mb-2 font-medium">📅 今日の記録</label>
                     <div className="flex gap-2 mb-2">
                       <button
                         onClick={() => setEntry({...entry, type: 'past'})}
@@ -388,7 +388,7 @@ export default function SpiritualDiary() {
                     <textarea
                       value={entry.event}
                       onChange={(e) => setEntry({...entry, event: e.target.value})}
-                      placeholder={loadingPlaceholders ? '例文を生成中...' : (entry.type === 'past' ? placeholders.event : placeholders.event.replace('あった', 'の予定は').replace('した', 'する予定'))}
+                      placeholder={loadingPlaceholders ? 'たとえば...' : (entry.type === 'past' ? placeholders.event : placeholders.event.replace('あった', 'の予定は').replace('した', 'する予定'))}
                       className="w-full px-3 py-2.5 text-sm rounded-lg bg-white/20 text-white border border-purple-300/50 focus:outline-none focus:ring-2 focus:ring-purple-400 h-24 resize-none placeholder-purple-300/70"
                     />
                   </div>
@@ -399,7 +399,7 @@ export default function SpiritualDiary() {
                       type="text"
                       value={entry.intuition}
                       onChange={(e) => setEntry({...entry, intuition: e.target.value})}
-                      placeholder={loadingPlaceholders ? '例文を生成中...' : placeholders.intuition}
+                      placeholder={loadingPlaceholders ? 'たとえば...' : placeholders.intuition}
                       className="w-full px-3 py-2.5 text-sm rounded-lg bg-white/20 text-white border border-purple-300/50 focus:outline-none focus:ring-2 focus:ring-purple-400 placeholder-purple-300/70"
                     />
                   </div>
@@ -418,7 +418,7 @@ export default function SpiritualDiary() {
                         分析中...
                       </span>
                     ) : (
-                      '🧠 AIに分析してもらう'
+                      '🧠 Kiriに読み解いてもらう'
                     )}
                   </button>
 
@@ -610,13 +610,13 @@ export default function SpiritualDiary() {
 
               {result.innerMessage && (
                 <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-purple-300/30">
-                  <h2 className="text-base font-bold text-purple-300 mb-2">💫 直感からのメッセージ</h2>
+                  <h2 className="text-base font-bold text-purple-300 mb-2">💫 あなたの直感が示すメッセージ</h2>
                   <p className="text-white text-sm leading-relaxed">{result.innerMessage}</p>
                 </div>
               )}
 
               <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-purple-300/30">
-                <h2 className="text-base font-bold text-green-300 mb-2">🎯 具体的なアドバイス</h2>
+                <h2 className="text-base font-bold text-green-300 mb-2">🎯 Kiriからのアドバイス</h2>
                 <p className="text-white text-sm leading-relaxed whitespace-pre-line">{result.actionAdvice}</p>
               </div>
 
@@ -662,7 +662,7 @@ export default function SpiritualDiary() {
                     <ul className="text-white space-y-0.5 mb-2 text-xs">
                       <li>📚 過去の記録を全て閲覧</li>
                       <li>📊 あなた専用のパターン分析</li>
-                      <li>💬 AI対話無制限</li>
+                      <li>💬 Kiriとの対話無制限</li>
                     </ul>
                     <button className="bg-gradient-to-r from-yellow-400 to-orange-500 text-black px-4 py-2 rounded-lg text-sm font-bold hover:scale-[1.02] active:scale-[0.98] transition-transform shadow-md">
                       月額500円
