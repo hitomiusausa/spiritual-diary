@@ -6,6 +6,9 @@ import { Sparkles, Lock } from 'lucide-react';
 export default function SpiritualDiary() {
   const [step, setStep] = useState('start');
   const [birthDate, setBirthDate] = useState('');
+  const [birthTime, setBirthTime] = useState(''); // 任意 "HH:MM"
+const [gender, setGender] = useState('');       // 任意
+
   const [entry, setEntry] = useState({
     emoji: '😊',
     mood: '',
@@ -38,11 +41,11 @@ export default function SpiritualDiary() {
       const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userProfile: { birthDate },
-          biorhythm: bio,
-          entry: entry
-        })
+     body: JSON.stringify({
+  userProfile: { birthDate, birthTime, gender },
+  biorhythm: bio,
+  entry: entry
+})
       });
 
       const data = await response.json();
@@ -90,6 +93,32 @@ export default function SpiritualDiary() {
                 className="w-full px-4 py-3 rounded-lg bg-white/20 text-white border border-purple-300/50 focus:outline-none focus:ring-2 focus:ring-purple-400"
               />
             </div>
+            <div>
+  <label className="block text-white mb-2 font-medium">出生時刻（任意）</label>
+  <input
+    type="time"
+    value={birthTime}
+    onChange={(e) => setBirthTime(e.target.value)}
+    className="w-full px-4 py-3 rounded-lg bg-white/20 text-white border border-purple-300/50 focus:outline-none focus:ring-2 focus:ring-purple-400"
+  />
+  <p className="text-xs text-purple-200 mt-1">未入力の場合は 12:00 で概算します</p>
+</div>
+
+<div>
+  <label className="block text-white mb-2 font-medium">性別（任意）</label>
+  <select
+    value={gender}
+    onChange={(e) => setGender(e.target.value)}
+    className="w-full px-4 py-3 rounded-lg bg-white/20 text-white border border-purple-300/50 focus:outline-none focus:ring-2 focus:ring-purple-400"
+  >
+    <option value="">未入力</option>
+    <option value="female">女性</option>
+    <option value="male">男性</option>
+    <option value="other">その他</option>
+    <option value="no_answer">答えたくない</option>
+  </select>
+</div>
+
 
             <button
               onClick={() => birthDate && setStep('input')}
