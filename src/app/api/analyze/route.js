@@ -89,7 +89,21 @@ export async function POST(request) {
     
     const birthSolar = Solar.fromYmdHms(y, m, d, hour, minute, 0);
     const birthLunar = birthSolar.getLunar();
-    const birthSaju = parseSajuFromLunarFullString(birthLunar.toFullString());
+    const birthLunarFullString = birthLunar.toFullString();
+    console.log('Birth Lunar Full String:', birthLunarFullString); // デバッグ
+    const birthSaju = parseSajuFromLunarFullString(birthLunarFullString);
+    
+    // 時柱が取得できない場合、時柱を直接取得
+    if (!birthSaju.hour) {
+      try {
+        const timeGan = birthLunar.getTimeGan();
+        const timeZhi = birthLunar.getTimeZhi();
+        birthSaju.hour = timeGan + timeZhi;
+        console.log('Direct hour pillar:', birthSaju.hour);
+      } catch (e) {
+        console.error('Failed to get hour pillar:', e);
+      }
+    }
 
     // 今日の四柱推命（日運・月運・年運）
     const today = new Date();
