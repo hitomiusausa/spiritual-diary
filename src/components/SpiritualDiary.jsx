@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Sparkles, Lock, AlertCircle, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Sparkles, Lock, AlertCircle, X, ChevronDown, ChevronUp, HelpCircle } from 'lucide-react';
 
 export default function SpiritualDiary() {
   const [step, setStep] = useState('start');
@@ -30,25 +30,16 @@ export default function SpiritualDiary() {
     biorhythm: true,
     saju: true
   });
+  const [showBioInfo, setShowBioInfo] = useState(false);
+  const [showSajuInfo, setShowSajuInfo] = useState(false);
 
-  // 絵文字を大幅に追加（感情に結びつきやすいもの）
+  // 絵文字を厳選20個に削減
   const emojis = [
-    // ポジティブ
-    '😊', '😌', '😆', '🥰', '😍', '🤗', '😇', '🌟', '✨', '💫', '⭐', '🌈', '🌸', '🌺', '🌻',
-    // 穏やか・リラックス
-    '😴', '💤', '🛀', '☕', '🍵', '🌙', '💆', '🧘',
-    // エネルギッシュ
-    '💪', '🔥', '⚡', '🚀', '🎯', '👊', '🏃',
-    // ネガティブ・疲れ
-    '😢', '😭', '😔', '😞', '😩', '😫', '🥺', '💔', '😰', '😓', '😥',
-    // 怒り・イライラ
-    '😡', '😤', '💢', '👿', '😠',
-    // 驚き・戸惑い
-    '😮', '😯', '😲', '🤯', '😳', '🤔', '🧐', '🤨',
-    // 天気・自然
-    '☀️', '🌤️', '⛅', '☁️', '🌧️', '⛈️', '🌩️', '❄️', '🌊', '🍃',
-    // ハート系
-    '❤️', '💕', '💖', '💗', '💓', '💞', '💝', '🧡', '💛', '💚', '💙', '💜', '🤍', '🤎'
+    '😊', '🥰', '😆', '😌', // ポジティブ
+    '😢', '😔', '😰', '😤', // ネガティブ
+    '😴', '💤', '🤔', '😮', // 状態
+    '❤️', '💚', '💙', '✨', // 感情
+    '☀️', '🌧️', '🌈', '⭐'  // 象徴
   ];
 
   const calcBio = (birth) => {
@@ -60,27 +51,6 @@ export default function SpiritualDiary() {
       e: Math.round(Math.sin(2 * Math.PI * d / 28) * 100),
       i: Math.round(Math.sin(2 * Math.PI * d / 33) * 100)
     };
-  };
-
-  const calcBioHistory = (birth, days = 30) => {
-    const b = new Date(birth);
-    const history = [];
-    const today = new Date();
-    
-    for (let i = days; i >= 0; i--) {
-      const targetDate = new Date(today);
-      targetDate.setDate(today.getDate() - i);
-      const d = Math.floor((targetDate - b) / 86400000);
-      
-      history.push({
-        date: targetDate.toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' }),
-        p: Math.round(Math.sin(2 * Math.PI * d / 23) * 100),
-        e: Math.round(Math.sin(2 * Math.PI * d / 28) * 100),
-        i: Math.round(Math.sin(2 * Math.PI * d / 33) * 100)
-      });
-    }
-    
-    return history;
   };
 
   const generatePlaceholders = async () => {
@@ -117,6 +87,7 @@ export default function SpiritualDiary() {
 
     try {
       const bio = calcBio(birthDate);
+      const now = new Date();
 
       const response = await fetch('/api/analyze', {
         method: 'POST',
@@ -124,7 +95,8 @@ export default function SpiritualDiary() {
         body: JSON.stringify({
           userProfile: { birthDate, birthTime, gender, nickname },
           biorhythm: bio,
-          entry: entry
+          entry: entry,
+          timestamp: now.toISOString()
         })
       });
 
@@ -140,7 +112,7 @@ export default function SpiritualDiary() {
           energy,
           time,
           bio,
-          bioHistory: calcBioHistory(birthDate),
+          timestamp: now,
           ...data.data
         });
         setStep('result');
@@ -160,6 +132,16 @@ export default function SpiritualDiary() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const clearAll = () => {
+    setStep('start');
+    setBirthDate('');
+    setBirthTime('');
+    setGender('');
+    setNickname('');
+    setEntry({emoji: '😊', mood: '', type: 'past', event: '', intuition: ''});
+    setResult(null);
   };
 
   const ErrorBanner = () => {
@@ -191,90 +173,50 @@ export default function SpiritualDiary() {
     );
   };
 
-  const BiorhythmGraph = ({ data }) => {
-    const width = 100;
-    const height = 150;
-    const padding = 30;
-    const graphWidth = width - padding * 2;
-    const graphHeight = height - padding * 2;
+  // バイオリズムバー表示コンポーネント
+  const BiorhythmBar = ({ label, value, color, emoji }) => {
+    const percentage = ((value + 100) / 200) * 100; // -100〜100を0〜100%に変換
+    
+    return (
+      <div className="bg-white/10 rounded-lg p-3">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">{emoji}</span>
+            <span className="text-white font-bold text-sm">{label}</span>
+          </div>
+          <span className={`text-lg font-bold ${color}`}>{value}%</span>
+        </div>
+        <div className="w-full bg-white/20 rounded-full h-2 overflow-hidden">
+          <div 
+            className={`h-full rounded-full ${color.replace('text-', 'bg-')} transition-all duration-500`}
+            style={{ width: `${percentage}%` }}
+          />
+        </div>
+      </div>
+    );
+  };
 
-    const createPath = (values, color) => {
-      if (!values || values.length === 0) return '';
-      
-      const points = values.map((value, index) => {
-        const x = padding + (index / (values.length - 1)) * graphWidth;
-        const y = padding + graphHeight / 2 - (value / 100) * (graphHeight / 2);
-        return `${x},${y}`;
-      });
-      
-      return `M ${points.join(' L ')}`;
-    };
-
-    const pValues = data.map(d => d.p);
-    const eValues = data.map(d => d.e);
-    const iValues = data.map(d => d.i);
+  const InfoPopup = ({ show, onClose, title, children }) => {
+    if (!show) return null;
 
     return (
-      <div className="bg-white/5 rounded-lg p-3 overflow-hidden">
-        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto">
-          <line x1={padding} y1={padding} x2={width - padding} y2={padding} stroke="rgba(255,255,255,0.1)" strokeWidth="0.5" />
-          <line x1={padding} y1={padding + graphHeight / 2} x2={width - padding} y2={padding + graphHeight / 2} stroke="rgba(255,255,255,0.2)" strokeWidth="0.5" strokeDasharray="2,2" />
-          <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="rgba(255,255,255,0.1)" strokeWidth="0.5" />
-          
-          <text x={padding - 5} y={padding + 2} fill="rgba(255,255,255,0.5)" fontSize="4" textAnchor="end">100</text>
-          <text x={padding - 5} y={padding + graphHeight / 2 + 2} fill="rgba(255,255,255,0.5)" fontSize="4" textAnchor="end">0</text>
-          <text x={padding - 5} y={height - padding + 2} fill="rgba(255,255,255,0.5)" fontSize="4" textAnchor="end">-100</text>
-          
-          <path d={createPath(pValues)} stroke="#10b981" strokeWidth="1" fill="none" opacity="0.9" />
-          <path d={createPath(eValues)} stroke="#3b82f6" strokeWidth="1" fill="none" opacity="0.9" />
-          <path d={createPath(iValues)} stroke="#a855f7" strokeWidth="1" fill="none" opacity="0.9" />
-          
-          <circle 
-            cx={width - padding} 
-            cy={padding + graphHeight / 2 - (pValues[pValues.length - 1] / 100) * (graphHeight / 2)} 
-            r="1.5" 
-            fill="#10b981" 
-          />
-          <circle 
-            cx={width - padding} 
-            cy={padding + graphHeight / 2 - (eValues[eValues.length - 1] / 100) * (graphHeight / 2)} 
-            r="1.5" 
-            fill="#3b82f6" 
-          />
-          <circle 
-            cx={width - padding} 
-            cy={padding + graphHeight / 2 - (iValues[iValues.length - 1] / 100) * (graphHeight / 2)} 
-            r="1.5" 
-            fill="#a855f7" 
-          />
-          
-          <text x={padding} y={height - 5} fill="rgba(255,255,255,0.5)" fontSize="3" textAnchor="start">
-            {data[0]?.date}
-          </text>
-          <text x={width - padding} y={height - 5} fill="rgba(255,255,255,0.5)" fontSize="3" textAnchor="end">
-            今日
-          </text>
-        </svg>
-        
-        <div className="flex justify-center gap-4 mt-2 text-xs">
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-0.5 bg-green-400"></div>
-            <span className="text-white/70">身体</span>
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+        <div className="bg-gradient-to-br from-purple-900 to-indigo-900 rounded-2xl p-6 max-w-md w-full border-2 border-purple-400/50 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-bold text-yellow-300">{title}</h3>
+            <button onClick={onClose} className="text-white hover:bg-white/20 rounded-full p-1">
+              <X className="w-5 h-5" />
+            </button>
           </div>
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-0.5 bg-blue-400"></div>
-            <span className="text-white/70">感情</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-0.5 bg-purple-400"></div>
-            <span className="text-white/70">知性</span>
+          <div className="text-white text-sm leading-relaxed space-y-3">
+            {children}
           </div>
         </div>
       </div>
     );
   };
 
-  const CollapsibleSection = ({ title, isExpanded, onToggle, children, badge }) => (
+  const CollapsibleSection = ({ title, isExpanded, onToggle, children, badge, onInfoClick }) => (
     <div className="bg-white/10 backdrop-blur-md rounded-xl border border-purple-300/30 overflow-hidden">
       <button
         onClick={onToggle}
@@ -286,6 +228,17 @@ export default function SpiritualDiary() {
             <span className="text-xs bg-yellow-400/20 text-yellow-300 px-2 py-0.5 rounded-full">
               {badge}
             </span>
+          )}
+          {onInfoClick && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onInfoClick();
+              }}
+              className="ml-1 text-purple-300 hover:text-yellow-300 transition-colors"
+            >
+              <HelpCircle className="w-4 h-4" />
+            </button>
           )}
         </div>
         {isExpanded ? (
@@ -392,17 +345,16 @@ export default function SpiritualDiary() {
             </div>
 
             <div className="space-y-3">
-              {/* 入力フォーム */}
               <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-purple-300/30">
                 <div className="space-y-4">
                   <div>
                     <label className="block text-white text-sm mb-2 font-medium">💖 今日の気分</label>
-                    <div className="flex flex-wrap gap-1.5 mb-2 max-h-32 overflow-y-auto">
+                    <div className="flex flex-wrap gap-2 mb-2">
                       {emojis.map(e => (
                         <button
                           key={e}
                           onClick={() => setEntry({...entry, emoji: e})}
-                          className={`text-2xl p-2 rounded-lg transition-all ${entry.emoji === e ? 'bg-purple-500 scale-110' : 'bg-white/10'} active:scale-95`}
+                          className={`text-3xl p-2 rounded-lg transition-all ${entry.emoji === e ? 'bg-purple-500 scale-110' : 'bg-white/10'} active:scale-95`}
                         >
                           {e}
                         </button>
@@ -469,6 +421,13 @@ export default function SpiritualDiary() {
                       '🧠 AIに分析してもらう'
                     )}
                   </button>
+
+                  <button
+                    onClick={() => setStep('start')}
+                    className="w-full bg-white/10 hover:bg-white/20 text-white py-2.5 rounded-xl font-medium text-sm transition-all"
+                  >
+                    前の画面に戻る
+                  </button>
                 </div>
               </div>
             </div>
@@ -482,6 +441,52 @@ export default function SpiritualDiary() {
     return (
       <>
         <ErrorBanner />
+        <InfoPopup 
+          show={showBioInfo} 
+          onClose={() => setShowBioInfo(false)}
+          title="📈 バイオリズムとは？"
+        >
+          <p>バイオリズムは、人間の身体・感情・知性の状態が一定の周期で変動するという理論です。</p>
+          <div className="space-y-2 mt-3">
+            <div className="bg-white/10 p-3 rounded-lg">
+              <p className="font-bold text-green-400">身体（23日周期）</p>
+              <p className="text-xs mt-1">体力、持久力、免疫力などの身体的な状態</p>
+            </div>
+            <div className="bg-white/10 p-3 rounded-lg">
+              <p className="font-bold text-blue-400">感情（28日周期）</p>
+              <p className="text-xs mt-1">気分、感受性、創造力などの精神的な状態</p>
+            </div>
+            <div className="bg-white/10 p-3 rounded-lg">
+              <p className="font-bold text-purple-400">知性（33日周期）</p>
+              <p className="text-xs mt-1">思考力、判断力、記憶力などの知的な状態</p>
+            </div>
+          </div>
+          <p className="mt-3 text-xs text-purple-200">※本アプリでは生年月日から計算し、参考情報として提示しています。</p>
+        </InfoPopup>
+
+        <InfoPopup 
+          show={showSajuInfo} 
+          onClose={() => setShowSajuInfo(false)}
+          title="🔮 四柱推命とは？"
+        >
+          <p>四柱推命は、中国発祥の占術で、生年月日時から人の運命や性格を読み解く東洋占星術です。</p>
+          <div className="space-y-2 mt-3">
+            <div className="bg-white/10 p-3 rounded-lg">
+              <p className="font-bold text-yellow-300">あなたの本命（生まれた時）</p>
+              <p className="text-xs mt-1">年柱・月柱・日柱・時柱の4つの柱から、あなたの本質を表します</p>
+            </div>
+            <div className="bg-white/10 p-3 rounded-lg">
+              <p className="font-bold text-yellow-300">日運・月運・年運（今の運勢）</p>
+              <p className="text-xs mt-1">現在の時間の柱から、今日・今月・今年の運勢を読み解きます</p>
+            </div>
+            <div className="bg-white/10 p-3 rounded-lg">
+              <p className="font-bold text-yellow-300">大運（人生の流れ）</p>
+              <p className="text-xs mt-1">10年周期で変わる大きな運勢の流れを示します</p>
+            </div>
+          </div>
+          <p className="mt-3 text-xs text-purple-200">※本アプリでは lunar-javascript ライブラリを使用して算出しています。</p>
+        </InfoPopup>
+
         <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 p-4 pb-20">
           <div className="max-w-2xl mx-auto">
             <div className="text-center mb-4 pt-2">
@@ -494,11 +499,16 @@ export default function SpiritualDiary() {
             <div className="space-y-3">
               {/* バイオリズムセクション */}
               <CollapsibleSection
-                title="📈 バイオリズムの推移"
+                title="📈 バイオリズム"
                 isExpanded={expandedSections.biorhythm}
                 onToggle={() => setExpandedSections({...expandedSections, biorhythm: !expandedSections.biorhythm})}
+                onInfoClick={() => setShowBioInfo(true)}
               >
-                <BiorhythmGraph data={result.bioHistory} />
+                <div className="space-y-2">
+                  <BiorhythmBar label="身体" value={result.bio.p} color="text-green-400" emoji="🔥" />
+                  <BiorhythmBar label="感情" value={result.bio.e} color="text-blue-400" emoji="✨" />
+                  <BiorhythmBar label="知性" value={result.bio.i} color="text-purple-400" emoji="🧠" />
+                </div>
               </CollapsibleSection>
 
               {/* 四柱推命セクション */}
@@ -508,9 +518,9 @@ export default function SpiritualDiary() {
                   badge="日運・月運・年運"
                   isExpanded={expandedSections.saju}
                   onToggle={() => setExpandedSections({...expandedSections, saju: !expandedSections.saju})}
+                  onInfoClick={() => setShowSajuInfo(true)}
                 >
                   <div className="space-y-3">
-                    {/* 生まれた時の四柱 */}
                     <div>
                       <h3 className="text-xs font-bold text-purple-200 mb-1">🌟 あなたの本命</h3>
                       <p className="text-xs text-purple-300 mb-2">自分自身（本質・性格・運勢の根幹）を表す最も重要な要素</p>
@@ -534,7 +544,6 @@ export default function SpiritualDiary() {
                       </div>
                     </div>
 
-                    {/* 今日の運勢 */}
                     <div>
                       <h3 className="text-xs font-bold text-yellow-200 mb-2">📅 今日の運勢</h3>
                       <div className="grid grid-cols-2 gap-2">
@@ -551,7 +560,6 @@ export default function SpiritualDiary() {
                       </div>
                     </div>
 
-                    {/* 月運・年運 */}
                     <div>
                       <h3 className="text-xs font-bold text-blue-200 mb-2">📆 月運・年運</h3>
                       <div className="grid grid-cols-2 gap-2">
@@ -566,7 +574,6 @@ export default function SpiritualDiary() {
                       </div>
                     </div>
 
-                    {/* 大運 */}
                     {result.saju.taiun && (
                       <div>
                         <h3 className="text-xs font-bold text-purple-200 mb-2">🌌 大運（中長期）</h3>
@@ -614,7 +621,18 @@ export default function SpiritualDiary() {
               </div>
 
               <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-purple-300/30">
-                <h2 className="text-base font-bold text-blue-300 mb-3">📖 今日の記録</h2>
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-base font-bold text-blue-300">📖 今日の記録</h2>
+                  <p className="text-xs text-purple-200">
+                    {result.timestamp && new Date(result.timestamp).toLocaleString('ja-JP', {
+                      year: 'numeric',
+                      month: '2-digit',
+                      day: '2-digit',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </p>
+                </div>
                 <div className="space-y-2">
                   <div className="bg-white/10 p-3 rounded-lg">
                     <div className="flex items-center gap-2 mb-1">
@@ -653,16 +671,20 @@ export default function SpiritualDiary() {
                 </div>
               </div>
 
-              <button
-                onClick={() => {
-                  setStep('input');
-                  setEntry({emoji: '😊', mood: '', type: 'past', event: '', intuition: ''});
-                  setResult(null);
-                }}
-                className="w-full bg-white/10 hover:bg-white/20 active:scale-[0.98] text-white py-3 rounded-xl font-medium text-sm transition-all"
-              >
-                明日も記録する
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setStep('input')}
+                  className="flex-1 bg-white/10 hover:bg-white/20 active:scale-[0.98] text-white py-3 rounded-xl font-medium text-sm transition-all"
+                >
+                  前の画面に戻る
+                </button>
+                <button
+                  onClick={clearAll}
+                  className="flex-1 bg-white/10 hover:bg-white/20 active:scale-[0.98] text-white py-3 rounded-xl font-medium text-sm transition-all"
+                >
+                  記入した情報をクリアする
+                </button>
+              </div>
             </div>
           </div>
         </div>

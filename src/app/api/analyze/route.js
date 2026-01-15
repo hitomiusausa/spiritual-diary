@@ -13,13 +13,10 @@ function parseSajuFromLunarFullString(full) {
   return { year, month, day, hour, zodiac, raw: full };
 }
 
-// 大運を計算（簡易版）
 function calculateTaiun(birthYear, birthMonth, currentAge) {
-  // 10年ごとの大運
   const taiunStart = Math.floor(currentAge / 10) * 10;
   const taiunIndex = Math.floor(currentAge / 10);
   
-  // 大運の干支を計算（簡略化）
   const stems = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
   const branches = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
   
@@ -28,7 +25,6 @@ function calculateTaiun(birthYear, birthMonth, currentAge) {
   
   const pillar = stems[stemIndex] + branches[branchIndex];
   
-  // 大運の意味（簡易版）
   const descriptions = [
     '基盤を築く時期。じっくりと実力を蓄える',
     '変化と挑戦の時期。新しい可能性を探る',
@@ -87,52 +83,39 @@ export async function POST(request) {
     const timeForCalc = /^\d{2}:\d{2}$/.test(birthTime) ? birthTime : "12:00";
     const hasBirthTime = /^\d{2}:\d{2}$/.test(birthTime);
 
-    // ---- 生まれた時の四柱推命 ----
-    const birthDt = new Date(`${birthDate}T${timeForCalc}:00+09:00`);
-    let birthSolar;
-    if (typeof Solar.fromDate === "function") {
-      birthSolar = Solar.fromDate(birthDt);
-    } else {
-      const [y, m, d] = birthDate.split("-").map((v) => Number(v));
-      birthSolar = Solar.fromYmd(y, m, d);
-    }
+    // 生まれた時の四柱推命
+    const [y, m, d] = birthDate.split("-").map(v => Number(v));
+    const [hour, minute] = timeForCalc.split(":").map(v => Number(v));
+    
+    const birthSolar = Solar.fromYmdHms(y, m, d, hour, minute, 0);
     const birthLunar = birthSolar.getLunar();
     const birthSaju = parseSajuFromLunarFullString(birthLunar.toFullString());
 
-    // ---- 今日の四柱推命（日運・月運・年運） ----
+    // 今日の四柱推命（日運・月運・年運）
     const today = new Date();
     const todayJST = new Date(today.toLocaleString("en-US", { timeZone: "Asia/Tokyo" }));
     const currentHour = todayJST.getHours();
     
-    let todaySolar;
-    if (typeof Solar.fromDate === "function") {
-      todaySolar = Solar.fromDate(todayJST);
-    } else {
-      todaySolar = Solar.fromYmd(todayJST.getFullYear(), todayJST.getMonth() + 1, todayJST.getDate());
-    }
+    const todaySolar = Solar.fromYmdHms(
+      todayJST.getFullYear(),
+      todayJST.getMonth() + 1,
+      todayJST.getDate(),
+      currentHour,
+      0,
+      0
+    );
     const todayLunar = todaySolar.getLunar();
     const todaySaju = parseSajuFromLunarFullString(todayLunar.toFullString());
 
     // 時運（出生時刻がある場合のみ）
     let todayHourPillar = "";
     if (hasBirthTime) {
-      // 現在時刻の時柱を取得
-      const hourSolar = Solar.fromYmdHms(
-        todayJST.getFullYear(),
-        todayJST.getMonth() + 1,
-        todayJST.getDate(),
-        currentHour,
-        0,
-        0
-      );
-      const hourLunar = hourSolar.getLunar();
-      const hourSaju = parseSajuFromLunarFullString(hourLunar.toFullString());
-      todayHourPillar = hourSaju.hour || "";
+      todayHourPillar = todaySaju.hour || "";
     }
 
-    // ---- 大運の計算 ----
-    const birthYear = birthDt.getFullYear();
-    const birthMonth = birthDt.getMonth() + 1;
+    // 大運の計算
+    const birthYear = y;
+    const birthMonth = m;
     const currentAge = todayJST.getFullYear() - birthYear;
     const taiun = calculateTaiun(birthYear, birthMonth, currentAge);
 
@@ -140,13 +123,12 @@ export async function POST(request) {
       ? "出生時刻あり（時柱・時運も反映）"
       : "出生時刻未入力のため 12:00 で概算（時柱は参考値、時運は非表示）";
 
-    // ---- プロンプト ----
     const hourNowJST = jstHour();
     const namePrefix = nickname ? `${nickname}さん、` : "あなたへ、";
 
     const prompt = `
 あなたは「占い師」ではなく「スピリチュアル×心理のコーチ」です。
-スピリチュアルな要素とユーザーの書き込んだメッセージを判断材料にしてユーザーの心理状態を推察しつつ、ユーザーが"行動に移せる内省"を提供してください。
+当てることよりも、ユーザーが"行動に移せる内省"を提供してください。
 
 ${nickname ? `【ユーザー名】\n${nickname}さん\n※メッセージでは「${nickname}さん」と呼びかけてください。親密で温かいトーンで。\n` : '【ユーザー名】\n未設定\n※メッセージでは「あなた」と呼びかけてください。\n'}
 
@@ -195,23 +177,28 @@ ${entry.type === "past" ? "今日あったこと" : "今日の予定"}: ${entry.
    - 強み（活かし方）
    - 注意点（反応パターン）
 3. ${entry.type === "past" ? "出来事から学べること" : "予定に向けての心構え"}
-4. 実行可能なアクション3つ（具体的）
+4. 実行可能なアクションを3つ（具体的で受け身でも納得できる内容）
+   - 必ず以下のいずれかを含めること:
+     * おすすめの本（タイトルと簡単な理由）
+     * おすすめの曲・音楽（アーティスト名・曲名と理由）
+     * 心に響く格言・名言（国内外問わず、誰の言葉かも明記）
+   - その他、今日すぐできる具体的なアクション
 
 【トーン】
 ${nickname ? `- ${nickname}さんと呼びかけ、親しみやすく温かく` : '- 敬意を持ちつつ親しみやすく'}
 - 押し付けがましくなく、寄り添うように
 - 専門用語は避け、わかりやすく
+- 実践しやすく、受け身でも楽しめる内容を心がける
 
 【出力】
 必ず JSONのみ。前後の説明文、装飾、\`\`\` は禁止。
 {
   "deepMessage": "300文字程度の深いメッセージ（${namePrefix}から始める。四柱推命の日運・月運・年運・大運の影響を織り込む）",
   "innerMessage": "150文字程度の直感についての洞察",
-  "actionAdvice": "具体的なアクション3つ（文章でも箇条書きでもOK。ありがちでありきたりな提案ではなく、今日の運勢を踏まえた実践的内容）"
+  "actionAdvice": "具体的なアクション3つ（必ず本・曲・格言のいずれかを含む。改行で区切って記述）"
 }
     `.trim();
 
-    // ---- Claude API ----
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -249,7 +236,6 @@ ${nickname ? `- ${nickname}さんと呼びかけ、親しみやすく温かく` 
       );
     }
 
-    // 画面表示用に全ての四柱推命データを返す
     return NextResponse.json({
       success: true,
       data: {
