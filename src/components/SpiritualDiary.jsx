@@ -298,7 +298,7 @@ export default function SpiritualDiary() {
                   onChange={(e) => setBirthTime(e.target.value)}
                   className="w-full px-3 py-2.5 text-sm rounded-lg bg-white/20 text-white border border-purple-300/50 focus:outline-none focus:ring-2 focus:ring-purple-400"
                 />
-                <p className="text-xs text-purple-200 mt-1">時運分析に使用（未入力は12:00で概算）</p>
+                <p className="text-xs text-purple-200 mt-1">時運分析に使用します（未入力は12:00で概算）</p>
               </div>
 
               <div>
@@ -446,7 +446,7 @@ export default function SpiritualDiary() {
           onClose={() => setShowBioInfo(false)}
           title="📈 バイオリズムとは？"
         >
-          <p>バイオリズムは、人間の身体・感情・知性の状態が一定の周期で変動するという理論です。</p>
+          <p>バイオリズムは、人間の身体・感情・知性の状態が一定の周期で変動するという理論です。本アプリでは、バイオリズムと四柱推命を用いて、あなたの心を読み解きます</p>
           <div className="space-y-2 mt-3">
             <div className="bg-white/10 p-3 rounded-lg">
               <p className="font-bold text-green-400">身体（23日周期）</p>
@@ -469,7 +469,7 @@ export default function SpiritualDiary() {
           onClose={() => setShowSajuInfo(false)}
           title="🔮 四柱推命とは？"
         >
-          <p>四柱推命は、中国発祥の占術で、生年月日時から人の運命や性格を読み解く東洋占星術です。</p>
+          <p>四柱推命は、中国発祥の占術で、生年月日時から人の運命や性格を読み解く東洋占星術です。本アプリでは、四柱推命とバイオリズムを用いて、あなたの心を読み解きます</p>
           <div className="space-y-2 mt-3">
             <div className="bg-white/10 p-3 rounded-lg">
               <p className="font-bold text-yellow-300">あなたの本命（生まれた時）</p>
