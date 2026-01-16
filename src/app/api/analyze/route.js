@@ -45,35 +45,50 @@ function calculateThemeScores(birthSaju, todaySaju, biorhythm, userMood) {
   const todayElement = getElement(todaySaju.day);
   const baseCompatibility = getElementCompatibility(birthElement, todayElement);
   
-  const positiveEmojis = ['😊', '🥰', '😆', '😌', '❤️', '💚', '💙', '✨', '☀️', '🌈', '⭐'];
-  const negativeEmojis = ['😢', '😔', '😰', '😤', '💤'];
-  const moodBonus = positiveEmojis.includes(userMood) ? 0.15 : 
-                    negativeEmojis.includes(userMood) ? -0.1 : 0;
+  // C案: 感情タイプ別の細分化（24種類）
+  const joyLove = ['🥰', '❤️', '😆', '💓'];          // 喜び・愛: +20%
+  const calmHope = ['😊', '😌', '✨', '🌈', '⭐'];    // 穏やか・希望: +12%
+  const energy = ['☀️', '💚', '💙', '😋'];                // エネルギー: +8%
+  const tired = ['😴', '💤'];                        // 眠い・疲れ: -5%
+  const anxious = ['😔', '😰', '🌧️'];               // 不安・憂鬱: -12%
+  const sad = ['😢', '😭'];                          // 悲しい: -18%
+  const angry = ['😤', '😠'];                        // 怒り: -15%
+  const neutral = ['🤔', '😮'];                      // 中立: 0%
+  
+  let moodBonus = 0;
+  if (joyLove.includes(userMood)) moodBonus = 0.20;
+  else if (calmHope.includes(userMood)) moodBonus = 0.12;
+  else if (energy.includes(userMood)) moodBonus = 0.08;
+  else if (tired.includes(userMood)) moodBonus = -0.05;
+  else if (anxious.includes(userMood)) moodBonus = -0.12;
+  else if (sad.includes(userMood)) moodBonus = -0.18;
+  else if (angry.includes(userMood)) moodBonus = -0.15;
+  else if (neutral.includes(userMood)) moodBonus = 0;
   
   const scores = {
     love: Math.max(0, Math.min(1, 
       baseCompatibility * 0.4 +           // 四柱推命: 0〜0.4
       (biorhythm.e / 100) * 0.3 +         // バイオリズム: -0.3〜0.3
       moodBonus * 0.3 +                   // 気分ボーナス: -0.03〜0.045
-      0.3                                  // ベース: 0.3
+      0.25                                  // ベース: 0.3
     )),
     money: Math.max(0, Math.min(1,
       baseCompatibility * 0.4 +
       (biorhythm.i / 100) * 0.3 +
       moodBonus * 0.3 +
-      0.3
+      0.25
     )),
     work: Math.max(0, Math.min(1,
       baseCompatibility * 0.4 +
       ((biorhythm.p + biorhythm.i) / 200) * 0.3 +
       moodBonus * 0.3 +
-      0.3
+      0.25
     )),
     health: Math.max(0, Math.min(1,
       baseCompatibility * 0.4 +
       (biorhythm.p / 100) * 0.3 +
       moodBonus * 0.3 +
-      0.3
+      0.25
     ))
   };
   
@@ -101,37 +116,37 @@ function calculateTodayHints(birthSaju, todaySaju, biorhythm, themeScores) {
 // 色の計算（語彙バリエーション拡張版）
 const colorMap = {
   '木': {
-    bright: ['若葉の緑', '芽吹きのグリーン', '朝の森の色', '風が抜ける葉の色'],
-    mid: ['優しい緑', '草原の色', '呼吸しやすい緑', '日陰の草の色'],
-    dark: ['深い緑', '静かな森の色', '根を張る緑', '雨上がりの森の色'],
+    bright: ['若葉の緑', '芽吹きのグリーン', '朝の森の色', '風が抜ける葉の色', '産声を上げたばかりの緑', '光を吸い込む新緑', '上へと伸びる蔦の色'],
+    mid: ['優しい緑', '草原の色', '呼吸しやすい緑', '日陰の草の色', '木漏れ日のエメラルド', '揺れるシダの葉色', '深呼吸を誘うミント'],
+    dark: ['深い緑', '静かな森の色', '根を張る緑', '雨上がりの森の色', '苔むした静寂の緑', '古木に宿る深い緑', '眠れる森の深い青緑'],
     bgColor: 'bg-green-500',
     textColor: 'text-green-400'
   },
   '火': {
-    bright: ['陽だまりのオレンジ', '灯る朱色', '朝焼けの色', '火花のような色'],
-    mid: ['柔らかな赤', 'ぬくもりの色', '心拍に近い赤', '夕方に近い色'],
-    dark: ['深い赤', '熾火の色', '情熱が沈んだ赤', '夜に残る赤'],
+    bright: ['陽だまりのオレンジ', '灯る朱色', '朝焼けの色', '火花のような色', '踊る焚き火の先端色', '生まれたての陽光色', '心に火を灯すマゼンタ'],
+    mid: ['柔らかな赤', 'ぬくもりの色', '心拍に近い赤', '夕方に近い色', '体温を感じるコーラル', '頬を染める淡い朱', '暖炉の傍のアンバー'],
+    dark: ['深い赤', '熾火の色', '情熱が沈んだ赤', '夜に残る赤', '地表を流れる溶岩の赤', '静かに燃え続ける真紅', '記憶の底に眠る紅蓮'],
     bgColor: 'bg-orange-500',
     textColor: 'text-orange-400'
   },
   '土': {
-    bright: ['明るい黄', '午後の光の色', '乾いた砂の色', '陽を含んだ土の色'],
-    mid: ['優しいベージュ', '土の色', '安心する色', '足元を感じる色'],
-    dark: ['落ち着いた茶', '耕された大地の色', '重心が下がる色', '静かな地面の色'],
+    bright: ['明るい黄', '午後の光の色', '乾いた砂の色', '陽を含んだ土の色', '祝祭を彩る黄金色', '輝きを秘めた砂岩色', '未来を照らす山吹色'],
+    mid: ['優しいベージュ', '土の色', '安心する色', '足元を感じる色', 'すべてを包むテラコッタ', '懐かしい砂利道の記憶', '時を重ねた陶器の色'],
+    dark: ['落ち着いた茶', '耕された大地の色', '重心が下がる色', '静かな地面の色', '命を育む肥沃な黒土', '祈りが染み込んだ大地色', '深く根付く樹皮の茶'],
     bgColor: 'bg-yellow-600',
     textColor: 'text-yellow-400'
   },
   '金': {
-    bright: ['澄んだ白', '朝の空気の色', '光を反射する色', '輪郭がはっきりする色'],
-    mid: ['柔らかな銀', '静かな白', '整った色', '思考が澄む色'],
-    dark: ['静かなグレー', '影のある銀色', '余計なものを削ぐ色', '距離を保つ色'],
+    bright: ['澄んだ白', '朝の空気の色', '光を反射する色', '輪郭がはっきりする色', '朝露を弾く真珠色', '霧を切り裂くプラチナ', '研ぎ澄まされた刃の光'],
+    mid: ['柔らかな銀', '静かな白', '整った色', '思考が澄む色', 'まどろみの中の乳白色', '月明かりを映すシルク', '境界線を溶かす淡い灰'],
+    dark: ['静かなグレー', '影のある銀色', '余計なものを削ぐ色', '距離を保つ色', '沈黙を守る鉛の色', '歴史を刻んだ古銀色', '凛として冷たい鉄の色'],
     bgColor: 'bg-gray-400',
     textColor: 'text-gray-300'
   },
   '水': {
-    bright: ['明るい青', '水面の青', '風を感じる青', '空に近い青'],
-    mid: ['静かな青', '深呼吸の青', '夜に近づく青', '言葉が減る青'],
-    dark: ['深い紺', '海の底の色', '眠りに近い青', '音が遠くなる青'],
+    bright: ['明るい青', '水面の青', '風を感じる青', '空に近い青', '氷河を溶かすペールブルー', '解き放たれる泉の青', '境界のない空と水の色'],
+    mid: ['静かな青', '深呼吸の青', '夜に近づく青', '言葉が減る青', '潤いを与える雨の色', '思考を癒すラベンダーブルー', '静寂を湛えた池の水面'],
+    dark: ['深い紺', '海の底の色', '眠りに近い青', '音が遠くなる青', '星さえ届かない深海の藍', '夜の帷が下りる瞬間', '永遠を映す真夜中の紺'],
     bgColor: 'bg-blue-500',
     textColor: 'text-blue-400'
   }
@@ -287,10 +302,10 @@ return {
   number: {
     value: number,
     message: pick([
-      `今日のリズムは、「${number}」みたいな間隔で進むと楽そう。\n一気に決めなくていい、少しずつ。`,
+      `今日のリズムは、「${number}」を巡って。\n一気に決めなくていい、少しずつ。`,
       `今日は「${number}」くらいのテンポが合いそう。\n急がなくても、ちゃんと進める。`,
-      `数にすると、「${number}」が近い気がする。\n区切りを意識すると、呼吸がしやすいかも。`,
-      `Kiriは今日は「${number}」を置いていく。\n使わなくても、覚えておくだけでいい。`
+      `数にすると、「${number}」のそばで。\n区切りを意識すると、呼吸がしやすいかも。`,
+      `Kiriは今日は「${number}」を片隅に置いておくね。\n使わなくても、覚えておくだけでいい。`
     ]),
     emoji: '🔢'
   },
@@ -298,10 +313,10 @@ return {
   direction: {
     value: direction,
     message: pick([
-      `もし歩くなら、${direction}の方に意識が向くかも。\n向かなくてもいいけど、なんとなく。`,
-      `今日は${direction}に余白がありそう。\n行かなくても、思い浮かべるだけで。`,
-      `${direction}を意識すると、少し楽になるかも。\n無理に動かなくて大丈夫。`,
-      `Kiriは今日は${direction}を眺めている。\n気が向いたら、同じ方向を見てみて。`
+      `もし歩くなら、${direction}の方に意識が向くかも。\nもしかしたら、なんとなく。`,
+      `今日は${direction}に何かありそう。\n思い浮かべるだけでも。`,
+      `${direction}を意識すると、心が楽になるかも。\n無理に動かなくて大丈夫。`,
+      `Kiriは${direction}を眺めている。\n気が向いたら、同じ方向を見てみて。`
     ]),
     emoji: '🧭'
   },

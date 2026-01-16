@@ -34,6 +34,7 @@ export default function SpiritualDiary() {
   });
   const [showBioInfo, setShowBioInfo] = useState(false);
   const [showSajuInfo, setShowSajuInfo] = useState(false);
+  const [showThemeInfo, setShowThemeInfo] = useState(false);
   const [showHintInfo, setShowHintInfo] = useState({ 
     color: false, 
     number: false, 
@@ -41,13 +42,16 @@ export default function SpiritualDiary() {
     distance: false 
   });
 
-  // 絵文字を厳選20個
+  // 絵文字24種類（感情タイプ別）
   const emojis = [
-    '😊', '🥰', '😆', '😌', // ポジティブ
-    '😢', '😔', '😰', '😤', // ネガティブ
-    '😴', '💤', '🤔', '😮', // 状態
-    '❤️', '💚', '💙', '✨', // 感情
-    '☀️', '🌧️', '🌈', '⭐'  // 象徴
+    '🥰', '❤️', '😆', '💓', // 喜び・愛 (+20%)
+    '😊', '😌', '✨', '🌈', '⭐', '😋', // 穏やか・希望 (+12%)
+    '☀️', '💚', '💙', // エネルギー (+8%)
+    '😴', '💤', // 眠い・疲れ (-5%)
+    '😔', '😰', // 不安・憂鬱 (-12%)
+    '😢', '😭', // 悲しい (-18%)
+    '😤', '😠', // 怒り (-15%)
+    '🤔', '😮'  // 中立 (0%)
   ];
 
   const calcBio = (birth) => {
@@ -294,12 +298,10 @@ export default function SpiritualDiary() {
           </button>
         </div>
         
-        <div className="relative mb-2">
-          <div className={`${bgColor}/20 rounded-lg p-3 text-center`}>
-            <p className={`text-2xl font-bold ${textColor} drop-shadow-lg`} style={{textShadow: '0 2px 8px rgba(0,0,0,0.3)'}}>
-              {value}
-            </p>
-          </div>
+        <div className="relative mb-2 text-center">
+          <p className={`text-2xl font-bold ${textColor}`} style={{textShadow: '0 2px 8px rgba(255,255,255,0.5), 0 0 20px rgba(255,255,255,0.3)'}}>
+            {value}
+          </p>
         </div>
         
         <p className="text-xs text-white/80 leading-relaxed text-center">
@@ -441,8 +443,8 @@ export default function SpiritualDiary() {
               <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-purple-300/30">
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-white text-sm mb-2 font-medium">💖 今日の気分</label>
-                    <div className="flex flex-wrap gap-2 mb-2">
+                    <label className="block text-white text-sm mb-2 font-medium">💖 今日の気分（絵文字を選んでください）</label>
+                    <div className="flex flex-wrap gap-2">
                       {emojis.map(e => (
                         <button
                           key={e}
@@ -453,13 +455,6 @@ export default function SpiritualDiary() {
                         </button>
                       ))}
                     </div>
-                    <input
-                      type="text"
-                      value={entry.mood}
-                      onChange={(e) => setEntry({...entry, mood: e.target.value})}
-                      placeholder={loadingPlaceholders ? '例文を生成中...' : placeholders.mood}
-                      className="w-full px-3 py-2.5 text-sm rounded-lg bg-white/20 text-white border border-purple-300/50 focus:outline-none focus:ring-2 focus:ring-purple-400 placeholder-purple-300/70"
-                    />
                   </div>
 
                   <div>
@@ -499,7 +494,7 @@ export default function SpiritualDiary() {
 
                   <button
                     onClick={analyze}
-                    disabled={!entry.mood || !entry.event || loading}
+                    disabled={!entry.event || loading}
                     className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white py-3 rounded-xl font-bold hover:scale-[1.02] active:scale-[0.98] transition-transform disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
                   >
                     {loading ? (
@@ -578,6 +573,29 @@ export default function SpiritualDiary() {
             </div>
           </div>
           <p className="mt-3 text-xs text-purple-200">※本アプリでは lunar-javascript ライブラリを使用して算出しています。</p>
+        </InfoPopup>
+
+        <InfoPopup 
+          show={showThemeInfo} 
+          onClose={() => setShowThemeInfo(false)}
+          title="🌟 テーマ別運勢の算出方法"
+        >
+          <p>このスコアは、以下の3つの要素から算出されています。</p>
+          <div className="space-y-2 mt-3">
+            <div className="bg-white/10 p-3 rounded-lg">
+              <p className="font-bold text-yellow-300">四柱推命（40%）</p>
+              <p className="text-xs mt-1">生まれた日と今日の五行の相性</p>
+            </div>
+            <div className="bg-white/10 p-3 rounded-lg">
+              <p className="font-bold text-blue-400">バイオリズム（30%）</p>
+              <p className="text-xs mt-1">身体・感情・知性の周期的な波</p>
+            </div>
+            <div className="bg-white/10 p-3 rounded-lg">
+              <p className="font-bold text-pink-400">あなたのコメント（30%）</p>
+              <p className="text-xs mt-1">気分の絵文字と文章から読み取った雰囲気</p>
+            </div>
+          </div>
+          <p className="mt-3 text-xs text-purple-200">※これらをKiriの直感で組み合わせています。</p>
         </InfoPopup>
 
         <InfoPopup 
@@ -739,6 +757,7 @@ export default function SpiritualDiary() {
                   title="🌟 今日のテーマ別運勢"
                   isExpanded={expandedSections.themes}
                   onToggle={() => setExpandedSections({...expandedSections, themes: !expandedSections.themes})}
+                  onInfoClick={() => setShowThemeInfo(true)}
                 >
                   <div className="space-y-2">
                     <ThemeBar emoji="💕" label="恋愛・人間関係" value={result.themeScores.love} baseColor="bg-pink-500" />
@@ -746,9 +765,6 @@ export default function SpiritualDiary() {
                     <ThemeBar emoji="🖋" label="仕事・学び" value={result.themeScores.work} baseColor="bg-blue-500" />
                     <ThemeBar emoji="🍀" label="健康・活力" value={result.themeScores.health} baseColor="bg-green-500" />
                   </div>
-                  <p className="text-xs text-purple-200 mt-3 bg-purple-500/20 p-2 rounded">
-                    ℹ️ スコアは四柱推命+バイオリズム+あなたのコメントを投影したKiriの直感から算出しています。
-                  </p>
                 </CollapsibleSection>
               )}
 
@@ -843,11 +859,10 @@ export default function SpiritualDiary() {
                 </div>
                 <div className="space-y-2">
                   <div className="bg-white/10 p-3 rounded-lg">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2">
                       <span className="text-2xl">{entry.emoji}</span>
-                      <span className="font-bold text-sm text-white">気分</span>
+                      <span className="font-bold text-sm text-white">今日の気分</span>
                     </div>
-                    <p className="text-sm text-white">{entry.mood}</p>
                   </div>
                   <div className="bg-white/10 p-3 rounded-lg">
                     <p className="font-bold text-sm mb-1 text-white">{entry.type === 'past' ? '📅 出来事' : '🔮 予定'}</p>
@@ -855,7 +870,7 @@ export default function SpiritualDiary() {
                   </div>
                   {entry.intuition && (
                     <div className="bg-white/10 p-3 rounded-lg">
-                      <p className="font-bold text-sm mb-1 text-white">✨ 直感</p>
+                      <p className="font-bold text-sm mb-1 text-white">✨ ひらめき・直感</p>
                       <p className="text-sm text-purple-200">{entry.intuition}</p>
                     </div>
                   )}
