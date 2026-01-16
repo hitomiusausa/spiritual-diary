@@ -52,24 +52,28 @@ function calculateThemeScores(birthSaju, todaySaju, biorhythm, userMood) {
   
   const scores = {
     love: Math.max(0, Math.min(1, 
-      baseCompatibility * 0.4 +
-      (biorhythm.e / 100 * 0.5 + 0.5) * 0.3 +
-      (0.5 + moodBonus)
+      baseCompatibility * 0.4 +           // 四柱推命: 0〜0.4
+      (biorhythm.e / 100) * 0.3 +         // バイオリズム: -0.3〜0.3
+      moodBonus * 0.3 +                   // 気分ボーナス: -0.03〜0.045
+      0.3                                  // ベース: 0.3
     )),
     money: Math.max(0, Math.min(1,
       baseCompatibility * 0.4 +
-      (biorhythm.i / 100 * 0.5 + 0.5) * 0.3 +
-      (0.5 + moodBonus * 0.7)
+      (biorhythm.i / 100) * 0.3 +
+      moodBonus * 0.3 +
+      0.3
     )),
     work: Math.max(0, Math.min(1,
       baseCompatibility * 0.4 +
-      ((biorhythm.p + biorhythm.i) / 200 * 0.5 + 0.5) * 0.3 +
-      (0.5 + moodBonus * 0.8)
+      ((biorhythm.p + biorhythm.i) / 200) * 0.3 +
+      moodBonus * 0.3 +
+      0.3
     )),
     health: Math.max(0, Math.min(1,
       baseCompatibility * 0.4 +
-      (biorhythm.p / 100 * 0.5 + 0.5) * 0.3 +
-      (0.5 + moodBonus)
+      (biorhythm.p / 100) * 0.3 +
+      moodBonus * 0.3 +
+      0.3
     ))
   };
   
