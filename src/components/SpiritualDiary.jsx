@@ -384,8 +384,8 @@ export default function SpiritualDiary() {
           <div className="w-full max-w-md bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-purple-300/30 shadow-2xl">
             <div className="text-center mb-6">
               <Sparkles className="w-12 h-12 text-yellow-300 mx-auto mb-3" />
-              <h1 className="text-2xl font-bold text-white mb-1">Mind & Energy Diary</h1>
-              <p className="text-sm text-purple-200">バイオリズム×四柱推命から読み解く心の分析日記</p>
+              <h1 className="text-2xl font-bold text-white mb-1">Mind & Energy Note</h1>
+              <p className="text-sm text-purple-200">バイオリズム×四柱推命から読み解く心の分析ノート</p>
             </div>
 
             {/* Kiriの紹介 */}
@@ -1060,7 +1060,7 @@ export default function SpiritualDiary() {
                     <ul className="text-white space-y-0.5 mb-2 text-xs">
                       <li>📚 過去の記録を全て閲覧</li>
                       <li>📊 あなた専用のパターン分析</li>
-                      <li>💬 AI対話無制限</li>
+                      <li>💬 Kiriとの対話無制限</li>
                     </ul>
                     <button className="bg-gradient-to-r from-yellow-400 to-orange-500 text-black px-4 py-2 rounded-lg text-sm font-bold hover:scale-[1.02] active:scale-[0.98] transition-transform shadow-md">
                       月額500円
