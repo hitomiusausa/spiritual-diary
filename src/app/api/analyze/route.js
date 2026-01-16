@@ -154,17 +154,22 @@ const colorName = Array.isArray(variants)
   if (Math.abs(biorhythm.e) > Math.abs(biorhythm.p) && Math.abs(biorhythm.e) > Math.abs(biorhythm.i)) {
     number = (number + 1) % 9 + 1; // 感情優勢なら+1
   }
-  
-  // 方角の計算
-  const directionMap = {
-    '木': ['東', '南東'],
-    '火': ['南'],
-    '土': ['中央', '南西'],
-    '金': ['西', '北西'],
-    '水': ['北']
-  };
+// 方角の計算
+const directionMap = {
+  '木': ['東', '南東'],
+  '火': ['南'],
+  '土': ['中央', '南西'],
+  '金': ['西', '北西'],
+  '水': ['北']
+};
 
-  const direction = pick(directionMap[todayElement] || ['東']);
+let direction = pick(directionMap[todayElement] || ['東']);
+
+if (direction === '中央') {
+  direction = pick(['身の回り', '足元', '今いる場所']);
+}
+
+
   
   // バイオリズムで微調整
   if (direction === '北' && biorhythm.e > 30) direction = '北東';
@@ -268,8 +273,6 @@ if (themeAvg >= 75) {
   distanceMessage = pick(messages);
 }
 
-const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
-
 return {
   color: {
     value: colorName,
@@ -326,7 +329,6 @@ function calculateTaiun(birthYear, birthMonth, currentAge) {
 
   const pillar = stems[stemIndex] + branches[branchIndex];
 
-  const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
   // 大運の語彙バリエーション
   const descriptions = [
