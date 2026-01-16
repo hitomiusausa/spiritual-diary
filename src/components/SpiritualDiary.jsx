@@ -1008,7 +1008,7 @@ export default function SpiritualDiary() {
 
               {result.innerMessage && (
                 <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-purple-300/30">
-                  <h2 className="text-base font-bold text-purple-300 mb-2">💫 直感から読み取られるメッセージ</h2>
+                  <h2 className="text-base font-bold text-purple-300 mb-2">💫 あなたの直感から読み取ったメッセージ</h2>
                   <p className="text-white text-sm leading-relaxed">{result.innerMessage}</p>
                 </div>
               )}
