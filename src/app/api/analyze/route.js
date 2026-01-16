@@ -40,10 +40,19 @@ function getElementCompatibility(element1, element2) {
 }
 
 // テーマ別運勢スコアを計算
-function calculateThemeScores(birthSaju, todaySaju, biorhythm, userMood) {
+function calculateThemeScores(birthSaju, todaySaju, biorhythm, userMood, hasBirthTime) {
   const birthElement = getElement(birthSaju.day);
   const todayElement = getElement(todaySaju.day);
   const baseCompatibility = getElementCompatibility(birthElement, todayElement);
+  
+  // 時柱の影響（出生時刻がある場合のみ）
+  let hourBonus = 0;
+  if (hasBirthTime && birthSaju.hour && todaySaju.hour) {
+    const birthHourElement = getElement(birthSaju.hour);
+    const todayHourElement = getElement(todaySaju.hour);
+    const hourCompatibility = getElementCompatibility(birthHourElement, todayHourElement);
+    hourBonus = (hourCompatibility - 0.5) * 0.1; // -0.1 ~ +0.1 の範囲
+  }
   
   // C案: 感情タイプ別の細分化（24種類）
   const joyLove = ['🥰', '❤️', '😆', '💓'];          // 喜び・愛: +20%
@@ -67,27 +76,31 @@ function calculateThemeScores(birthSaju, todaySaju, biorhythm, userMood) {
   
   const scores = {
     love: Math.max(0, Math.min(1, 
-      baseCompatibility * 0.4 +           // 四柱推命: 0〜0.4
+      baseCompatibility * 0.4 +           // 四柱推命(日柱): 0〜0.4
       (biorhythm.e / 100) * 0.3 +         // バイオリズム: -0.3〜0.3
-      moodBonus * 0.3 +                   // 気分ボーナス: -0.03〜0.045
-      0.25                                  // ベース: 0.3
+      moodBonus * 0.3 +                   // 気分ボーナス: -0.054〜0.06
+      hourBonus +                         // 時柱ボーナス: -0.1〜0.1
+      0.25                                // ベース: 0.25
     )),
     money: Math.max(0, Math.min(1,
       baseCompatibility * 0.4 +
       (biorhythm.i / 100) * 0.3 +
       moodBonus * 0.3 +
+      hourBonus +
       0.25
     )),
     work: Math.max(0, Math.min(1,
       baseCompatibility * 0.4 +
       ((biorhythm.p + biorhythm.i) / 200) * 0.3 +
       moodBonus * 0.3 +
+      hourBonus +
       0.25
     )),
     health: Math.max(0, Math.min(1,
       baseCompatibility * 0.4 +
       (biorhythm.p / 100) * 0.3 +
       moodBonus * 0.3 +
+      hourBonus +
       0.25
     ))
   };
@@ -334,7 +347,13 @@ return {
       `${direction}を意識すると、心が楽になるかも。\n無理に動かなくて大丈夫。`,
       `Kiriは${direction}を眺めている。\n気が向いたら、同じ方向を見てみて。`
     ]),
-    emoji: '🧭'
+    emoji: '🧭',
+    debug: {
+      todayDay: todaySaju.day,
+      stem: todaySaju.day?.[0],
+      element: todayElement,
+      baseDirection: directionMap[todayElement]
+    }
   },
 
   distance: {
@@ -505,7 +524,7 @@ export async function POST(request) {
     const taiun = calculateTaiun(birthYear, birthMonth, currentAge);
 
     // テーマ別スコアを計算
-    const themeScores = calculateThemeScores(birthSaju, todaySaju, biorhythm, entry.emoji);
+    const themeScores = calculateThemeScores(birthSaju, todaySaju, biorhythm, entry.emoji, hasBirthTime);
     
     // 今日のヒントを計算
     const todayHints = calculateTodayHints(birthSaju, todaySaju, biorhythm, themeScores);
@@ -613,7 +632,6 @@ ${nickname ? `- ${nickname}さんと呼びかけ、親しみやすく温かく` 
 - 押し付けがましくなく、寄り添うように
 - テーマ別運勢を自然に織り込む
 - 実践しやすく、受け身でも楽しめる内容
-- 文が単調にならないように、語彙のバリエーション、文末、文の長さに変化をつけるよう心がける。
 
 【文体ルール】
 - 丁寧体（です・ます調）で統一
