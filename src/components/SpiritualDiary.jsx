@@ -19,8 +19,8 @@ export default function SpiritualDiary() {
   });
   const [placeholders, setPlaceholders] = useState({
     mood: '例: 穏やかで少し眠い',
-    event: '例: 朝のコーヒーが美味しくて気分が良かった。今日までの仕事も無事終わらせることができた。',
-    intuition: '例: 大切な人との繋がりを感じる日'
+    event: '例: 朝のコーヒーが美味しくて気分が上がった。今日までの仕事も無事終わらせることができた。',
+    intuition: '例: 今日は大切な人との繋がりを感じる日'
   });
   const [loadingPlaceholders, setLoadingPlaceholders] = useState(false);
   const [result, setResult] = useState(null);
@@ -280,26 +280,26 @@ export default function SpiritualDiary() {
 
   const HintItem = ({ emoji, title, value, message, bgColor, textColor, onInfoClick }) => {
     return (
-      <div className="bg-white/5 rounded-lg p-4">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <span className="text-xl">{emoji}</span>
-            <span className="text-base font-bold text-white">{title}</span>
+      <div className="bg-white/5 rounded-lg p-3">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-1">
+            <span className="text-base">{emoji}</span>
+            <span className="text-xs font-bold text-white">{title}</span>
           </div>
           <button 
             onClick={onInfoClick}
             className="text-purple-300 hover:text-yellow-300 transition-colors"
           >
-            <HelpCircle className="w-4 h-4" />
+            <HelpCircle className="w-3 h-3" />
           </button>
         </div>
         
-        <div className={`${bgColor}/30 rounded-lg p-4 mb-3 text-center`}>
-          <p className={`text-3xl font-bold ${textColor}`}>{value}</p>
+        <div className={`${bgColor}/30 rounded-lg p-2 mb-2 text-center`}>
+          <p className={`text-xl font-bold ${textColor}`}>{value}</p>
         </div>
         
-        <p className="text-sm text-white leading-relaxed whitespace-pre-line">
-          {message}
+        <p className="text-[10px] text-white/70 leading-relaxed text-center">
+          {message.split('\n')[0]}
         </p>
       </div>
     );
@@ -387,7 +387,7 @@ export default function SpiritualDiary() {
                   onChange={(e) => setBirthTime(e.target.value)}
                   className="w-full px-3 py-2.5 text-sm rounded-lg bg-white/20 text-white border border-purple-300/50 focus:outline-none focus:ring-2 focus:ring-purple-400"
                 />
-                <p className="text-xs text-purple-200 mt-1">時運分析に使用（未入力は12:00で概算）</p>
+                <p className="text-xs text-purple-200 mt-1">時運分析に使用します（未入力は12:00で概算）</p>
               </div>
 
               <div>
@@ -504,10 +504,10 @@ export default function SpiritualDiary() {
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                         </svg>
-                        分析中...
+                        コンタクト中...
                       </span>
                     ) : (
-                      '🧠 AIに分析してもらう'
+                      '🧠 Kiriに読み解いてもらう'
                     )}
                   </button>
 
@@ -583,7 +583,7 @@ export default function SpiritualDiary() {
         >
           <p>この色は、四柱推命の五行論と色彩心理学から導いています。</p>
           <p className="mt-2">五行（木火土金水）にはそれぞれ対応する色があり、今日の運勢（日運）の五行とバイオリズムを組み合わせて、Kiriがイメージした色をお伝えしています。</p>
-          <p className="mt-2 text-purple-200 text-xs">感覚的なヒントとして受け取ってください。</p>
+          <p className="mt-2 text-purple-200 text-xs">感覚的なイメージをKiriからのヒントとして受け取ってください。</p>
         </InfoPopup>
 
         <InfoPopup 
@@ -593,7 +593,7 @@ export default function SpiritualDiary() {
         >
           <p>この数字は、干支の数理とバイオリズムの周期から導いています。</p>
           <p className="mt-2">十二支にはそれぞれ数字が割り当てられていて、今日の運勢とあなたのバイオリズムから、今日のペースに合いそうな数字をKiriが選んでいます。</p>
-          <p className="mt-2 text-purple-200 text-xs">迷った時に、ふと思い出してもらえたら、それだけで十分です。</p>
+          <p className="mt-2 text-purple-200 text-xs">迷った時に、ふと思い出してもらえたら、助けになるかもしてません。</p>
         </InfoPopup>
 
         <InfoPopup 
@@ -602,8 +602,8 @@ export default function SpiritualDiary() {
           title="🧭 今日の方角について"
         >
           <p>この方角は、五行の方位論（風水）から導いています。</p>
-          <p className="mt-2">五行（木火土金水）にはそれぞれ方角があり、今日の運勢の五行とバイオリズムから、Kiriがなんとなく感じた方向をお伝えしています。</p>
-          <p className="mt-2 text-purple-200 text-xs">従わなくても大丈夫。気が向いたときだけ、思い出してみてください。</p>
+          <p className="mt-2">五行（木火土金水）にはそれぞれ方角があり、今日の運勢の五行とバイオリズムから、Kiriが感じた方向をお伝えしています。</p>
+          <p className="mt-2 text-purple-200 text-xs">気にしなくても大丈夫。気が向いたときだけ、Kiriに寄り添ってみてください。</p>
         </InfoPopup>
 
         <InfoPopup 
@@ -640,23 +640,21 @@ export default function SpiritualDiary() {
                     <ThemeBar emoji="🍀" label="健康・活力" value={result.themeScores.health} baseColor="bg-green-500" />
                   </div>
                   <p className="text-xs text-purple-200 mt-3 bg-purple-500/20 p-2 rounded">
-                    ℹ️ スコアは四柱推命+バイオリズム+あなたのコメントを投影したKiriの直感から算出しています
+                    ℹ️ スコアは四柱推命+バイオリズム+あなたのコメントを投影したKiriの直感から算出しています。
                   </p>
                 </CollapsibleSection>
               )}
 
-              {/* 今日のヒントセクション */}
               {result.todayHints && (
                 <CollapsibleSection
-                  title="🎨 今日のヒント"
                   badge="色・数字・方角・距離感"
                   isExpanded={expandedSections.hints}
                   onToggle={() => setExpandedSections({...expandedSections, hints: !expandedSections.hints})}
                 >
-                  <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-2">
                     <HintItem
                       emoji={result.todayHints.color.emoji}
-                      title="今日の色"
+                      title="色"
                       value={result.todayHints.color.value}
                       message={result.todayHints.color.message}
                       bgColor={result.todayHints.color.bgColor}
@@ -666,7 +664,7 @@ export default function SpiritualDiary() {
                     
                     <HintItem
                       emoji={result.todayHints.number.emoji}
-                      title="今日の数字"
+                      title="数字"
                       value={result.todayHints.number.value}
                       message={result.todayHints.number.message}
                       bgColor="bg-purple-500"
@@ -676,7 +674,7 @@ export default function SpiritualDiary() {
                     
                     <HintItem
                       emoji={result.todayHints.direction.emoji}
-                      title="今日の方角"
+                      title="方角"
                       value={result.todayHints.direction.value}
                       message={result.todayHints.direction.message}
                       bgColor="bg-indigo-500"
@@ -686,7 +684,7 @@ export default function SpiritualDiary() {
                     
                     <HintItem
                       emoji={result.todayHints.distance.emoji}
-                      title="今日の距離感"
+                      title="距離感"
                       value={result.todayHints.distance.value}
                       message={result.todayHints.distance.message}
                       bgColor="bg-pink-500"
