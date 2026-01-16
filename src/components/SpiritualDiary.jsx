@@ -630,100 +630,8 @@ export default function SpiritualDiary() {
             </div>
 
             <div className="space-y-3">
-              {/* テーマ別運勢セクション - メインメッセージの前に配置 */}
-              {result.themeScores && (
-                <CollapsibleSection
-                  title="🌟 今日のテーマ別運勢"
-                  isExpanded={expandedSections.themes}
-                  onToggle={() => setExpandedSections({...expandedSections, themes: !expandedSections.themes})}
-                >
-                  <div className="space-y-2">
-                    <ThemeBar emoji="💕" label="恋愛・人間関係" value={result.themeScores.love} baseColor="bg-pink-500" />
-                    <ThemeBar emoji="💰" label="お金・判断感覚" value={result.themeScores.money} baseColor="bg-yellow-500" />
-                    <ThemeBar emoji="🖋" label="仕事・学び" value={result.themeScores.work} baseColor="bg-blue-500" />
-                    <ThemeBar emoji="🍀" label="健康・活力" value={result.themeScores.health} baseColor="bg-green-500" />
-                  </div>
-                  <p className="text-xs text-purple-200 mt-3 bg-purple-500/20 p-2 rounded">
-                    ℹ️ スコアは四柱推命+バイオリズム+あなたのコメントを投影したKiriの直感から算出しています。
-                  </p>
-                </CollapsibleSection>
-              )}
 
-              {/* 今日のヒントセクション */}
-              {result.todayHints && (
-                <CollapsibleSection
-                  title="🎨 今日のヒント"
-                  badge="色・数字・方角・距離感"
-                  isExpanded={expandedSections.hints}
-                  onToggle={() => setExpandedSections({...expandedSections, hints: !expandedSections.hints})}
-                >
-                  <div className="space-y-3">
-                    <HintItem
-                      emoji={result.todayHints.color.emoji}
-                      title="色"
-                      value={result.todayHints.color.value}
-                      message={result.todayHints.color.message}
-                      bgColor={result.todayHints.color.bgColor}
-                      textColor={result.todayHints.color.textColor}
-                      onInfoClick={() => setShowHintInfo({...showHintInfo, color: true})}
-                    />
-                    
-                    <HintItem
-                      emoji={result.todayHints.number.emoji}
-                      title="数字"
-                      value={result.todayHints.number.value}
-                      message={result.todayHints.number.message}
-                      bgColor="bg-purple-500"
-                      textColor="text-purple-400"
-                      onInfoClick={() => setShowHintInfo({...showHintInfo, number: true})}
-                    />
-                    
-                    <HintItem
-                      emoji={result.todayHints.direction.emoji}
-                      title="方角"
-                      value={result.todayHints.direction.value}
-                      message={result.todayHints.direction.message}
-                      bgColor="bg-indigo-500"
-                      textColor="text-indigo-400"
-                      onInfoClick={() => setShowHintInfo({...showHintInfo, direction: true})}
-                    />
-                    
-                    <HintItem
-                      emoji={result.todayHints.distance.emoji}
-                      title="距離感"
-                      value={result.todayHints.distance.value}
-                      message={result.todayHints.distance.message}
-                      bgColor="bg-pink-500"
-                      textColor="text-pink-400"
-                      onInfoClick={() => setShowHintInfo({...showHintInfo, distance: true})}
-                    />
-                  </div>
-                </CollapsibleSection>
-              )}
-
-              {/* メインメッセージ */}
-              <div className="bg-gradient-to-r from-yellow-400 to-orange-500 rounded-xl p-4 text-white shadow-lg">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-3xl">{result.time === '朝' ? '🌅' : result.time === '昼' ? '☀️' : '🌙'}</span>
-                  <h2 className="text-lg font-bold">Kiriが映すあなたのエネルギー</h2>
-                </div>
-                <div className="bg-black/20 p-3 rounded-lg">
-                  <p className="text-sm leading-relaxed whitespace-pre-line">{result.deepMessage}</p>
-                </div>
-              </div>
-
-              {result.innerMessage && (
-                <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-purple-300/30">
-                  <h2 className="text-base font-bold text-purple-300 mb-2">💫 直感から読み取られるメッセージ</h2>
-                  <p className="text-white text-sm leading-relaxed">{result.innerMessage}</p>
-                </div>
-              )}
-
-              <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-purple-300/30">
-                <h2 className="text-base font-bold text-green-300 mb-2">🎯 Kiriからのアドバイス</h2>
-                <p className="text-white text-sm leading-relaxed whitespace-pre-line">{result.actionAdvice}</p>
-              </div>
-
+              {/* 1. バイオリズム */}
               {/* バイオリズムセクション */}
               <CollapsibleSection
                 title="📈 バイオリズム"
@@ -738,6 +646,7 @@ export default function SpiritualDiary() {
                 </div>
               </CollapsibleSection>
 
+              {/* 2. 四柱推命 */}
               {/* 四柱推命セクション */}
               {result.saju && (
                 <CollapsibleSection
@@ -823,6 +732,101 @@ export default function SpiritualDiary() {
                   </div>
                 </CollapsibleSection>
               )}
+
+              {/* テーマ別運勢セクション - メインメッセージの前に配置 */}
+              {result.themeScores && (
+                <CollapsibleSection
+                  title="🌟 今日のテーマ別運勢"
+                  isExpanded={expandedSections.themes}
+                  onToggle={() => setExpandedSections({...expandedSections, themes: !expandedSections.themes})}
+                >
+                  <div className="space-y-2">
+                    <ThemeBar emoji="💕" label="恋愛・人間関係" value={result.themeScores.love} baseColor="bg-pink-500" />
+                    <ThemeBar emoji="💰" label="お金・判断感覚" value={result.themeScores.money} baseColor="bg-yellow-500" />
+                    <ThemeBar emoji="🖋" label="仕事・学び" value={result.themeScores.work} baseColor="bg-blue-500" />
+                    <ThemeBar emoji="🍀" label="健康・活力" value={result.themeScores.health} baseColor="bg-green-500" />
+                  </div>
+                  <p className="text-xs text-purple-200 mt-3 bg-purple-500/20 p-2 rounded">
+                    ℹ️ スコアは四柱推命+バイオリズム+あなたのコメントを投影したKiriの直感から算出しています。
+                  </p>
+                </CollapsibleSection>
+              )}
+
+              {/* 今日のヒントセクション */}
+              {result.todayHints && (
+                <CollapsibleSection
+                  title="🎨 今日のヒント"
+                  badge="色・数字・方角・距離感"
+                  isExpanded={expandedSections.hints}
+                  onToggle={() => setExpandedSections({...expandedSections, hints: !expandedSections.hints})}
+                >
+                  <div className="grid grid-cols-2 gap-2">
+                    <HintItem
+                      emoji={result.todayHints.color.emoji}
+                      title="色"
+                      value={result.todayHints.color.value}
+                      message={result.todayHints.color.message}
+                      bgColor={result.todayHints.color.bgColor}
+                      textColor={result.todayHints.color.textColor}
+                      onInfoClick={() => setShowHintInfo({...showHintInfo, color: true})}
+                    />
+                    
+                    <HintItem
+                      emoji={result.todayHints.number.emoji}
+                      title="数字"
+                      value={result.todayHints.number.value}
+                      message={result.todayHints.number.message}
+                      bgColor="bg-purple-500"
+                      textColor="text-purple-400"
+                      onInfoClick={() => setShowHintInfo({...showHintInfo, number: true})}
+                    />
+                    
+                    <HintItem
+                      emoji={result.todayHints.direction.emoji}
+                      title="方角"
+                      value={result.todayHints.direction.value}
+                      message={result.todayHints.direction.message}
+                      bgColor="bg-indigo-500"
+                      textColor="text-indigo-400"
+                      onInfoClick={() => setShowHintInfo({...showHintInfo, direction: true})}
+                    />
+                    
+                    <HintItem
+                      emoji={result.todayHints.distance.emoji}
+                      title="距離感"
+                      value={result.todayHints.distance.value}
+                      message={result.todayHints.distance.message}
+                      bgColor="bg-pink-500"
+                      textColor="text-pink-400"
+                      onInfoClick={() => setShowHintInfo({...showHintInfo, distance: true})}
+                    />
+                  </div>
+                </CollapsibleSection>
+              )}
+
+              {/* メインメッセージ */}
+              <div className="bg-gradient-to-r from-yellow-400 to-orange-500 rounded-xl p-4 text-white shadow-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-3xl">{result.time === '朝' ? '🌅' : result.time === '昼' ? '☀️' : '🌙'}</span>
+                  <h2 className="text-lg font-bold">Kiriが映すあなたのエネルギー</h2>
+                </div>
+                <div className="bg-black/20 p-3 rounded-lg">
+                  <p className="text-sm leading-relaxed whitespace-pre-line">{result.deepMessage}</p>
+                </div>
+              </div>
+
+              {result.innerMessage && (
+                <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-purple-300/30">
+                  <h2 className="text-base font-bold text-purple-300 mb-2">💫 直感から読み取られるメッセージ</h2>
+                  <p className="text-white text-sm leading-relaxed">{result.innerMessage}</p>
+                </div>
+              )}
+
+              <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-purple-300/30">
+                <h2 className="text-base font-bold text-green-300 mb-2">🎯 Kiriからのアドバイス</h2>
+                <p className="text-white text-sm leading-relaxed whitespace-pre-line">{result.actionAdvice}</p>
+              </div>
+
 
               <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-purple-300/30">
                 <div className="flex items-center justify-between mb-3">
