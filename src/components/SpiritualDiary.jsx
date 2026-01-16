@@ -96,6 +96,7 @@ export default function SpiritualDiary() {
   const analyze = async () => {
     setLoading(true);
     setError(null);
+    setStep('loading'); // ローディング画面に遷移
 
     try {
       const bio = calcBio(birthDate);
@@ -129,6 +130,7 @@ export default function SpiritualDiary() {
         });
         setStep('result');
       } else {
+        setStep('input'); // エラー時は入力画面に戻る
         setError({
           title: '分析エラー',
           message: data.error || '不明なエラーが発生しました',
@@ -136,6 +138,7 @@ export default function SpiritualDiary() {
         });
       }
     } catch (error) {
+      setStep('input'); // エラー時は入力画面に戻る
       setError({
         title: '通信エラー',
         message: 'サーバーとの通信に失敗しました',
@@ -299,12 +302,12 @@ export default function SpiritualDiary() {
         </div>
         
         <div className="relative mb-2 text-center">
-          <p className={`text-2xl font-bold ${textColor}`} style={{textShadow: '0 2px 8px rgba(255,255,255,0.5), 0 0 20px rgba(255,255,255,0.3)'}}>
+          <p className={`text-2xl font-bold ${textColor}`} style={{textShadow: '0 3px 12px rgba(255,255,255,0.4), 0 0 30px rgba(255,255,255,0.2)'}}>
             {value}
           </p>
         </div>
         
-        <p className="text-xs text-white/80 leading-relaxed text-center">
+        <p className="text-sm text-white/90 leading-relaxed text-center">
           {message.split('\n')[0]}
         </p>
       </div>
@@ -458,26 +461,13 @@ export default function SpiritualDiary() {
                   </div>
 
                   <div>
-                    <label className="block text-white text-sm mb-2 font-medium">📅 記入内容</label>
-                    <div className="flex gap-2 mb-2">
-                      <button
-                        onClick={() => setEntry({...entry, type: 'past'})}
-                        className={`flex-1 py-2.5 text-sm rounded-lg font-medium transition-all ${entry.type === 'past' ? 'bg-blue-500 text-white' : 'bg-white/10 text-purple-200'} active:scale-95`}
-                      >
-                        📖 今日あった出来事
-                      </button>
-                      <button
-                        onClick={() => setEntry({...entry, type: 'future'})}
-                        className={`flex-1 py-2.5 text-sm rounded-lg font-medium transition-all ${entry.type === 'future' ? 'bg-green-500 text-white' : 'bg-white/10 text-purple-200'} active:scale-95`}
-                      >
-                        🔮 今日の予定
-                      </button>
-                    </div>
+                    <label className="block text-white text-sm mb-2 font-medium">📖 記録する</label>
+                    <p className="text-xs text-purple-200 mb-2">今日の予定や出来事をあなたの言葉で自由に記入して</p>
                     <textarea
                       value={entry.event}
                       onChange={(e) => setEntry({...entry, event: e.target.value})}
-                      placeholder={loadingPlaceholders ? 'ちょっと待って...' : (entry.type === 'past' ? placeholders.event : placeholders.event.replace('あった', 'の予定は').replace('した', 'する予定'))}
-                      className="w-full px-3 py-2.5 text-sm rounded-lg bg-white/20 text-white border border-purple-300/50 focus:outline-none focus:ring-2 focus:ring-purple-400 h-24 resize-none placeholder-purple-300/70"
+                      placeholder={loadingPlaceholders ? 'ちょっと待って...' : placeholders.event}
+                      className="w-full px-3 py-2.5 text-sm rounded-lg bg-white/20 text-white border border-purple-300/50 focus:outline-none focus:ring-2 focus:ring-purple-400 h-32 resize-none placeholder-purple-300/70"
                     />
                   </div>
 
@@ -518,6 +508,57 @@ export default function SpiritualDiary() {
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // Kiriの読み解き画面（ローディング）
+  if (step === 'loading') {
+    return (
+      <>
+        <ErrorBanner />
+        <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 p-4 flex items-center justify-center relative overflow-hidden">
+          {/* 背景の神秘的なアニメーション */}
+          <div className="absolute inset-0 opacity-30">
+            <div className="absolute top-1/4 left-1/4 w-32 h-32 bg-purple-500 rounded-full blur-3xl animate-pulse" style={{animationDuration: '3s'}}></div>
+            <div className="absolute top-1/3 right-1/4 w-40 h-40 bg-pink-500 rounded-full blur-3xl animate-pulse" style={{animationDuration: '4s', animationDelay: '1s'}}></div>
+            <div className="absolute bottom-1/4 left-1/3 w-36 h-36 bg-blue-500 rounded-full blur-3xl animate-pulse" style={{animationDuration: '5s', animationDelay: '2s'}}></div>
+          </div>
+
+          <div className="relative z-10 text-center">
+            {/* Kiriのシルエット（アニメーション） */}
+            <div className="mb-8 relative">
+              <div className="w-32 h-32 mx-auto relative animate-bounce" style={{animationDuration: '2s'}}>
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-400 via-pink-400 to-blue-400 rounded-full blur-xl opacity-60 animate-pulse"></div>
+                <div className="relative w-full h-full flex items-center justify-center text-6xl filter drop-shadow-2xl">
+                  🐰
+                </div>
+              </div>
+              
+              {/* 輝く粒子 */}
+              <div className="absolute top-0 left-1/2 transform -translate-x-1/2">
+                <div className="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-yellow-300 opacity-75" style={{animationDuration: '2s'}}></div>
+              </div>
+              <div className="absolute top-8 right-8">
+                <div className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-pink-300 opacity-75" style={{animationDuration: '3s', animationDelay: '0.5s'}}></div>
+              </div>
+              <div className="absolute bottom-8 left-8">
+                <div className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-purple-300 opacity-75" style={{animationDuration: '2.5s', animationDelay: '1s'}}></div>
+              </div>
+            </div>
+
+            {/* メッセージ */}
+            <h2 className="text-2xl font-bold text-white mb-3 animate-pulse">Kiriが読み解いています</h2>
+            <p className="text-purple-200 text-sm mb-6">あなたの心のエネルギーを感じ取っています...</p>
+
+            {/* ドットアニメーション */}
+            <div className="flex justify-center gap-2">
+              <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{animationDelay: '0s'}}></div>
+              <div className="w-2 h-2 bg-pink-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+              <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{animationDelay: '0.4s'}}></div>
             </div>
           </div>
         </div>
@@ -821,13 +862,13 @@ export default function SpiritualDiary() {
               )}
 
               {/* メインメッセージ */}
-              <div className="bg-gradient-to-r from-yellow-400 to-orange-500 rounded-xl p-4 text-white shadow-lg">
+              <div className="bg-gradient-to-br from-yellow-400/80 via-orange-400/70 to-pink-400/60 rounded-xl p-4 text-white shadow-lg backdrop-blur-sm">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-3xl">{result.time === '朝' ? '🌅' : result.time === '昼' ? '☀️' : '🌙'}</span>
-                  <h2 className="text-lg font-bold">Kiriが映すあなたのエネルギー</h2>
+                  <h2 className="text-lg font-bold drop-shadow-md">Kiriが映すあなたのエネルギー</h2>
                 </div>
-                <div className="bg-black/20 p-3 rounded-lg">
-                  <p className="text-sm leading-relaxed whitespace-pre-line">{result.deepMessage}</p>
+                <div className="bg-black/15 p-3 rounded-lg backdrop-blur-sm">
+                  <p className="text-sm leading-relaxed whitespace-pre-line text-white drop-shadow-sm">{result.deepMessage}</p>
                 </div>
               </div>
 
