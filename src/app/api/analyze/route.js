@@ -164,14 +164,26 @@ const colorName = Array.isArray(variants)
   : variants;
 
   
-  // 数字の計算
-  const zhiMap = { '子':1, '丑':2, '寅':3, '卯':4, '辰':5, '巳':6, '午':7, '未':8, '申':9, '酉':1, '戌':2, '亥':3 };
+  // 数字の計算（十二支 → 1-9のバランス配分）
+  // 子丑寅卯辰巳午未申酉戌亥（12支）を1-9に分散
+  const zhiMap = { 
+    '子':1, '丑':2, '寅':3, 
+    '卯':4, '辰':5, '巳':6, 
+    '午':7, '未':8, '申':9,
+    '酉':3, '戌':6, '亥':9  // 後半を分散配置
+  };
   const todayZhi = todaySaju.day?.[1] || '子';
   let number = zhiMap[todayZhi] || 1;
   
-  // バイオリズムで調整
-  if (Math.abs(biorhythm.e) > Math.abs(biorhythm.p) && Math.abs(biorhythm.e) > Math.abs(biorhythm.i)) {
-    number = (number + 1) % 9 + 1; // 感情優勢なら+1
+  // バイオリズムで微調整（1-9の範囲でループ）
+  const bioMax = Math.max(Math.abs(biorhythm.p), Math.abs(biorhythm.e), Math.abs(biorhythm.i));
+  
+  if (bioMax === Math.abs(biorhythm.e) && biorhythm.e > 40) {
+    number = (number % 9) + 1; // 感情が高い: +1
+  } else if (bioMax === Math.abs(biorhythm.p) && biorhythm.p > 40) {
+    number = ((number + 1) % 9) + 1; // 身体が高い: +2
+  } else if (bioMax === Math.abs(biorhythm.i) && biorhythm.i < -40) {
+    number = number > 1 ? number - 1 : 9; // 知性が低い: -1
   }
   // 方角の計算
   const directionMap = {
@@ -303,8 +315,8 @@ return {
     value: number,
     message: pick([
       `今日のリズムは、「${number}」を巡って。\n一気に決めなくていい、少しずつ。`,
-      `今日は「${number}」くらいのテンポが合いそう。\n急がなくても、ちゃんと進める。`,
-      `数にすると、「${number}」のそばで。\n区切りを意識すると、呼吸がしやすいかも。`,
+      `今日の鼓動は「${number}」。テンポが合いそう。\n急がなくても、ちゃんと進める。`,
+      `今日は「${number}」のそばで。\n区切りを意識すると、呼吸がしやすいかも。`,
       `Kiriは今日は「${number}」を片隅に置いておくね。\n使わなくても、覚えておくだけでいい。`
     ]),
     emoji: '🔢'
