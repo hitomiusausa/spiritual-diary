@@ -294,11 +294,15 @@ export default function SpiritualDiary() {
           </button>
         </div>
         
-        <div className={`${bgColor}/30 rounded-lg p-2 mb-2 text-center`}>
-          <p className={`text-xl font-bold ${textColor}`}>{value}</p>
+        <div className="relative mb-2">
+          <div className={`${bgColor}/20 rounded-lg p-3 text-center`}>
+            <p className={`text-2xl font-bold ${textColor} drop-shadow-lg`} style={{textShadow: '0 2px 8px rgba(0,0,0,0.3)'}}>
+              {value}
+            </p>
+          </div>
         </div>
         
-        <p className="text-[10px] text-white/70 leading-relaxed text-center">
+        <p className="text-xs text-white/80 leading-relaxed text-center">
           {message.split('\n')[0]}
         </p>
       </div>
@@ -387,7 +391,7 @@ export default function SpiritualDiary() {
                   onChange={(e) => setBirthTime(e.target.value)}
                   className="w-full px-3 py-2.5 text-sm rounded-lg bg-white/20 text-white border border-purple-300/50 focus:outline-none focus:ring-2 focus:ring-purple-400"
                 />
-                <p className="text-xs text-purple-200 mt-1">時運分析に使用します（未入力は12:00で概算）</p>
+                <p className="text-xs text-purple-200 mt-1">時運分析に使います（未入力は12:00で概算）</p>
               </div>
 
               <div>
@@ -410,7 +414,7 @@ export default function SpiritualDiary() {
                 disabled={!birthDate}
                 className="w-full bg-gradient-to-r from-pink-500 to-purple-500 text-white py-3 rounded-xl font-bold text-sm hover:scale-[1.02] active:scale-[0.98] transition-transform disabled:opacity-50 shadow-lg"
               >
-                始める
+                はじめる
               </button>
             </div>
           </div>
@@ -477,18 +481,18 @@ export default function SpiritualDiary() {
                     <textarea
                       value={entry.event}
                       onChange={(e) => setEntry({...entry, event: e.target.value})}
-                      placeholder={loadingPlaceholders ? '例文を生成中...' : (entry.type === 'past' ? placeholders.event : placeholders.event.replace('あった', 'の予定は').replace('した', 'する予定'))}
+                      placeholder={loadingPlaceholders ? 'ちょっと待って...' : (entry.type === 'past' ? placeholders.event : placeholders.event.replace('あった', 'の予定は').replace('した', 'する予定'))}
                       className="w-full px-3 py-2.5 text-sm rounded-lg bg-white/20 text-white border border-purple-300/50 focus:outline-none focus:ring-2 focus:ring-purple-400 h-24 resize-none placeholder-purple-300/70"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-white text-sm mb-2 font-medium">✨ 直感的な一言</label>
+                    <label className="block text-white text-sm mb-2 font-medium">✨ ひらめき・直感的な一言</label>
                     <input
                       type="text"
                       value={entry.intuition}
                       onChange={(e) => setEntry({...entry, intuition: e.target.value})}
-                      placeholder={loadingPlaceholders ? '例文を生成中...' : placeholders.intuition}
+                      placeholder={loadingPlaceholders ? 'ちょっと待って...' : placeholders.intuition}
                       className="w-full px-3 py-2.5 text-sm rounded-lg bg-white/20 text-white border border-purple-300/50 focus:outline-none focus:ring-2 focus:ring-purple-400 placeholder-purple-300/70"
                     />
                   </div>
@@ -645,13 +649,15 @@ export default function SpiritualDiary() {
                 </CollapsibleSection>
               )}
 
+              {/* 今日のヒントセクション */}
               {result.todayHints && (
                 <CollapsibleSection
+                  title="🎨 今日のヒント"
                   badge="色・数字・方角・距離感"
                   isExpanded={expandedSections.hints}
                   onToggle={() => setExpandedSections({...expandedSections, hints: !expandedSections.hints})}
                 >
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-3">
                     <HintItem
                       emoji={result.todayHints.color.emoji}
                       title="色"
@@ -699,7 +705,7 @@ export default function SpiritualDiary() {
               <div className="bg-gradient-to-r from-yellow-400 to-orange-500 rounded-xl p-4 text-white shadow-lg">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-3xl">{result.time === '朝' ? '🌅' : result.time === '昼' ? '☀️' : '🌙'}</span>
-                  <h2 className="text-lg font-bold">{result.energy}エネルギー</h2>
+                  <h2 className="text-lg font-bold">Kiriが映すあなたのエネルギー</h2>
                 </div>
                 <div className="bg-black/20 p-3 rounded-lg">
                   <p className="text-sm leading-relaxed whitespace-pre-line">{result.deepMessage}</p>
@@ -708,7 +714,7 @@ export default function SpiritualDiary() {
 
               {result.innerMessage && (
                 <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-purple-300/30">
-                  <h2 className="text-base font-bold text-purple-300 mb-2">💫 直感からのメッセージ</h2>
+                  <h2 className="text-base font-bold text-purple-300 mb-2">💫 直感から読み取られるメッセージ</h2>
                   <p className="text-white text-sm leading-relaxed">{result.innerMessage}</p>
                 </div>
               )}
