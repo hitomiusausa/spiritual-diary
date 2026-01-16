@@ -41,6 +41,7 @@ export default function SpiritualDiary() {
     direction: false, 
     distance: false 
   });
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
   // 絵文字24種類（感情タイプ別）
   const emojis = [
@@ -128,7 +129,15 @@ export default function SpiritualDiary() {
           timestamp: now,
           ...data.data
         });
-        setStep('result');
+        
+        // ホワイトアウト遷移
+        setIsTransitioning(true);
+        setTimeout(() => {
+          setStep('result');
+          setTimeout(() => {
+            setIsTransitioning(false);
+          }, 300);
+        }, 800);
       } else {
         setStep('input'); // エラー時は入力画面に戻る
         setError({
@@ -353,9 +362,22 @@ export default function SpiritualDiary() {
     </div>
   );
 
+  // ホワイトアウト遷移エフェクト
+  const WhiteoutTransition = () => (
+    <div 
+      className={`fixed inset-0 bg-white z-50 transition-opacity duration-800 ${
+        isTransitioning ? 'opacity-100' : 'opacity-0 pointer-events-none'
+      }`}
+      style={{
+        background: 'radial-gradient(circle, rgba(255,255,255,1) 0%, rgba(255,255,255,0.95) 50%, rgba(255,255,255,0.9) 100%)'
+      }}
+    />
+  );
+
   if (step === 'start') {
     return (
       <>
+        <WhiteoutTransition />
         <ErrorBanner />
         <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 p-4 flex items-center justify-center">
           <div className="w-full max-w-md bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-purple-300/30 shadow-2xl">
@@ -449,6 +471,7 @@ export default function SpiritualDiary() {
   if (step === 'input') {
     return (
       <>
+        <WhiteoutTransition />
         <ErrorBanner />
         <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 p-4 pb-20">
           <div className="max-w-2xl mx-auto">
@@ -537,62 +560,102 @@ export default function SpiritualDiary() {
   if (step === 'loading') {
     return (
       <>
+        <WhiteoutTransition />
         <ErrorBanner />
         <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 p-4 flex items-center justify-center relative overflow-hidden">
-          {/* 背景の神秘的なアニメーション */}
-          <div className="absolute inset-0 opacity-30">
+          {/* 背景の大きな光の玉 */}
+          <div className="absolute inset-0 opacity-40">
             <div className="absolute top-1/4 left-1/4 w-32 h-32 bg-purple-500 rounded-full blur-3xl animate-pulse" style={{animationDuration: '3s'}}></div>
             <div className="absolute top-1/3 right-1/4 w-40 h-40 bg-pink-500 rounded-full blur-3xl animate-pulse" style={{animationDuration: '4s', animationDelay: '1s'}}></div>
             <div className="absolute bottom-1/4 left-1/3 w-36 h-36 bg-blue-500 rounded-full blur-3xl animate-pulse" style={{animationDuration: '5s', animationDelay: '2s'}}></div>
+            <div className="absolute top-1/2 right-1/3 w-28 h-28 bg-yellow-400 rounded-full blur-2xl animate-pulse" style={{animationDuration: '3.5s', animationDelay: '0.5s'}}></div>
+            <div className="absolute bottom-1/3 right-1/4 w-32 h-32 bg-indigo-400 rounded-full blur-3xl animate-pulse" style={{animationDuration: '4.5s', animationDelay: '1.5s'}}></div>
           </div>
 
           <div className="relative z-10 text-center">
-            {/* Kiriのシルエット（アニメーション） */}
-            <div className="mb-8 relative">
-              <div className="w-40 h-40 mx-auto relative">
-                {/* グラデーション背景のオーラ */}
-                <div className="absolute inset-0 bg-gradient-to-br from-purple-400/40 via-pink-400/40 to-blue-400/40 rounded-full blur-2xl animate-pulse" style={{animationDuration: '3s'}}></div>
-                
-                {/* Kiriのシルエット（SVG風） */}
-                <div className="relative w-full h-full flex items-center justify-center">
-                  <svg viewBox="0 0 100 120" className="w-32 h-32 filter drop-shadow-2xl">
-                    {/* 耳（左） */}
-                    <ellipse cx="30" cy="25" rx="12" ry="35" fill="url(#gradient1)" opacity="0.9" className="animate-pulse" style={{animationDuration: '4s'}} />
-                    {/* 耳（右） */}
-                    <ellipse cx="70" cy="25" rx="12" ry="35" fill="url(#gradient1)" opacity="0.9" className="animate-pulse" style={{animationDuration: '4s', animationDelay: '0.5s'}} />
-                    {/* 頭・体 */}
-                    <ellipse cx="50" cy="65" rx="28" ry="32" fill="url(#gradient2)" opacity="0.85" />
-                    {/* 足（左） */}
-                    <ellipse cx="40" cy="95" rx="8" ry="12" fill="url(#gradient2)" opacity="0.8" />
-                    {/* 足（右） */}
-                    <ellipse cx="60" cy="95" rx="8" ry="12" fill="url(#gradient2)" opacity="0.8" />
-                    
-                    {/* グラデーション定義 */}
-                    <defs>
-                      <linearGradient id="gradient1" x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" style={{stopColor: '#a78bfa', stopOpacity: 1}} />
-                        <stop offset="50%" style={{stopColor: '#93c5fd', stopOpacity: 1}} />
-                        <stop offset="100%" style={{stopColor: '#86efac', stopOpacity: 1}} />
-                      </linearGradient>
-                      <linearGradient id="gradient2" x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" style={{stopColor: '#86efac', stopOpacity: 1}} />
-                        <stop offset="50%" style={{stopColor: '#fde68a', stopOpacity: 1}} />
-                        <stop offset="100%" style={{stopColor: '#fda4af', stopOpacity: 1}} />
-                      </linearGradient>
-                    </defs>
-                  </svg>
-                </div>
+            {/* 中央の光の玉（浮遊・変化） */}
+            <div className="mb-8 relative h-64">
+              {/* メインの大きな光 */}
+              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                <div className="w-24 h-24 bg-gradient-to-br from-purple-300 via-pink-300 to-blue-300 rounded-full blur-xl opacity-80 animate-pulse" style={{animationDuration: '2s'}}></div>
               </div>
               
-              {/* 輝く粒子 */}
-              <div className="absolute top-0 left-1/2 transform -translate-x-1/2">
-                <div className="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-yellow-300 opacity-75" style={{animationDuration: '2s'}}></div>
+              {/* 周りを飛び回る小さな光の玉 */}
+              {/* 光1: 左上→右下 */}
+              <div className="absolute animate-bounce" style={{
+                top: '20%', left: '30%',
+                animationDuration: '3s',
+                animationDelay: '0s'
+              }}>
+                <div className="w-4 h-4 bg-yellow-300 rounded-full blur-sm"></div>
               </div>
-              <div className="absolute top-8 right-8">
-                <div className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-pink-300 opacity-75" style={{animationDuration: '3s', animationDelay: '0.5s'}}></div>
+              
+              {/* 光2: 右上→左下 */}
+              <div className="absolute animate-bounce" style={{
+                top: '25%', right: '25%',
+                animationDuration: '2.5s',
+                animationDelay: '0.5s'
+              }}>
+                <div className="w-3 h-3 bg-pink-300 rounded-full blur-sm"></div>
               </div>
-              <div className="absolute bottom-8 left-8">
-                <div className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-purple-300 opacity-75" style={{animationDuration: '2.5s', animationDelay: '1s'}}></div>
+              
+              {/* 光3: 下から上へ */}
+              <div className="absolute animate-bounce" style={{
+                bottom: '20%', left: '40%',
+                animationDuration: '2.8s',
+                animationDelay: '1s'
+              }}>
+                <div className="w-5 h-5 bg-blue-300 rounded-full blur-sm"></div>
+              </div>
+              
+              {/* 光4: ゆっくり浮遊 */}
+              <div className="absolute animate-pulse" style={{
+                top: '40%', right: '30%',
+                animationDuration: '4s',
+                animationDelay: '0.3s'
+              }}>
+                <div className="w-3 h-3 bg-purple-300 rounded-full blur-sm"></div>
+              </div>
+              
+              {/* 光5: 反射するような動き */}
+              <div className="absolute animate-ping" style={{
+                top: '50%', left: '20%',
+                animationDuration: '3s',
+                animationDelay: '1.5s'
+              }}>
+                <div className="w-2 h-2 bg-indigo-300 rounded-full"></div>
+              </div>
+              
+              {/* 光6: 小さく点滅 */}
+              <div className="absolute animate-ping" style={{
+                bottom: '30%', right: '35%',
+                animationDuration: '2.5s',
+                animationDelay: '0.8s'
+              }}>
+                <div className="w-2 h-2 bg-yellow-200 rounded-full"></div>
+              </div>
+              
+              {/* 光7: 大きめでゆったり */}
+              <div className="absolute animate-pulse" style={{
+                top: '60%', left: '35%',
+                animationDuration: '3.5s',
+                animationDelay: '0.2s'
+              }}>
+                <div className="w-6 h-6 bg-pink-200 rounded-full blur-md opacity-70"></div>
+              </div>
+              
+              {/* 光8: 色が変化する雰囲気 */}
+              <div className="absolute animate-pulse" style={{
+                top: '35%', left: '50%',
+                animationDuration: '3.2s',
+                animationDelay: '1.2s'
+              }}>
+                <div className="w-4 h-4 rounded-full blur-sm" 
+                     style={{
+                       background: 'linear-gradient(45deg, #fbbf24, #ec4899, #8b5cf6)',
+                       backgroundSize: '200% 200%',
+                       animation: 'gradient 3s ease infinite'
+                     }}></div>
               </div>
             </div>
 
@@ -615,6 +678,7 @@ export default function SpiritualDiary() {
   if (step === 'result') {
     return (
       <>
+        <WhiteoutTransition />
         <ErrorBanner />
         <InfoPopup 
           show={showBioInfo} 
