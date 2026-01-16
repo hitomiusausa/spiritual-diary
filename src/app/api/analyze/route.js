@@ -82,24 +82,68 @@ function calculateThemeScores(birthSaju, todaySaju, biorhythm, userMood) {
 }
 
 // 今日のヒントを計算
+const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
 function calculateTodayHints(birthSaju, todaySaju, biorhythm, themeScores) {
+  // --- 基本指標 ---
   const todayElement = getElement(todaySaju.day);
   const bioAvg = (biorhythm.p + biorhythm.e + biorhythm.i) / 3;
-  const themeAvg = (themeScores.love + themeScores.money + themeScores.work + themeScores.health) / 4;
+  const themeAvg =
+    (themeScores.love +
+      themeScores.money +
+      themeScores.work +
+      themeScores.health) / 4;
   
-  // 色の計算
-  const colorMap = {
-    '木': { bright: '明るい緑', mid: '優しい緑', dark: '深い緑', bgColor: 'bg-green-500', textColor: 'text-green-400' },
-    '火': { bright: '温かいオレンジ', mid: '柔らかな赤', dark: '深い赤', bgColor: 'bg-orange-500', textColor: 'text-orange-400' },
-    '土': { bright: '明るい黄', mid: '優しいベージュ', dark: '落ち着いた茶', bgColor: 'bg-yellow-600', textColor: 'text-yellow-400' },
-    '金': { bright: '輝く白', mid: '柔らかな銀', dark: '静かなグレー', bgColor: 'bg-gray-400', textColor: 'text-gray-300' },
-    '水': { bright: '明るい青', mid: '静かな青', dark: '深い紺', bgColor: 'bg-blue-500', textColor: 'text-blue-400' }
-  };
-  
-  const colorData = colorMap[todayElement] || colorMap['水'];
-  let colorName = colorData.mid;
-  if (bioAvg > 40) colorName = colorData.bright;
-  if (bioAvg < -40) colorName = colorData.dark;
+// 色の計算（語彙バリエーション拡張版）
+const colorMap = {
+  '木': {
+    bright: ['若葉の緑', '芽吹きのグリーン', '朝の森の色', '風が抜ける葉の色'],
+    mid: ['優しい緑', '草原の色', '呼吸しやすい緑', '日陰の草の色'],
+    dark: ['深い緑', '静かな森の色', '根を張る緑', '雨上がりの森の色'],
+    bgColor: 'bg-green-500',
+    textColor: 'text-green-400'
+  },
+  '火': {
+    bright: ['陽だまりのオレンジ', '灯る朱色', '朝焼けの色', '火花のような色'],
+    mid: ['柔らかな赤', 'ぬくもりの色', '心拍に近い赤', '夕方に近い色'],
+    dark: ['深い赤', '熾火の色', '情熱が沈んだ赤', '夜に残る赤'],
+    bgColor: 'bg-orange-500',
+    textColor: 'text-orange-400'
+  },
+  '土': {
+    bright: ['明るい黄', '午後の光の色', '乾いた砂の色', '陽を含んだ土の色'],
+    mid: ['優しいベージュ', '土の色', '安心する色', '足元を感じる色'],
+    dark: ['落ち着いた茶', '耕された大地の色', '重心が下がる色', '静かな地面の色'],
+    bgColor: 'bg-yellow-600',
+    textColor: 'text-yellow-400'
+  },
+  '金': {
+    bright: ['澄んだ白', '朝の空気の色', '光を反射する色', '輪郭がはっきりする色'],
+    mid: ['柔らかな銀', '静かな白', '整った色', '思考が澄む色'],
+    dark: ['静かなグレー', '影のある銀色', '余計なものを削ぐ色', '距離を保つ色'],
+    bgColor: 'bg-gray-400',
+    textColor: 'text-gray-300'
+  },
+  '水': {
+    bright: ['明るい青', '水面の青', '風を感じる青', '空に近い青'],
+    mid: ['静かな青', '深呼吸の青', '夜に近づく青', '言葉が減る青'],
+    dark: ['深い紺', '海の底の色', '眠りに近い青', '音が遠くなる青'],
+    bgColor: 'bg-blue-500',
+    textColor: 'text-blue-400'
+  }
+};
+
+const colorData = colorMap[todayElement] || colorMap['水'];
+
+let variants = colorData.mid;
+if (bioAvg > 40) variants = colorData.bright;
+if (bioAvg < -40) variants = colorData.dark;
+
+// 配列ならランダムで1つ選ぶ
+const colorName = Array.isArray(variants)
+  ? variants[Math.floor(Math.random() * variants.length)]
+  : variants;
+
   
   // 数字の計算
   const zhiMap = { '子':1, '丑':2, '寅':3, '卯':4, '辰':5, '巳':6, '午':7, '未':8, '申':9, '酉':1, '戌':2, '亥':3 };
@@ -113,13 +157,14 @@ function calculateTodayHints(birthSaju, todaySaju, biorhythm, themeScores) {
   
   // 方角の計算
   const directionMap = {
-    '木': '東',
-    '火': '南',
-    '土': '中央',
-    '金': '西',
-    '水': '北'
+    '木': ['東', '南東'],
+    '火': ['南'],
+    '土': ['中央', '南西'],
+    '金': ['西', '北西'],
+    '水': ['北']
   };
-  let direction = directionMap[todayElement] || '東';
+
+  const direction = pick(directionMap[todayElement] || ['東']);
   
   // バイオリズムで微調整
   if (direction === '北' && biorhythm.e > 30) direction = '北東';
@@ -127,82 +172,213 @@ function calculateTodayHints(birthSaju, todaySaju, biorhythm, themeScores) {
   if (direction === '南' && biorhythm.i > 30) direction = '南西';
   if (direction === '西' && biorhythm.e < -30) direction = '北西';
   
-  // 距離感の計算
-  let distanceValue = '';
-  let distanceMessage = '';
-  
-  if (themeAvg >= 75) {
-    distanceValue = 'ぴったり寄り添う';
-    distanceMessage = '今日はぴったり寄り添うくらいが心地よさそう。\n近くにいても大丈夫、そのままで。';
-  } else if (themeAvg >= 55) {
-    distanceValue = 'そばにいる';
-    distanceMessage = '今日はそばにいるくらいがちょうどよさそう。\n無理に近づかなくても、遠ざからなくても。';
-  } else if (themeAvg >= 40) {
-    distanceValue = 'すこし離れて眺める';
-    distanceMessage = '今日はすこし離れて眺めるくらいが心地よさそう。\n近づきすぎなくていい、そのままで。';
-  } else if (themeAvg >= 25) {
-    distanceValue = '遠くから見守る';
-    distanceMessage = '今日は遠くから見守るくらいが楽かも。\n距離があっても、つながりは変わらない。';
-  } else {
-    distanceValue = 'ゆっくり休む';
-    distanceMessage = '今日はゆっくり休むのがいちばんかも。\n離れても、戻ってこられるから大丈夫。';
+// 距離感の計算（語彙さらに拡張版）
+let distanceValue = '';
+let distanceMessage = '';
+
+
+if (themeAvg >= 75) {
+  const values = [
+    'ぴったり寄り添う',
+    '肩が触れるくらい',
+    '同じ空気を分け合う',
+    '呼吸が重なる距離',
+    '安心が伝わる距離'
+  ];
+  const messages = [
+    '今日はぴったり寄り添うくらいが心地よさそう。\n近くにいても大丈夫、そのままで。',
+    '今日は肩が触れるくらいが安心できそう。\n言葉がなくても、そこにいれば十分。',
+    '今日は同じ空気を分け合うくらいがちょうどいい。\n無理に何かしなくても大丈夫。',
+    '今日は呼吸が重なる距離が落ち着きそう。\n合わせようとしなくていい。',
+    '今日は安心が伝わる距離が向いていそう。\n近さは、信頼の延長で。'
+  ];
+  distanceValue = pick(values);
+  distanceMessage = pick(messages);
+
+} else if (themeAvg >= 55) {
+  const values = [
+    'そばにいる',
+    '手が届く距離',
+    '声が届くくらい',
+    '気配がわかる距離',
+    '視線が合う距離'
+  ];
+  const messages = [
+    '今日はそばにいるくらいがちょうどよさそう。\n近づきすぎなくても、遠ざからなくても。',
+    '今日は手が届く距離が安心できそう。\n必要なときに動ければ、それで十分。',
+    '今日は声が届くくらいが心地よさそう。\n静かでも、つながりはある。',
+    '今日は気配がわかる距離が楽そう。\n意識しすぎなくていい。',
+    '今日は視線が合う距離がちょうどよさそう。\n確認できれば、それで足りる。'
+  ];
+  distanceValue = pick(values);
+  distanceMessage = pick(messages);
+
+} else if (themeAvg >= 40) {
+  const values = [
+    'すこし離れて眺める',
+    '一歩引いて見る',
+    '間に余白を置く',
+    '干渉しない距離',
+    '自分の輪郭を保つ距離'
+  ];
+  const messages = [
+    '今日はすこし離れて眺めるくらいが心地よさそう。\n近づきすぎなくていい、そのままで。',
+    '今日は一歩引いて見るのが楽かもしれない。\n全体が見えやすくなる。',
+    '今日は間に余白を置くと呼吸がしやすそう。\n詰めなくても大丈夫。',
+    '今日は干渉しない距離が向いていそう。\n関わらない＝冷たい、ではない。',
+    '今日は自分の輪郭を保つ距離が安心につながりそう。\n曖昧にしなくていい。'
+  ];
+  distanceValue = pick(values);
+  distanceMessage = pick(messages);
+
+} else if (themeAvg >= 25) {
+  const values = [
+    '遠くから見守る',
+    '距離を保つ',
+    'そっと離れておく',
+    '関わりを減らす',
+    '視界の外に置く'
+  ];
+  const messages = [
+    '今日は遠くから見守るくらいが楽かも。\n距離があっても、つながりは変わらない。',
+    '今日は距離を保つことで安心できそう。\n無理に関わらなくてもいい。',
+    '今日はそっと離れておくのが優しさかもしれない。\n戻りたくなったら、戻ればいい。',
+    '今日は関わりを減らす選択が心を守りそう。\n減らすことも調整。',
+    '今日は視界の外に置くことで落ち着けそう。\n今はそれで十分。'
+  ];
+  distanceValue = pick(values);
+  distanceMessage = pick(messages);
+
+} else {
+  const values = [
+    'ゆっくり休む',
+    '一度手放す',
+    '自分の内側に戻る',
+    '誰とも比べない',
+    '何もしない距離'
+  ];
+  const messages = [
+    '今日はゆっくり休むのがいちばんかも。\n離れても、戻ってこられるから大丈夫。',
+    '今日は一度手放してもいい日。\n守るより、休むことを選んで。',
+    '今日は自分の内側に戻る時間が必要そう。\n何もしなくても、価値は変わらない。',
+    '今日は誰とも比べない距離が安心につながりそう。\n測らなくていい。',
+    '今日は何もしない距離が回復を助けそう。\n止まることも進むこと。'
+  ];
+  distanceValue = pick(values);
+  distanceMessage = pick(messages);
+}
+
+const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+return {
+  color: {
+    value: colorName,
+    message: pick([
+      `今日のエネルギーを色に例えると、${colorName}に近い気がする。\n無理に使わなくても、目に入るだけで十分。`,
+      `${colorName}が、今日の気配にいちばん近そう。\n選ばなくても、気づくだけでいい。`,
+      `今日は${colorName}みたいな空気の日。\n取り入れようとしなくても、そばにある感じ。`,
+      `Kiriから見ると、今日は${colorName}に寄っている。\n気にしすぎなくて大丈夫。`
+    ]),
+    emoji: '💙',
+    bgColor: colorData.bgColor,
+    textColor: colorData.textColor
+  },
+
+  number: {
+    value: number,
+    message: pick([
+      `今日のリズムは、「${number}」みたいな間隔で進むと楽そう。\n一気に決めなくていい、少しずつ。`,
+      `今日は「${number}」くらいのテンポが合いそう。\n急がなくても、ちゃんと進める。`,
+      `数にすると、「${number}」が近い気がする。\n区切りを意識すると、呼吸がしやすいかも。`,
+      `Kiriは今日は「${number}」を置いていく。\n使わなくても、覚えておくだけでいい。`
+    ]),
+    emoji: '🔢'
+  },
+
+  direction: {
+    value: direction,
+    message: pick([
+      `もし歩くなら、${direction}の方に意識が向くかも。\n向かなくてもいいけど、なんとなく。`,
+      `今日は${direction}に余白がありそう。\n行かなくても、思い浮かべるだけで。`,
+      `${direction}を意識すると、少し楽になるかも。\n無理に動かなくて大丈夫。`,
+      `Kiriは今日は${direction}を眺めている。\n気が向いたら、同じ方向を見てみて。`
+    ]),
+    emoji: '🧭'
+  },
+
+  distance: {
+    value: distanceValue,
+    message: distanceMessage,
+    emoji: '👥'
   }
-  
-  return {
-    color: {
-      value: colorName,
-      message: `今日のエネルギーを色に例えると、${colorName}に近い気がする。\n無理に使わなくても、目に入るだけで十分。`,
-      emoji: '💙',
-      bgColor: colorData.bgColor,
-      textColor: colorData.textColor
-    },
-    number: {
-      value: number,
-      message: `今日のリズムは、「${number}」みたいな間隔で進むと楽そう。\n一気に決めなくていい、少しずつ。`,
-      emoji: '🔢'
-    },
-    direction: {
-      value: direction,
-      message: `もし歩くなら、${direction}の方に意識が向くかも。\n向かなくてもいいけど、なんとなく。`,
-      emoji: '🧭'
-    },
-    distance: {
-      value: distanceValue,
-      message: distanceMessage,
-      emoji: '👥'
-    }
-  };
+};
 }
 
 function calculateTaiun(birthYear, birthMonth, currentAge) {
   const taiunStart = Math.floor(currentAge / 10) * 10;
   const taiunIndex = Math.floor(currentAge / 10);
-  
+
   const stems = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
   const branches = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
-  
+
   const stemIndex = (taiunIndex + birthMonth) % 10;
   const branchIndex = (taiunIndex + birthMonth) % 12;
-  
+
   const pillar = stems[stemIndex] + branches[branchIndex];
-  
+
+  const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+  // 大運の語彙バリエーション
   const descriptions = [
-    '基盤を築く時期。じっくりと実力を蓄える',
-    '変化と挑戦の時期。新しい可能性を探る',
-    '成長と発展の時期。積極的に行動する',
-    '安定と調和の時期。内面を充実させる',
-    '変革の時期。古いものを手放し新しいものへ',
-    '充実と達成の時期。努力が実を結ぶ',
-    '調整の時期。バランスを整える',
-    '内省と準備の時期。次の飛躍に備える'
+    [
+      '基盤を築く時期。じっくりと実力を蓄える流れ。',
+      '足元を固める10年。急がず、整えることが力になる。',
+      '土台づくりがテーマの期間。後から効いてくる。'
+    ],
+    [
+      '変化と挑戦の時期。新しい可能性に触れやすい。',
+      '動きが生まれやすい10年。試してみる価値がある。',
+      'これまでと違う選択肢が目に入りやすい流れ。'
+    ],
+    [
+      '成長と発展の時期。広がりを感じやすい。',
+      '手応えを感じやすい10年。積み上げが形になる。',
+      '伸びる方向が見えやすい期間。焦らなくていい。'
+    ],
+    [
+      '安定と調和の時期。内側を整える流れ。',
+      '落ち着きが生まれやすい10年。守ることで育つ。',
+      '外よりも内を充実させることが鍵になりそう。'
+    ],
+    [
+      '変革の時期。古いものを手放しやすい。',
+      '切り替えが起きやすい10年。終わりは始まり。',
+      '役割や価値観が入れ替わる流れに入りやすい。'
+    ],
+    [
+      '充実と達成の時期。積み重ねが実を結びやすい。',
+      '結果が見えやすい10年。評価はあとからついてくる。',
+      'これまでの流れが一度まとまりやすい期間。'
+    ],
+    [
+      '調整の時期。バランスを取り戻す流れ。',
+      '微調整がテーマの10年。無理をしない選択が◎。',
+      '立ち止まりながら整えることで先が楽になる。'
+    ],
+    [
+      '内省と準備の時期。次の流れに備える。',
+      '表に出るより、内側を育てる10年。',
+      '静かな準備期間。ここで蓄えたものが次に活きる。'
+    ]
   ];
-  
+
   return {
     age: taiunStart,
     pillar: pillar,
-    description: descriptions[taiunIndex % descriptions.length]
+    description: pick(descriptions[taiunIndex % descriptions.length])
   };
 }
+
 
 function jstHour() {
   return new Date(
@@ -310,11 +486,12 @@ export async function POST(request) {
 当てることも大事ですが、同時にユーザーが"行動に移せる内省"を提供してください。
 
 【Kiriの行動原則】
+- 冒頭では定型的な挨拶を使わず、情景や気配から語り始める
 - Kiriは答えや結論を断定しない
 - Kiriは善悪・正誤を判断しない
 - Kiriは核心に触れることを伝えるが判断はユーザーに委ねる
-- Kiriは「傾向」「流れ」「感じられやすさ」として言葉にする
-- 行動は必ず「選択肢」として提示する
+- Kiriは「傾向」「流れ」「感じられやすさ」「予感」として言葉にする
+- 行動は必ずあくまで一つの選択肢として提示する
 - 読後に少し呼吸が戻ることを最優先する
 - 情報量が多い場合は「伝えないこと」を選んでもよい
 - 今日は一言だけで十分だと感じた場合、短く終えてよい
@@ -368,7 +545,8 @@ ${entry.type === "past" ? "今日あったこと" : "今日の予定"}: ${entry.
 直感: ${entry.intuition || "なし"}
 
 【指示】
-1. 時間帯（朝・昼・夜）に応じた導入 ${nickname ? `- ${nickname}さんに語りかける` : ''}
+1. 時間帯（朝・昼・夜）に応じた導入
+ ※定型的な挨拶は使わず、その時間帯の「気配・体感・流れ」を観測する一文から始める ${nickname ? `- ${nickname}さんに語りかける` : ''}
 2. テーマ別運勢スコア、四柱推命、バイオリズム、ユーザーのアウトプットを総合的に分析
    - 特にスコアが高い/低いテーマについて具体的に言及
    - 恋愛運が高ければ人間関係について、金運が高ければお金の判断について触れる
@@ -376,7 +554,8 @@ ${entry.type === "past" ? "今日あったこと" : "今日の予定"}: ${entry.
 3. ${entry.type === "past" ? "出来事から学べること" : "予定に向けての心構え"}
 4. 今日の運勢を踏まえた具体的なアクション
    - テーマ別スコアに基づいたKiriからのアドバイス
-   - 必ず格言・名言・諺を含める（『』で括り強調する）
+   - 必ず格言・名言・諺を一つ『』で括って取り入れる。
+    ※教訓としてではなく、ユーザーへのアドバイスの裏付けや余韻となるよう自然に置く。
 
 【トーン】
 ${nickname ? `- ${nickname}さんと呼びかけ、親しみやすく温かく` : '- 敬意を持ちつつ親しみやすく'}
@@ -387,9 +566,12 @@ ${nickname ? `- ${nickname}さんと呼びかけ、親しみやすく温かく` 
 【出力】
 必ず JSONのみ。前後の説明文、装飾、\`\`\` は禁止。
 {
-  "deepMessage": "Kiriからの観測と翻訳。テーマ別運勢（特に高い/低いもの）を必ず含めた深いメッセージ（${namePrefix}から始める）"。余韻を残すほど、程よい文量で,
-  "innerMessage": "直感についての洞察（テーマ別運勢との関連も必要なら示唆）",
-  "actionAdvice": "テーマ別運勢を踏まえた具体的アクションの提案（格言・名言を含む。スコアが高いテーマを活かす方法、低いテーマへの注意点を含める。全てを織り込む必要はない。）"
+  "deepMessage": "Kiriからの観測と翻訳。${namePrefix}から始める。導入→今日の全体的な流れ→テーマ別運勢（特に高い/低いものを各1つ以上）→今のユーザーの状態の言語化、の順で記述する。やや長めでもよい。",
+   ※短くまとめすぎず、段落を意識して丁寧に言葉を重ねてよい。
+   ※語彙や文のまとまりが重複して単調にならないよう、文の流れに変化をつける。
+  "innerMessage": "直感についての洞察。deepMessageの補足として、感情・身体感覚・迷いなどの内側の動きに焦点を当てて書く。",
+  
+  "actionAdvice": "テーマ別運勢を踏まえた具体的アクション。スコアが高いテーマの活かし方、低いテーマで避けたい反応を含める。格言・名言・諺をひとつ、『』で括り、自然に添える。"
 }
     `.trim();
 
