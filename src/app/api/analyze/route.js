@@ -154,29 +154,22 @@ const colorName = Array.isArray(variants)
   if (Math.abs(biorhythm.e) > Math.abs(biorhythm.p) && Math.abs(biorhythm.e) > Math.abs(biorhythm.i)) {
     number = (number + 1) % 9 + 1; // 感情優勢なら+1
   }
-// 方角の計算
-const directionMap = {
-  '木': ['東', '南東'],
-  '火': ['南'],
-  '土': ['中央', '南西'],
-  '金': ['西', '北西'],
-  '水': ['北']
-};
-
-let direction = pick(directionMap[todayElement] || ['東']);
-
-if (direction === '中央') {
-  direction = pick(['身の回り', '足元', '今いる場所']);
-}
-
-
+  // 方角の計算
+  const directionMap = {
+    '木': '東',
+    '火': '南',
+    '土': '中央',
+    '金': '西',
+    '水': '北'
+  };
+  let direction = directionMap[todayElement] || '東';
   
   // バイオリズムで微調整
   if (direction === '北' && biorhythm.e > 30) direction = '北東';
   if (direction === '東' && biorhythm.p > 30) direction = '南東';
   if (direction === '南' && biorhythm.i > 30) direction = '南西';
   if (direction === '西' && biorhythm.e < -30) direction = '北西';
-  
+
 // 距離感の計算（語彙さらに拡張版）
 let distanceValue = '';
 let distanceMessage = '';
