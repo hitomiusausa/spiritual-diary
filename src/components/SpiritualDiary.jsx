@@ -19,8 +19,8 @@ export default function SpiritualDiary() {
   });
   const [placeholders, setPlaceholders] = useState({
     mood: '例: 穏やかで少し眠い',
-    event: '例: 朝のコーヒーが美味しくて気分が上がった',
-    intuition: '例: 今日は大切な人との繋がりを感じる日'
+    event: '例: 朝のコーヒーが美味しくて気分が良かった。今日までの仕事も無事終わらせることができた。',
+    intuition: '例: 大切な人との繋がりを感じる日'
   });
   const [loadingPlaceholders, setLoadingPlaceholders] = useState(false);
   const [result, setResult] = useState(null);
@@ -29,10 +29,17 @@ export default function SpiritualDiary() {
   const [expandedSections, setExpandedSections] = useState({
     biorhythm: true,
     saju: true,
-    themes: true
+    themes: true,
+    hints: true
   });
   const [showBioInfo, setShowBioInfo] = useState(false);
   const [showSajuInfo, setShowSajuInfo] = useState(false);
+  const [showHintInfo, setShowHintInfo] = useState({ 
+    color: false, 
+    number: false, 
+    direction: false, 
+    distance: false 
+  });
 
   // 絵文字を厳選20個
   const emojis = [
@@ -271,6 +278,33 @@ export default function SpiritualDiary() {
     );
   };
 
+  const HintItem = ({ emoji, title, value, message, bgColor, textColor, onInfoClick }) => {
+    return (
+      <div className="bg-white/5 rounded-lg p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">{emoji}</span>
+            <span className="text-base font-bold text-white">{title}</span>
+          </div>
+          <button 
+            onClick={onInfoClick}
+            className="text-purple-300 hover:text-yellow-300 transition-colors"
+          >
+            <HelpCircle className="w-4 h-4" />
+          </button>
+        </div>
+        
+        <div className={`${bgColor}/30 rounded-lg p-4 mb-3 text-center`}>
+          <p className={`text-3xl font-bold ${textColor}`}>{value}</p>
+        </div>
+        
+        <p className="text-sm text-white leading-relaxed whitespace-pre-line">
+          {message}
+        </p>
+      </div>
+    );
+  };
+
   const CollapsibleSection = ({ title, isExpanded, onToggle, children, badge, onInfoClick }) => (
     <div className="bg-white/10 backdrop-blur-md rounded-xl border border-purple-300/30 overflow-hidden">
       <button
@@ -319,7 +353,7 @@ export default function SpiritualDiary() {
             <div className="text-center mb-6">
               <Sparkles className="w-12 h-12 text-yellow-300 mx-auto mb-3" />
               <h1 className="text-2xl font-bold text-white mb-1">Mind & Energy Diary</h1>
-              <p className="text-sm text-purple-200">バイオリズム×四柱推命｜心の分析日記</p>
+              <p className="text-sm text-purple-200">バイオリズム×四柱推命から読み解く心の分析日記</p>
             </div>
 
             <div className="space-y-3">
@@ -332,7 +366,7 @@ export default function SpiritualDiary() {
                   placeholder="例: さくら、太郎、ミオ"
                   className="w-full px-3 py-2.5 text-sm rounded-lg bg-white/20 text-white border border-purple-300/50 focus:outline-none focus:ring-2 focus:ring-purple-400 placeholder-purple-300/50"
                 />
-                <p className="text-xs text-purple-200 mt-1">💫 AIがあなたに語りかける時に使います</p>
+                <p className="text-xs text-purple-200 mt-1">💫 Kiriがあなたに語りかける時に使います</p>
               </div>
 
               <div>
@@ -542,6 +576,46 @@ export default function SpiritualDiary() {
           <p className="mt-3 text-xs text-purple-200">※本アプリでは lunar-javascript ライブラリを使用して算出しています。</p>
         </InfoPopup>
 
+        <InfoPopup 
+          show={showHintInfo.color} 
+          onClose={() => setShowHintInfo({...showHintInfo, color: false})}
+          title="💙 今日の色について"
+        >
+          <p>この色は、四柱推命の五行論と色彩心理学から導いています。</p>
+          <p className="mt-2">五行（木火土金水）にはそれぞれ対応する色があり、今日の運勢（日運）の五行とバイオリズムを組み合わせて、Kiriがイメージした色をお伝えしています。</p>
+          <p className="mt-2 text-purple-200 text-xs">感覚的なヒントとして受け取ってください。</p>
+        </InfoPopup>
+
+        <InfoPopup 
+          show={showHintInfo.number} 
+          onClose={() => setShowHintInfo({...showHintInfo, number: false})}
+          title="🔢 今日の数字について"
+        >
+          <p>この数字は、干支の数理とバイオリズムの周期から導いています。</p>
+          <p className="mt-2">十二支にはそれぞれ数字が割り当てられていて、今日の運勢とあなたのバイオリズムから、今日のペースに合いそうな数字をKiriが選んでいます。</p>
+          <p className="mt-2 text-purple-200 text-xs">迷った時に、ふと思い出してもらえたら、それだけで十分です。</p>
+        </InfoPopup>
+
+        <InfoPopup 
+          show={showHintInfo.direction} 
+          onClose={() => setShowHintInfo({...showHintInfo, direction: false})}
+          title="🧭 今日の方角について"
+        >
+          <p>この方角は、五行の方位論（風水）から導いています。</p>
+          <p className="mt-2">五行（木火土金水）にはそれぞれ方角があり、今日の運勢の五行とバイオリズムから、Kiriがなんとなく感じた方向をお伝えしています。</p>
+          <p className="mt-2 text-purple-200 text-xs">従わなくても大丈夫。気が向いたときだけ、思い出してみてください。</p>
+        </InfoPopup>
+
+        <InfoPopup 
+          show={showHintInfo.distance} 
+          onClose={() => setShowHintInfo({...showHintInfo, distance: false})}
+          title="👥 今日の距離感について"
+        >
+          <p>この距離感は、今日のテーマ別運勢とバイオリズムから導いています。</p>
+          <p className="mt-2">あなたの今日のエネルギー状態を、人との距離感やものとの関わり方に例えてみました。</p>
+          <p className="mt-2 text-purple-200 text-xs">正解はないので、心地よい距離を自分で選んでくださいね。</p>
+        </InfoPopup>
+
         <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 p-4 pb-20">
           <div className="max-w-2xl mx-auto">
             <div className="text-center mb-4 pt-2">
@@ -566,8 +640,60 @@ export default function SpiritualDiary() {
                     <ThemeBar emoji="🍀" label="健康・活力" value={result.themeScores.health} baseColor="bg-green-500" />
                   </div>
                   <p className="text-xs text-purple-200 mt-3 bg-purple-500/20 p-2 rounded">
-                    ℹ️ スコアは四柱推命(40%) + バイオリズム(30%) + あなたの気分(30%)から算出
+                    ℹ️ スコアは四柱推命+バイオリズム+あなたのコメントを投影したKiriの直感から算出しています
                   </p>
+                </CollapsibleSection>
+              )}
+
+              {/* 今日のヒントセクション */}
+              {result.todayHints && (
+                <CollapsibleSection
+                  title="🎨 今日のヒント"
+                  badge="色・数字・方角・距離感"
+                  isExpanded={expandedSections.hints}
+                  onToggle={() => setExpandedSections({...expandedSections, hints: !expandedSections.hints})}
+                >
+                  <div className="space-y-3">
+                    <HintItem
+                      emoji={result.todayHints.color.emoji}
+                      title="今日の色"
+                      value={result.todayHints.color.value}
+                      message={result.todayHints.color.message}
+                      bgColor={result.todayHints.color.bgColor}
+                      textColor={result.todayHints.color.textColor}
+                      onInfoClick={() => setShowHintInfo({...showHintInfo, color: true})}
+                    />
+                    
+                    <HintItem
+                      emoji={result.todayHints.number.emoji}
+                      title="今日の数字"
+                      value={result.todayHints.number.value}
+                      message={result.todayHints.number.message}
+                      bgColor="bg-purple-500"
+                      textColor="text-purple-400"
+                      onInfoClick={() => setShowHintInfo({...showHintInfo, number: true})}
+                    />
+                    
+                    <HintItem
+                      emoji={result.todayHints.direction.emoji}
+                      title="今日の方角"
+                      value={result.todayHints.direction.value}
+                      message={result.todayHints.direction.message}
+                      bgColor="bg-indigo-500"
+                      textColor="text-indigo-400"
+                      onInfoClick={() => setShowHintInfo({...showHintInfo, direction: true})}
+                    />
+                    
+                    <HintItem
+                      emoji={result.todayHints.distance.emoji}
+                      title="今日の距離感"
+                      value={result.todayHints.distance.value}
+                      message={result.todayHints.distance.message}
+                      bgColor="bg-pink-500"
+                      textColor="text-pink-400"
+                      onInfoClick={() => setShowHintInfo({...showHintInfo, distance: true})}
+                    />
+                  </div>
                 </CollapsibleSection>
               )}
 

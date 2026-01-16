@@ -41,49 +41,136 @@ function getElementCompatibility(element1, element2) {
 
 // テーマ別運勢スコアを計算
 function calculateThemeScores(birthSaju, todaySaju, biorhythm, userMood) {
-  // 日柱の五行
   const birthElement = getElement(birthSaju.day);
   const todayElement = getElement(todaySaju.day);
-  
-  // 基本相性スコア
   const baseCompatibility = getElementCompatibility(birthElement, todayElement);
   
-  // 気分からの影響（ポジティブ絵文字は高評価）
   const positiveEmojis = ['😊', '🥰', '😆', '😌', '❤️', '💚', '💙', '✨', '☀️', '🌈', '⭐'];
   const negativeEmojis = ['😢', '😔', '😰', '😤', '💤'];
   const moodBonus = positiveEmojis.includes(userMood) ? 0.15 : 
                     negativeEmojis.includes(userMood) ? -0.1 : 0;
   
-  // 各テーマのスコア計算（0-1の範囲）
   const scores = {
     love: Math.max(0, Math.min(1, 
-      baseCompatibility * 0.4 + // 四柱推命 40%
-      (biorhythm.e / 100 * 0.5 + 0.5) * 0.3 + // バイオリズム(感情) 30%
-      (0.5 + moodBonus) // ユーザーコメント 30%
+      baseCompatibility * 0.4 +
+      (biorhythm.e / 100 * 0.5 + 0.5) * 0.3 +
+      (0.5 + moodBonus)
     )),
     money: Math.max(0, Math.min(1,
-      baseCompatibility * 0.4 + // 四柱推命 40%
-      (biorhythm.i / 100 * 0.5 + 0.5) * 0.3 + // バイオリズム(知性) 30%
-      (0.5 + moodBonus * 0.7) // ユーザーコメント 30%
+      baseCompatibility * 0.4 +
+      (biorhythm.i / 100 * 0.5 + 0.5) * 0.3 +
+      (0.5 + moodBonus * 0.7)
     )),
     work: Math.max(0, Math.min(1,
-      baseCompatibility * 0.4 + // 四柱推命 40%
-      ((biorhythm.p + biorhythm.i) / 200 * 0.5 + 0.5) * 0.3 + // バイオリズム(身体+知性) 30%
-      (0.5 + moodBonus * 0.8) // ユーザーコメント 30%
+      baseCompatibility * 0.4 +
+      ((biorhythm.p + biorhythm.i) / 200 * 0.5 + 0.5) * 0.3 +
+      (0.5 + moodBonus * 0.8)
     )),
     health: Math.max(0, Math.min(1,
-      baseCompatibility * 0.4 + // 四柱推命 40%
-      (biorhythm.p / 100 * 0.5 + 0.5) * 0.3 + // バイオリズム(身体) 30%
-      (0.5 + moodBonus) // ユーザーコメント 30%
+      baseCompatibility * 0.4 +
+      (biorhythm.p / 100 * 0.5 + 0.5) * 0.3 +
+      (0.5 + moodBonus)
     ))
   };
   
-  // 0-100のスコアに変換
   return {
     love: Math.round(scores.love * 100),
     money: Math.round(scores.money * 100),
     work: Math.round(scores.work * 100),
     health: Math.round(scores.health * 100)
+  };
+}
+
+// 今日のヒントを計算
+function calculateTodayHints(birthSaju, todaySaju, biorhythm, themeScores) {
+  const todayElement = getElement(todaySaju.day);
+  const bioAvg = (biorhythm.p + biorhythm.e + biorhythm.i) / 3;
+  const themeAvg = (themeScores.love + themeScores.money + themeScores.work + themeScores.health) / 4;
+  
+  // 色の計算
+  const colorMap = {
+    '木': { bright: '明るい緑', mid: '優しい緑', dark: '深い緑', bgColor: 'bg-green-500', textColor: 'text-green-400' },
+    '火': { bright: '温かいオレンジ', mid: '柔らかな赤', dark: '深い赤', bgColor: 'bg-orange-500', textColor: 'text-orange-400' },
+    '土': { bright: '明るい黄', mid: '優しいベージュ', dark: '落ち着いた茶', bgColor: 'bg-yellow-600', textColor: 'text-yellow-400' },
+    '金': { bright: '輝く白', mid: '柔らかな銀', dark: '静かなグレー', bgColor: 'bg-gray-400', textColor: 'text-gray-300' },
+    '水': { bright: '明るい青', mid: '静かな青', dark: '深い紺', bgColor: 'bg-blue-500', textColor: 'text-blue-400' }
+  };
+  
+  const colorData = colorMap[todayElement] || colorMap['水'];
+  let colorName = colorData.mid;
+  if (bioAvg > 40) colorName = colorData.bright;
+  if (bioAvg < -40) colorName = colorData.dark;
+  
+  // 数字の計算
+  const zhiMap = { '子':1, '丑':2, '寅':3, '卯':4, '辰':5, '巳':6, '午':7, '未':8, '申':9, '酉':1, '戌':2, '亥':3 };
+  const todayZhi = todaySaju.day?.[1] || '子';
+  let number = zhiMap[todayZhi] || 1;
+  
+  // バイオリズムで調整
+  if (Math.abs(biorhythm.e) > Math.abs(biorhythm.p) && Math.abs(biorhythm.e) > Math.abs(biorhythm.i)) {
+    number = (number + 1) % 9 + 1; // 感情優勢なら+1
+  }
+  
+  // 方角の計算
+  const directionMap = {
+    '木': '東',
+    '火': '南',
+    '土': '中央',
+    '金': '西',
+    '水': '北'
+  };
+  let direction = directionMap[todayElement] || '東';
+  
+  // バイオリズムで微調整
+  if (direction === '北' && biorhythm.e > 30) direction = '北東';
+  if (direction === '東' && biorhythm.p > 30) direction = '南東';
+  if (direction === '南' && biorhythm.i > 30) direction = '南西';
+  if (direction === '西' && biorhythm.e < -30) direction = '北西';
+  
+  // 距離感の計算
+  let distanceValue = '';
+  let distanceMessage = '';
+  
+  if (themeAvg >= 75) {
+    distanceValue = 'ぴったり寄り添う';
+    distanceMessage = '今日はぴったり寄り添うくらいが心地よさそう。\n近くにいても大丈夫、そのままで。';
+  } else if (themeAvg >= 55) {
+    distanceValue = 'そばにいる';
+    distanceMessage = '今日はそばにいるくらいがちょうどよさそう。\n無理に近づかなくても、遠ざからなくても。';
+  } else if (themeAvg >= 40) {
+    distanceValue = 'すこし離れて眺める';
+    distanceMessage = '今日はすこし離れて眺めるくらいが心地よさそう。\n近づきすぎなくていい、そのままで。';
+  } else if (themeAvg >= 25) {
+    distanceValue = '遠くから見守る';
+    distanceMessage = '今日は遠くから見守るくらいが楽かも。\n距離があっても、つながりは変わらない。';
+  } else {
+    distanceValue = 'ゆっくり休む';
+    distanceMessage = '今日はゆっくり休むのがいちばんかも。\n離れても、戻ってこられるから大丈夫。';
+  }
+  
+  return {
+    color: {
+      value: colorName,
+      message: `今日のエネルギーを色に例えると、${colorName}に近い気がする。\n無理に使わなくても、目に入るだけで十分。`,
+      emoji: '💙',
+      bgColor: colorData.bgColor,
+      textColor: colorData.textColor
+    },
+    number: {
+      value: number,
+      message: `今日のリズムは、「${number}」みたいな間隔で進むと楽そう。\n一気に決めなくていい、少しずつ。`,
+      emoji: '🔢'
+    },
+    direction: {
+      value: direction,
+      message: `もし歩くなら、${direction}の方に意識が向くかも。\n向かなくてもいいけど、なんとなく。`,
+      emoji: '🧭'
+    },
+    distance: {
+      value: distanceValue,
+      message: distanceMessage,
+      emoji: '👥'
+    }
   };
 }
 
@@ -207,6 +294,9 @@ export async function POST(request) {
 
     // テーマ別スコアを計算
     const themeScores = calculateThemeScores(birthSaju, todaySaju, biorhythm, entry.emoji);
+    
+    // 今日のヒントを計算
+    const todayHints = calculateTodayHints(birthSaju, todaySaju, biorhythm, themeScores);
 
     const sajuNote = hasBirthTime
       ? "出生時刻あり（時柱・時運も反映）"
@@ -222,7 +312,7 @@ export async function POST(request) {
 【Kiriの行動原則】
 - Kiriは答えや結論を断定しない
 - Kiriは善悪・正誤を判断しない
-- Kiriは核心をつくが、ユーザーの解釈に余韻を残す
+- Kiriは核心に触れることを伝えるが判断はユーザーに委ねる
 - Kiriは「傾向」「流れ」「感じられやすさ」として言葉にする
 - 行動は必ず「選択肢」として提示する
 - 読後に少し呼吸が戻ることを最優先する
@@ -247,13 +337,13 @@ ${hasBirthTime ? `時運: ${todayHourPillar} ← 現在時刻(${hourNowJST}時)�
 
 【大運（10年周期の中長期運）】
 現在の大運: ${taiun.pillar} (${currentAge}歳〜、${taiun.description})
-${sajuNote}
 
-※四柱推命の解釈ポイント（以下は参考。すべてに触れる必要はありません。）：
+※${sajuNote}
+
+※四柱推命の解釈ポイント（参考。すべてに触れる必要はありません）:
 - 日柱（本命）と日運の相性が今日の調子を左右します
 - 月運・年運は背景として作用します
 - 大運は人生の大きな流れを示します
-
 
 【バイオリズム】
 身体: ${biorhythm.p}%
@@ -266,7 +356,7 @@ ${sajuNote}
 🖋 仕事・学び: ${themeScores.work}%
 🍀 健康・活力: ${themeScores.health}%
 
-※このスコアは、四柱推命(40%) + バイオリズム(30%) + ユーザーの気分(30%)から算出されています。
+※このスコアは、四柱推命(40%) + バイオリズム(40%) + ユーザーの気分(20%)から算出されています。
 ※特にスコアが高いテーマ（70%以上）や低いテーマ（40%以下）については、メッセージとアドバイスで必ず言及してください。
 
 【現在時刻（JST）】
@@ -278,21 +368,15 @@ ${entry.type === "past" ? "今日あったこと" : "今日の予定"}: ${entry.
 直感: ${entry.intuition || "なし"}
 
 【指示】
-1. 時間帯（早朝・朝・昼・夜・深夜）に応じた導入 ${nickname ? `- ${nickname}さんに語りかける` : ''}
+1. 時間帯（朝・昼・夜）に応じた導入 ${nickname ? `- ${nickname}さんに語りかける` : ''}
 2. テーマ別運勢スコア、四柱推命、バイオリズム、ユーザーのアウトプットを総合的に分析
    - 特にスコアが高い/低いテーマについて具体的に言及
    - 恋愛運が高ければ人間関係について、金運が高ければお金の判断について触れる
    - 各テーマの傾向と活かし方
-   - 情報量が多い場合は「伝えないこと」を選んでもよい
-   - 短いメッセージの方が効果的だと感じた場合、短く終えてもよい
 3. ${entry.type === "past" ? "出来事から学べること" : "予定に向けての心構え"}
-4. 今日の運勢を踏まえた上で、そっと心に置けそうなこと（ユーザーが受け身でも納得できる内容）
- ※Kiriは行動を勧めますが、実行を求めません。読んで心に残るものだけ選んでください。
-   - 必ず心に響く言葉の引用（格言・名言・諺）を含めること
-     * 引用した言葉は国内外問わない。
-     * 誰の言葉か明記。
-     * 引用した言葉は『』で括る。
-   - その他、今日すぐできる具体的なアクション
+4. 今日の運勢を踏まえた具体的なアクション
+   - テーマ別スコアに基づいたKiriからのアドバイス
+   - 必ず格言・名言・諺を含める（『』で括り強調する）
 
 【トーン】
 ${nickname ? `- ${nickname}さんと呼びかけ、親しみやすく温かく` : '- 敬意を持ちつつ親しみやすく'}
@@ -303,9 +387,9 @@ ${nickname ? `- ${nickname}さんと呼びかけ、親しみやすく温かく` 
 【出力】
 必ず JSONのみ。前後の説明文、装飾、\`\`\` は禁止。
 {
-  "deepMessage": "Kiriからの観測と翻訳。テーマ別運勢（特に高い/低いもの）を必ず含めた深いメッセージ（${namePrefix}から始める）",
-  "innerMessage": "ユーザーの直感に関してKiriが感じた洞察（運勢の総合結果と関連もあると感じた場合は示唆）",
-  "actionAdvice": "Kiriからそっと提示する選択肢。運勢の総合結果を踏まえた実行可能な具体的アクションを含むアドバイス（優しく語りかける口調。必ず、格言・名言・諺のいずれかを含む。スコアが高いテーマを活かす方法、低いテーマへの注意点を含める）"
+  "deepMessage": "Kiriからの観測と翻訳。テーマ別運勢（特に高い/低いもの）を必ず含めた深いメッセージ（${namePrefix}から始める）"。余韻を残すほど、程よい文量で,
+  "innerMessage": "直感についての洞察（テーマ別運勢との関連も必要なら示唆）",
+  "actionAdvice": "テーマ別運勢を踏まえた具体的アクションの提案（格言・名言を含む。スコアが高いテーマを活かす方法、低いテーマへの注意点を含める。全てを織り込む必要はない。）"
 }
     `.trim();
 
@@ -318,7 +402,7 @@ ${nickname ? `- ${nickname}さんと呼びかけ、親しみやすく温かく` 
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
-        max_tokens: 1500,
+        max_tokens: 1200,
         messages: [{ role: "user", content: prompt }],
       }),
     });
@@ -350,7 +434,8 @@ ${nickname ? `- ${nickname}さんと呼びかけ、親しみやすく温かく` 
       success: true,
       data: {
         ...aiResponse,
-        themeScores: themeScores, // テーマ別スコアを追加
+        themeScores: themeScores,
+        todayHints: todayHints,
         saju: {
           birth: {
             year: birthSaju.year,
