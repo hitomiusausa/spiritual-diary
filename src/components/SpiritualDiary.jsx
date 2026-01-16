@@ -28,12 +28,13 @@ export default function SpiritualDiary() {
   const [error, setError] = useState(null);
   const [expandedSections, setExpandedSections] = useState({
     biorhythm: true,
-    saju: true
+    saju: true,
+    themes: true
   });
   const [showBioInfo, setShowBioInfo] = useState(false);
   const [showSajuInfo, setShowSajuInfo] = useState(false);
 
-  // 絵文字を厳選20個に削減
+  // 絵文字を厳選20個
   const emojis = [
     '😊', '🥰', '😆', '😌', // ポジティブ
     '😢', '😔', '😰', '😤', // ネガティブ
@@ -173,9 +174,21 @@ export default function SpiritualDiary() {
     );
   };
 
-  // バイオリズムバー表示コンポーネント
+  // バイオリズムバー表示（色濃淡対応）
   const BiorhythmBar = ({ label, value, color, emoji }) => {
-    const percentage = ((value + 100) / 200) * 100; // -100〜100を0〜100%に変換
+    const percentage = ((value + 100) / 200) * 100;
+    
+    // 色の濃淡計算（0-100%の値に基づく）
+    const getOpacity = (val) => {
+      const normalizedVal = (val + 100) / 2; // -100〜100を0〜100に変換
+      if (normalizedVal >= 80) return 1.0;
+      if (normalizedVal >= 60) return 0.85;
+      if (normalizedVal >= 40) return 0.7;
+      if (normalizedVal >= 20) return 0.55;
+      return 0.4;
+    };
+    
+    const opacity = getOpacity(value);
     
     return (
       <div className="bg-white/10 rounded-lg p-3">
@@ -189,8 +202,50 @@ export default function SpiritualDiary() {
         <div className="w-full bg-white/20 rounded-full h-2 overflow-hidden">
           <div 
             className={`h-full rounded-full ${color.replace('text-', 'bg-')} transition-all duration-500`}
-            style={{ width: `${percentage}%` }}
+            style={{ width: `${percentage}%`, opacity: opacity }}
           />
+        </div>
+      </div>
+    );
+  };
+
+  // テーマ別運勢バー（色濃淡対応）
+  const ThemeBar = ({ emoji, label, value, baseColor }) => {
+    // 星の数を計算
+    const stars = Math.round(value / 20); // 0-5段階
+    
+    // 色の濃淡計算
+    const getOpacity = (val) => {
+      if (val >= 80) return 1.0;
+      if (val >= 60) return 0.85;
+      if (val >= 40) return 0.7;
+      if (val >= 20) return 0.55;
+      return 0.4;
+    };
+    
+    const opacity = getOpacity(value);
+    
+    return (
+      <div className="bg-white/5 rounded-lg p-3">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">{emoji}</span>
+            <span className="text-white text-sm font-medium">{label}</span>
+          </div>
+          <div className="flex">
+            {[...Array(5)].map((_, i) => (
+              <span key={i} className={`text-yellow-400 ${i < stars ? 'opacity-100' : 'opacity-20'}`}>★</span>
+            ))}
+          </div>
+        </div>
+        <div className="w-full bg-white/20 rounded-full h-2.5 overflow-hidden">
+          <div 
+            className={`h-full rounded-full ${baseColor} transition-all duration-500`}
+            style={{ width: `${value}%`, opacity: opacity }}
+          />
+        </div>
+        <div className="text-right mt-1">
+          <span className="text-white text-xs font-bold">{value}%</span>
         </div>
       </div>
     );
@@ -263,8 +318,8 @@ export default function SpiritualDiary() {
           <div className="w-full max-w-md bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-purple-300/30 shadow-2xl">
             <div className="text-center mb-6">
               <Sparkles className="w-12 h-12 text-yellow-300 mx-auto mb-3" />
-             <h1 className="text-2xl font-bold text-white mb-1">Mind & Energy Diary</h1>
-              <p className="text-sm text-purple-200">バイオリズム×四柱推命で読み解く心の分析日記</p>
+              <h1 className="text-2xl font-bold text-white mb-1">Mind & Energy Diary</h1>
+              <p className="text-sm text-purple-200">バイオリズム×四柱推命｜心の分析日記</p>
             </div>
 
             <div className="space-y-3">
@@ -277,7 +332,7 @@ export default function SpiritualDiary() {
                   placeholder="例: さくら、太郎、ミオ"
                   className="w-full px-3 py-2.5 text-sm rounded-lg bg-white/20 text-white border border-purple-300/50 focus:outline-none focus:ring-2 focus:ring-purple-400 placeholder-purple-300/50"
                 />
-                <p className="text-xs text-purple-200 mt-1">💫 Kiriがあなたに語りかける時に使います</p>
+                <p className="text-xs text-purple-200 mt-1">💫 AIがあなたに語りかける時に使います</p>
               </div>
 
               <div>
@@ -298,7 +353,7 @@ export default function SpiritualDiary() {
                   onChange={(e) => setBirthTime(e.target.value)}
                   className="w-full px-3 py-2.5 text-sm rounded-lg bg-white/20 text-white border border-purple-300/50 focus:outline-none focus:ring-2 focus:ring-purple-400"
                 />
-                <p className="text-xs text-purple-200 mt-1">時運分析に使用します（未入力は12:00で概算）</p>
+                <p className="text-xs text-purple-200 mt-1">時運分析に使用（未入力は12:00で概算）</p>
               </div>
 
               <div>
@@ -370,7 +425,7 @@ export default function SpiritualDiary() {
                   </div>
 
                   <div>
-                    <label className="block text-white text-sm mb-2 font-medium">📅 今日の記録</label>
+                    <label className="block text-white text-sm mb-2 font-medium">📅 記入内容</label>
                     <div className="flex gap-2 mb-2">
                       <button
                         onClick={() => setEntry({...entry, type: 'past'})}
@@ -388,7 +443,7 @@ export default function SpiritualDiary() {
                     <textarea
                       value={entry.event}
                       onChange={(e) => setEntry({...entry, event: e.target.value})}
-                      placeholder={loadingPlaceholders ? 'たとえば...' : (entry.type === 'past' ? placeholders.event : placeholders.event.replace('あった', 'の予定は').replace('した', 'する予定'))}
+                      placeholder={loadingPlaceholders ? '例文を生成中...' : (entry.type === 'past' ? placeholders.event : placeholders.event.replace('あった', 'の予定は').replace('した', 'する予定'))}
                       className="w-full px-3 py-2.5 text-sm rounded-lg bg-white/20 text-white border border-purple-300/50 focus:outline-none focus:ring-2 focus:ring-purple-400 h-24 resize-none placeholder-purple-300/70"
                     />
                   </div>
@@ -399,7 +454,7 @@ export default function SpiritualDiary() {
                       type="text"
                       value={entry.intuition}
                       onChange={(e) => setEntry({...entry, intuition: e.target.value})}
-                      placeholder={loadingPlaceholders ? 'たとえば...' : placeholders.intuition}
+                      placeholder={loadingPlaceholders ? '例文を生成中...' : placeholders.intuition}
                       className="w-full px-3 py-2.5 text-sm rounded-lg bg-white/20 text-white border border-purple-300/50 focus:outline-none focus:ring-2 focus:ring-purple-400 placeholder-purple-300/70"
                     />
                   </div>
@@ -418,7 +473,7 @@ export default function SpiritualDiary() {
                         分析中...
                       </span>
                     ) : (
-                      '🐇 Kiriに読み解いてもらう'
+                      '🧠 AIに分析してもらう'
                     )}
                   </button>
 
@@ -446,7 +501,7 @@ export default function SpiritualDiary() {
           onClose={() => setShowBioInfo(false)}
           title="📈 バイオリズムとは？"
         >
-          <p>バイオリズムは、人間の身体・感情・知性の状態が一定の周期で変動するという理論です。本アプリでは、バイオリズムと四柱推命を用いて、あなたの心を読み解きます</p>
+          <p>バイオリズムは、人間の身体・感情・知性の状態が一定の周期で変動するという理論です。</p>
           <div className="space-y-2 mt-3">
             <div className="bg-white/10 p-3 rounded-lg">
               <p className="font-bold text-green-400">身体（23日周期）</p>
@@ -469,7 +524,7 @@ export default function SpiritualDiary() {
           onClose={() => setShowSajuInfo(false)}
           title="🔮 四柱推命とは？"
         >
-          <p>四柱推命は、中国発祥の占術で、生年月日時から人の運命や性格を読み解く東洋占星術です。本アプリでは、四柱推命とバイオリズムを用いて、あなたの心を読み解きます</p>
+          <p>四柱推命は、中国発祥の占術で、生年月日時から人の運命や性格を読み解く東洋占星術です。</p>
           <div className="space-y-2 mt-3">
             <div className="bg-white/10 p-3 rounded-lg">
               <p className="font-bold text-yellow-300">あなたの本命（生まれた時）</p>
@@ -497,6 +552,48 @@ export default function SpiritualDiary() {
             </div>
 
             <div className="space-y-3">
+              {/* テーマ別運勢セクション - メインメッセージの前に配置 */}
+              {result.themeScores && (
+                <CollapsibleSection
+                  title="🌟 今日のテーマ別運勢"
+                  isExpanded={expandedSections.themes}
+                  onToggle={() => setExpandedSections({...expandedSections, themes: !expandedSections.themes})}
+                >
+                  <div className="space-y-2">
+                    <ThemeBar emoji="💕" label="恋愛・人間関係" value={result.themeScores.love} baseColor="bg-pink-500" />
+                    <ThemeBar emoji="💰" label="お金・判断感覚" value={result.themeScores.money} baseColor="bg-yellow-500" />
+                    <ThemeBar emoji="🖋" label="仕事・学び" value={result.themeScores.work} baseColor="bg-blue-500" />
+                    <ThemeBar emoji="🍀" label="健康・活力" value={result.themeScores.health} baseColor="bg-green-500" />
+                  </div>
+                  <p className="text-xs text-purple-200 mt-3 bg-purple-500/20 p-2 rounded">
+                    ℹ️ スコアは四柱推命(40%) + バイオリズム(30%) + あなたの気分(30%)から算出
+                  </p>
+                </CollapsibleSection>
+              )}
+
+              {/* メインメッセージ */}
+              <div className="bg-gradient-to-r from-yellow-400 to-orange-500 rounded-xl p-4 text-white shadow-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-3xl">{result.time === '朝' ? '🌅' : result.time === '昼' ? '☀️' : '🌙'}</span>
+                  <h2 className="text-lg font-bold">{result.energy}エネルギー</h2>
+                </div>
+                <div className="bg-black/20 p-3 rounded-lg">
+                  <p className="text-sm leading-relaxed whitespace-pre-line">{result.deepMessage}</p>
+                </div>
+              </div>
+
+              {result.innerMessage && (
+                <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-purple-300/30">
+                  <h2 className="text-base font-bold text-purple-300 mb-2">💫 直感からのメッセージ</h2>
+                  <p className="text-white text-sm leading-relaxed">{result.innerMessage}</p>
+                </div>
+              )}
+
+              <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-purple-300/30">
+                <h2 className="text-base font-bold text-green-300 mb-2">🎯 Kiriからのアドバイス</h2>
+                <p className="text-white text-sm leading-relaxed whitespace-pre-line">{result.actionAdvice}</p>
+              </div>
+
               {/* バイオリズムセクション */}
               <CollapsibleSection
                 title="📈 バイオリズム"
@@ -597,29 +694,6 @@ export default function SpiritualDiary() {
                 </CollapsibleSection>
               )}
 
-              {/* メインメッセージ */}
-              <div className="bg-gradient-to-r from-yellow-400 to-orange-500 rounded-xl p-4 text-white shadow-lg">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-3xl">{result.time === '朝' ? '🌅' : result.time === '昼' ? '☀️' : '🌙'}</span>
-                  <h2 className="text-lg font-bold">{result.energy}エネルギー</h2>
-                </div>
-                <div className="bg-black/20 p-3 rounded-lg">
-                  <p className="text-sm leading-relaxed whitespace-pre-line">{result.deepMessage}</p>
-                </div>
-              </div>
-
-              {result.innerMessage && (
-                <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-purple-300/30">
-                  <h2 className="text-base font-bold text-purple-300 mb-2">💫 あなたの直感が示すメッセージ</h2>
-                  <p className="text-white text-sm leading-relaxed">{result.innerMessage}</p>
-                </div>
-              )}
-
-              <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-purple-300/30">
-                <h2 className="text-base font-bold text-green-300 mb-2">🎯 Kiriからのアドバイス</h2>
-                <p className="text-white text-sm leading-relaxed whitespace-pre-line">{result.actionAdvice}</p>
-              </div>
-
               <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-purple-300/30">
                 <div className="flex items-center justify-between mb-3">
                   <h2 className="text-base font-bold text-blue-300">📖 今日の記録</h2>
@@ -662,7 +736,7 @@ export default function SpiritualDiary() {
                     <ul className="text-white space-y-0.5 mb-2 text-xs">
                       <li>📚 過去の記録を全て閲覧</li>
                       <li>📊 あなた専用のパターン分析</li>
-                      <li>💬 Kiriとの対話無制限</li>
+                      <li>💬 AI対話無制限</li>
                     </ul>
                     <button className="bg-gradient-to-r from-yellow-400 to-orange-500 text-black px-4 py-2 rounded-lg text-sm font-bold hover:scale-[1.02] active:scale-[0.98] transition-transform shadow-md">
                       月額500円
