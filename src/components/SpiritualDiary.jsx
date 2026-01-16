@@ -365,6 +365,24 @@ export default function SpiritualDiary() {
               <p className="text-sm text-purple-200">バイオリズム×四柱推命から読み解く心の分析日記</p>
             </div>
 
+            {/* Kiriの紹介 */}
+            <div className="bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-xl p-4 mb-6 border border-purple-300/30">
+              <div className="flex items-center gap-3 mb-2">
+                <img 
+                  src="/kiri.png" 
+                  alt="Kiri" 
+                  className="w-12 h-12 rounded-full object-cover"
+                />
+                <div>
+                  <h2 className="text-lg font-bold text-yellow-300">Kiri</h2>
+                  <p className="text-xs text-purple-200">あなたの心を映す鏡</p>
+                </div>
+              </div>
+              <p className="text-sm text-white/90 leading-relaxed">
+                Kiriは、あなたの心のエネルギーを映す鏡のような存在です 🌈
+              </p>
+            </div>
+
             <div className="space-y-3">
               <div>
                 <label className="block text-white text-sm mb-1.5 font-medium">ニックネーム（任意）</label>
@@ -446,8 +464,8 @@ export default function SpiritualDiary() {
               <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-purple-300/30">
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-white text-sm mb-2 font-medium">💖 今日の気分（絵文字を選んでください）</label>
-                    <div className="flex flex-wrap gap-2">
+                    <label className="block text-white text-sm mb-2 font-medium text-center">💖 今日の気分（絵文字を選んでください）</label>
+                    <div className="flex flex-wrap gap-2 justify-center">
                       {emojis.map(e => (
                         <button
                           key={e}
@@ -531,10 +549,38 @@ export default function SpiritualDiary() {
           <div className="relative z-10 text-center">
             {/* Kiriのシルエット（アニメーション） */}
             <div className="mb-8 relative">
-              <div className="w-32 h-32 mx-auto relative animate-bounce" style={{animationDuration: '2s'}}>
-                <div className="absolute inset-0 bg-gradient-to-br from-purple-400 via-pink-400 to-blue-400 rounded-full blur-xl opacity-60 animate-pulse"></div>
-                <div className="relative w-full h-full flex items-center justify-center text-6xl filter drop-shadow-2xl">
-                  🐰
+              <div className="w-40 h-40 mx-auto relative">
+                {/* グラデーション背景のオーラ */}
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-400/40 via-pink-400/40 to-blue-400/40 rounded-full blur-2xl animate-pulse" style={{animationDuration: '3s'}}></div>
+                
+                {/* Kiriのシルエット（SVG風） */}
+                <div className="relative w-full h-full flex items-center justify-center">
+                  <svg viewBox="0 0 100 120" className="w-32 h-32 filter drop-shadow-2xl">
+                    {/* 耳（左） */}
+                    <ellipse cx="30" cy="25" rx="12" ry="35" fill="url(#gradient1)" opacity="0.9" className="animate-pulse" style={{animationDuration: '4s'}} />
+                    {/* 耳（右） */}
+                    <ellipse cx="70" cy="25" rx="12" ry="35" fill="url(#gradient1)" opacity="0.9" className="animate-pulse" style={{animationDuration: '4s', animationDelay: '0.5s'}} />
+                    {/* 頭・体 */}
+                    <ellipse cx="50" cy="65" rx="28" ry="32" fill="url(#gradient2)" opacity="0.85" />
+                    {/* 足（左） */}
+                    <ellipse cx="40" cy="95" rx="8" ry="12" fill="url(#gradient2)" opacity="0.8" />
+                    {/* 足（右） */}
+                    <ellipse cx="60" cy="95" rx="8" ry="12" fill="url(#gradient2)" opacity="0.8" />
+                    
+                    {/* グラデーション定義 */}
+                    <defs>
+                      <linearGradient id="gradient1" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" style={{stopColor: '#a78bfa', stopOpacity: 1}} />
+                        <stop offset="50%" style={{stopColor: '#93c5fd', stopOpacity: 1}} />
+                        <stop offset="100%" style={{stopColor: '#86efac', stopOpacity: 1}} />
+                      </linearGradient>
+                      <linearGradient id="gradient2" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" style={{stopColor: '#86efac', stopOpacity: 1}} />
+                        <stop offset="50%" style={{stopColor: '#fde68a', stopOpacity: 1}} />
+                        <stop offset="100%" style={{stopColor: '#fda4af', stopOpacity: 1}} />
+                      </linearGradient>
+                    </defs>
+                  </svg>
                 </div>
               </div>
               
