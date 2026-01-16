@@ -136,8 +136,8 @@ export default function SpiritualDiary() {
           setStep('result');
           setTimeout(() => {
             setIsTransitioning(false);
-          }, 300);
-        }, 800);
+          }, 400);
+        }, 1000);
       } else {
         setStep('input'); // エラー時は入力画面に戻る
         setError({
@@ -365,11 +365,12 @@ export default function SpiritualDiary() {
   // ホワイトアウト遷移エフェクト
   const WhiteoutTransition = () => (
     <div 
-      className={`fixed inset-0 bg-white z-50 transition-opacity duration-800 ${
+      className={`fixed inset-0 z-50 transition-all ease-in-out ${
         isTransitioning ? 'opacity-100' : 'opacity-0 pointer-events-none'
       }`}
       style={{
-        background: 'radial-gradient(circle, rgba(255,255,255,1) 0%, rgba(255,255,255,0.95) 50%, rgba(255,255,255,0.9) 100%)'
+        background: 'radial-gradient(circle, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.95) 40%, rgba(255,255,255,0.9) 70%, rgba(255,255,255,0.85) 100%)',
+        transitionDuration: '1200ms'
       }}
     />
   );
@@ -397,11 +398,11 @@ export default function SpiritualDiary() {
                 />
                 <div>
                   <h2 className="text-lg font-bold text-yellow-300">Kiri</h2>
-                  <p className="text-xs text-purple-200">あなたの心を映す鏡</p>
+                  <p className="text-xs text-purple-200">わたしはKiri。あなたの心を映す鏡</p>
                 </div>
               </div>
               <p className="text-sm text-white/90 leading-relaxed">
-                Kiriは、あなたの心のエネルギーを映す鏡のような存在です 🌈
+                Kiriは、心のエネルギーを読み解き、あなたの日々にそっと寄り添います
               </p>
             </div>
 
@@ -574,89 +575,112 @@ export default function SpiritualDiary() {
 
           <div className="relative z-10 text-center">
             {/* 中央の光の玉（浮遊・変化） */}
-            <div className="mb-8 relative h-64">
-              {/* メインの大きな光 */}
+            <div className="mb-8 relative h-80 w-full">
+              {/* メインの大きな光 - 中央 */}
               <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                <div className="w-24 h-24 bg-gradient-to-br from-purple-300 via-pink-300 to-blue-300 rounded-full blur-xl opacity-80 animate-pulse" style={{animationDuration: '2s'}}></div>
+                <div className="w-32 h-32 bg-gradient-to-br from-purple-300 via-pink-300 to-blue-300 rounded-full blur-2xl opacity-70 animate-pulse" style={{animationDuration: `${2 + Math.random()}s`}}></div>
               </div>
               
-              {/* 周りを飛び回る小さな光の玉 */}
-              {/* 光1: 左上→右下 */}
-              <div className="absolute animate-bounce" style={{
-                top: '20%', left: '30%',
-                animationDuration: '3s',
-                animationDelay: '0s'
-              }}>
-                <div className="w-4 h-4 bg-yellow-300 rounded-full blur-sm"></div>
-              </div>
-              
-              {/* 光2: 右上→左下 */}
-              <div className="absolute animate-bounce" style={{
-                top: '25%', right: '25%',
-                animationDuration: '2.5s',
-                animationDelay: '0.5s'
-              }}>
-                <div className="w-3 h-3 bg-pink-300 rounded-full blur-sm"></div>
-              </div>
-              
-              {/* 光3: 下から上へ */}
-              <div className="absolute animate-bounce" style={{
-                bottom: '20%', left: '40%',
-                animationDuration: '2.8s',
-                animationDelay: '1s'
-              }}>
-                <div className="w-5 h-5 bg-blue-300 rounded-full blur-sm"></div>
-              </div>
-              
-              {/* 光4: ゆっくり浮遊 */}
+              {/* 大きな光×3 - 三角形配置 */}
               <div className="absolute animate-pulse" style={{
-                top: '40%', right: '30%',
-                animationDuration: '4s',
-                animationDelay: '0.3s'
+                top: '10%', left: '15%',
+                animationDuration: `${3 + Math.random() * 2}s`,
+                animationDelay: `${Math.random()}s`
               }}>
-                <div className="w-3 h-3 bg-purple-300 rounded-full blur-sm"></div>
+                <div className="w-20 h-20 bg-gradient-to-br from-yellow-300 to-orange-300 rounded-full blur-xl opacity-60"></div>
               </div>
               
-              {/* 光5: 反射するような動き */}
-              <div className="absolute animate-ping" style={{
-                top: '50%', left: '20%',
-                animationDuration: '3s',
-                animationDelay: '1.5s'
-              }}>
-                <div className="w-2 h-2 bg-indigo-300 rounded-full"></div>
-              </div>
-              
-              {/* 光6: 小さく点滅 */}
-              <div className="absolute animate-ping" style={{
-                bottom: '30%', right: '35%',
-                animationDuration: '2.5s',
-                animationDelay: '0.8s'
-              }}>
-                <div className="w-2 h-2 bg-yellow-200 rounded-full"></div>
-              </div>
-              
-              {/* 光7: 大きめでゆったり */}
               <div className="absolute animate-pulse" style={{
-                top: '60%', left: '35%',
-                animationDuration: '3.5s',
-                animationDelay: '0.2s'
+                top: '15%', right: '10%',
+                animationDuration: `${3.5 + Math.random() * 2}s`,
+                animationDelay: `${Math.random()}s`
               }}>
-                <div className="w-6 h-6 bg-pink-200 rounded-full blur-md opacity-70"></div>
+                <div className="w-24 h-24 bg-gradient-to-br from-blue-300 to-indigo-300 rounded-full blur-xl opacity-65"></div>
               </div>
               
-              {/* 光8: 色が変化する雰囲気 */}
               <div className="absolute animate-pulse" style={{
-                top: '35%', left: '50%',
-                animationDuration: '3.2s',
-                animationDelay: '1.2s'
+                bottom: '10%', left: '50%',
+                transform: 'translateX(-50%)',
+                animationDuration: `${4 + Math.random() * 2}s`,
+                animationDelay: `${Math.random()}s`
               }}>
-                <div className="w-4 h-4 rounded-full blur-sm" 
-                     style={{
-                       background: 'linear-gradient(45deg, #fbbf24, #ec4899, #8b5cf6)',
-                       backgroundSize: '200% 200%',
-                       animation: 'gradient 3s ease infinite'
-                     }}></div>
+                <div className="w-28 h-28 bg-gradient-to-br from-pink-300 to-purple-300 rounded-full blur-xl opacity-55"></div>
               </div>
+              
+              {/* 中サイズの光×5 - 広範囲に散らばる */}
+              <div className="absolute animate-bounce" style={{
+                top: `${5 + Math.random() * 20}%`, 
+                left: `${5 + Math.random() * 15}%`,
+                animationDuration: `${2.5 + Math.random() * 2}s`,
+                animationDelay: `${Math.random() * 2}s`
+              }}>
+                <div className="w-8 h-8 bg-yellow-300 rounded-full blur-md opacity-80"></div>
+              </div>
+              
+              <div className="absolute animate-bounce" style={{
+                top: `${10 + Math.random() * 20}%`, 
+                right: `${5 + Math.random() * 15}%`,
+                animationDuration: `${2.8 + Math.random() * 2}s`,
+                animationDelay: `${Math.random() * 2}s`
+              }}>
+                <div className="w-6 h-6 bg-pink-300 rounded-full blur-md opacity-75"></div>
+              </div>
+              
+              <div className="absolute animate-pulse" style={{
+                bottom: `${15 + Math.random() * 20}%`, 
+                left: `${10 + Math.random() * 20}%`,
+                animationDuration: `${3 + Math.random() * 2}s`,
+                animationDelay: `${Math.random() * 2}s`
+              }}>
+                <div className="w-7 h-7 bg-blue-300 rounded-full blur-md opacity-70"></div>
+              </div>
+              
+              <div className="absolute animate-pulse" style={{
+                bottom: `${10 + Math.random() * 20}%`, 
+                right: `${15 + Math.random() * 20}%`,
+                animationDuration: `${3.5 + Math.random() * 2}s`,
+                animationDelay: `${Math.random() * 2}s`
+              }}>
+                <div className="w-9 h-9 bg-purple-300 rounded-full blur-md opacity-65"></div>
+              </div>
+              
+              <div className="absolute animate-bounce" style={{
+                top: `${40 + Math.random() * 20}%`, 
+                left: `${5 + Math.random() * 10}%`,
+                animationDuration: `${2.2 + Math.random() * 2}s`,
+                animationDelay: `${Math.random() * 2}s`
+              }}>
+                <div className="w-5 h-5 bg-indigo-300 rounded-full blur-sm opacity-80"></div>
+              </div>
+              
+              {/* 小さな光×8 - 全体に散らばる */}
+              {Array.from({length: 8}).map((_, i) => {
+                const size = 2 + Math.random() * 3;
+                const colors = ['bg-yellow-200', 'bg-pink-200', 'bg-blue-200', 'bg-purple-200', 'bg-indigo-200'];
+                const animations = ['animate-ping', 'animate-pulse', 'animate-bounce'];
+                
+                return (
+                  <div 
+                    key={i}
+                    className={`absolute ${animations[Math.floor(Math.random() * animations.length)]}`}
+                    style={{
+                      top: `${Math.random() * 90}%`,
+                      left: `${Math.random() * 90}%`,
+                      animationDuration: `${2 + Math.random() * 3}s`,
+                      animationDelay: `${Math.random() * 2}s`
+                    }}
+                  >
+                    <div 
+                      className={`${colors[Math.floor(Math.random() * colors.length)]} rounded-full blur-sm`}
+                      style={{
+                        width: `${size}px`,
+                        height: `${size}px`,
+                        opacity: 0.6 + Math.random() * 0.3
+                      }}
+                    ></div>
+                  </div>
+                );
+              })}
             </div>
 
             {/* メッセージ */}

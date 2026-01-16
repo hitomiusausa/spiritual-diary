@@ -195,11 +195,15 @@ const colorName = Array.isArray(variants)
   };
   let direction = directionMap[todayElement] || '東';
   
+  console.log('[方角計算]', { todayElement, baseDirection: direction, biorhythm });
+  
   // バイオリズムで微調整
   if (direction === '北' && biorhythm.e > 30) direction = '北東';
   if (direction === '東' && biorhythm.p > 30) direction = '南東';
   if (direction === '南' && biorhythm.i > 30) direction = '南西';
   if (direction === '西' && biorhythm.e < -30) direction = '北西';
+  
+  console.log('[方角計算] 最終:', direction);
 
 // 距離感の計算（語彙さらに拡張版）
 let distanceValue = '';
@@ -445,6 +449,8 @@ export async function POST(request) {
 
     const timeForCalc = /^\d{2}:\d{2}$/.test(birthTime) ? birthTime : "12:00";
     const hasBirthTime = /^\d{2}:\d{2}$/.test(birthTime);
+    
+    console.log('[出生時刻]', { birthTime, hasBirthTime, timeForCalc });
 
     // 生まれた時の四柱推命
     const [y, m, d] = birthDate.split("-").map(v => Number(v));
@@ -454,6 +460,8 @@ export async function POST(request) {
     const birthLunar = birthSolar.getLunar();
     const birthLunarFullString = birthLunar.toFullString();
     const birthSaju = parseSajuFromLunarFullString(birthLunarFullString);
+    
+    console.log('[生まれた時の四柱推命]', birthSaju);
     
     // 時柱が取得できない場合、時柱を直接取得
     if (!birthSaju.hour) {
@@ -481,6 +489,8 @@ export async function POST(request) {
     );
     const todayLunar = todaySolar.getLunar();
     const todaySaju = parseSajuFromLunarFullString(todayLunar.toFullString());
+    
+    console.log('[今日の四柱推命]', todaySaju);
 
     // 時運（出生時刻がある場合のみ）
     let todayHourPillar = "";
@@ -603,6 +613,7 @@ ${nickname ? `- ${nickname}さんと呼びかけ、親しみやすく温かく` 
 - 押し付けがましくなく、寄り添うように
 - テーマ別運勢を自然に織り込む
 - 実践しやすく、受け身でも楽しめる内容
+- 文が単調にならないように、語彙のバリエーション、文末、文の長さに変化をつけるよう心がける。
 
 【文体ルール】
 - 丁寧体（です・ます調）で統一
