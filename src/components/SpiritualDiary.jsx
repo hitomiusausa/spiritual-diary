@@ -19,8 +19,8 @@ export default function SpiritualDiary() {
   });
   const [placeholders, setPlaceholders] = useState({
     mood: '例: 穏やかで少し眠い',
-    event: '例: 朝のコーヒーが美味しくて気分が上がった。今日までの仕事も無事終わらせることができた。',
-    intuition: '例: 今日は大切な人との繋がりを感じる日'
+    event: '例: 朝のコーヒーが美味しくて気分が上がった。今日までの仕事も無事終わらせることができた。/nこれから買い物に行って、晩酌しながらドラマの続きを観る予定。',
+    intuition: '例: 大切な人との繋がりを感じる'
   });
   const [loadingPlaceholders, setLoadingPlaceholders] = useState(false);
   const [result, setResult] = useState(null);
@@ -42,6 +42,26 @@ export default function SpiritualDiary() {
     distance: false 
   });
   const [isTransitioning, setIsTransitioning] = useState(false);
+
+  // テキスト内の**強調**を処理する関数
+  const renderHighlightedText = (text) => {
+    if (!text) return null;
+    
+    // **テキスト** を太字+黄色に変換
+    const parts = text.split(/(\*\*[^*]+\*\*)/g);
+    
+    return parts.map((part, index) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        const content = part.slice(2, -2);
+        return (
+          <strong key={index} className="font-bold text-yellow-300 drop-shadow-md">
+            {content}
+          </strong>
+        );
+      }
+      return <span key={index}>{part}</span>;
+    });
+  };
 
   // 絵文字24種類（感情タイプ別）
   const emojis = [
@@ -402,7 +422,7 @@ export default function SpiritualDiary() {
                 </div>
               </div>
               <p className="text-sm text-white/90 leading-relaxed">
-                Kiriは、バイオリズム×四柱推命から心のエネルギーを読み解き、あなたの日々にそっと寄り添います
+                Kiriは、心のエネルギーを読み解き、あなたの日々にそっと寄り添います
               </p>
             </div>
 
@@ -915,24 +935,25 @@ export default function SpiritualDiary() {
                       </div>
                     </div>
 
-                    {result.saju.taiun && (
-                      <div>
-                        <h3 className="text-xs font-bold text-purple-200 mb-2">🌌 大運（中長期）</h3>
-                        <div className="bg-purple-500/20 p-3 rounded-lg">
-                          <div className="flex justify-between items-center">
-                            <span className="text-xs text-purple-200">現在の大運</span>
-                            <span className="text-xs text-purple-300">{result.saju.taiun.age}歳〜</span>
+                    <div>
+                      <h3 className="text-xs font-bold text-blue-200 mb-2">🌌 大運（中長期）</h3>
+                      <div className="grid grid-cols-2 gap-2">
+                        {result.saju.taiun && (
+                          <div className="bg-blue-500/20 p-2 rounded-lg">
+                            <p className="text-xs text-blue-200">現在の大運</p>
+                            <p className="font-bold text-sm text-white">{result.saju.taiun.pillar}</p>
+                            <p className="text-xs text-blue-300 mt-0.5">{result.saju.taiun.age}歳〜</p>
                           </div>
-                          <p className="font-bold text-white mt-1">{result.saju.taiun.pillar}</p>
-                        </div>
+                        )}
+                        {result.saju.note && (
+                          <div className="bg-blue-500/20 p-2 rounded-lg flex items-center">
+                            <p className="text-xs text-blue-200">
+                              ℹ️ {result.saju.note}
+                            </p>
+                          </div>
+                        )}
                       </div>
-                    )}
-
-                    {result.saju.note && (
-                      <div className="text-xs text-purple-200 bg-purple-500/20 p-2 rounded">
-                        ℹ️ {result.saju.note}
-                      </div>
-                    )}
+                    </div>
                   </div>
                 </CollapsibleSection>
               )}
@@ -1013,20 +1034,26 @@ export default function SpiritualDiary() {
                   <h2 className="text-lg font-bold drop-shadow-md">Kiriが映すあなたのエネルギー</h2>
                 </div>
                 <div className="bg-black/15 p-3 rounded-lg backdrop-blur-sm">
-                  <p className="text-sm leading-relaxed whitespace-pre-line text-white drop-shadow-sm">{result.deepMessage}</p>
+                  <p className="text-sm leading-relaxed whitespace-pre-line text-white drop-shadow-sm">
+                    {renderHighlightedText(result.deepMessage)}
+                  </p>
                 </div>
               </div>
 
               {result.innerMessage && (
                 <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-purple-300/30">
                   <h2 className="text-base font-bold text-purple-300 mb-2">💫 あなたの直感から読み取ったメッセージ</h2>
-                  <p className="text-white text-sm leading-relaxed">{result.innerMessage}</p>
+                  <p className="text-white text-sm leading-relaxed">
+                    {renderHighlightedText(result.innerMessage)}
+                  </p>
                 </div>
               )}
 
               <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-purple-300/30">
                 <h2 className="text-base font-bold text-green-300 mb-2">🎯 Kiriからのアドバイス</h2>
-                <p className="text-white text-sm leading-relaxed whitespace-pre-line">{result.actionAdvice}</p>
+                <p className="text-white text-sm leading-relaxed whitespace-pre-line">
+                  {renderHighlightedText(result.actionAdvice)}
+                </p>
               </div>
 
 
