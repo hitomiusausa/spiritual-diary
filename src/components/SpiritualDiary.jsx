@@ -755,28 +755,29 @@ export default function SpiritualDiary() {
           onClose={() => setShowThemeInfo(false)}
           title="🌟 テーマ別運勢の算出方法"
         >
-     <p>このスコアは、以下を総合的に判断しています。</p>
-<div className="space-y-2 mt-3">
-  <div className="bg-white/10 p-3 rounded-lg">
-    <p className="font-bold text-yellow-300">四柱推命</p>
-    <p className="text-xs mt-1">生まれた日と今日の五行の相性（主要因）</p>
-  </div>
-  <div className="bg-white/10 p-3 rounded-lg">
-    <p className="font-bold text-blue-400">バイオリズム</p>
-    <p className="text-xs mt-1">身体・感情・知性の周期的な波（主要因）</p>
-  </div>
-  <div className="bg-white/10 p-3 rounded-lg">
-    <p className="font-bold text-pink-400">今日の気分</p>
-    <p className="text-xs mt-1">気分の絵文字から読み取った雰囲気（微調整）</p>
-  </div>
-  {hasBirthTime && (
-    <div className="bg-white/10 p-3 rounded-lg">
-      <p className="font-bold text-purple-400">時柱の相性</p>
-      <p className="text-xs mt-1">出生時刻による精密化（記入された場合）</p>
-    </div>
-  )}
-</div>
-<p className="mt-3 text-xs text-purple-200">※これらをKiriの直感で組み合わせています。</p>
+          <p>このスコアは、以下を総合的に判断しています。</p>
+          <div className="space-y-2 mt-3">
+            <div className="bg-white/10 p-3 rounded-lg">
+              <p className="font-bold text-yellow-300">四柱推命</p>
+              <p className="text-xs mt-1">生まれた日と今日の五行の相性（主要因）</p>
+            </div>
+            <div className="bg-white/10 p-3 rounded-lg">
+              <p className="font-bold text-blue-400">バイオリズム</p>
+              <p className="text-xs mt-1">身体・感情・知性の周期的な波（主要因）</p>
+            </div>
+            <div className="bg-white/10 p-3 rounded-lg">
+              <p className="font-bold text-pink-400">今日の気分</p>
+              <p className="text-xs mt-1">気分の絵文字から読み取った雰囲気（微調整）</p>
+            </div>
+            {result.saju?.birth?.hour && (
+              <div className="bg-white/10 p-3 rounded-lg">
+                <p className="font-bold text-purple-400">時柱の相性</p>
+                <p className="text-xs mt-1">出生時刻による精密化</p>
+              </div>
+            )}
+          </div>
+          <p className="mt-3 text-xs text-purple-200">※これらをKiriの直感で組み合わせています。</p>
+        </InfoPopup>
 
         <InfoPopup 
           show={showHintInfo.color} 
