@@ -402,7 +402,7 @@ export default function SpiritualDiary() {
                 </div>
               </div>
               <p className="text-sm text-white/90 leading-relaxed">
-                Kiriは、心のエネルギーを読み解き、あなたの日々にそっと寄り添います
+                Kiriは、バイオリズム×四柱推命から心のエネルギーを読み解き、あなたの日々にそっと寄り添います
               </p>
             </div>
 
@@ -739,12 +739,12 @@ export default function SpiritualDiary() {
               <p className="text-xs mt-1">年柱・月柱・日柱・時柱の4つの柱から、あなたの本質を表します</p>
             </div>
             <div className="bg-white/10 p-3 rounded-lg">
-              <p className="font-bold text-yellow-300">日運・月運・年運（今の運勢）</p>
-              <p className="text-xs mt-1">現在の時間の柱から、今日・今月・今年の運勢を読み解きます</p>
+              <p className="font-bold text-yellow-300">日運・時運（今この瞬間の運勢）</p>
+              <p className="text-xs mt-1">日運は毎日変わり、時運は2時間ごとに変わります。このアプリでは特にこの2つを重視しています</p>
             </div>
             <div className="bg-white/10 p-3 rounded-lg">
-              <p className="font-bold text-yellow-300">大運（人生の流れ）</p>
-              <p className="text-xs mt-1">10年周期で変わる大きな運勢の流れを示します</p>
+              <p className="font-bold text-blue-300">月運・年運・大運（背景の流れ）</p>
+              <p className="text-xs mt-1">月運は今月、年運は今年、大運は10年周期の大きな流れを示します（参考情報）</p>
             </div>
           </div>
           <p className="mt-3 text-xs text-purple-200">※本アプリでは lunar-javascript ライブラリを使用して算出しています。</p>
@@ -907,16 +907,10 @@ export default function SpiritualDiary() {
                         <div className="bg-blue-500/20 p-2 rounded-lg">
                           <p className="text-xs text-blue-200">月運（今月）</p>
                           <p className="font-bold text-sm text-white">{result.saju.today.month}</p>
-                          {result.saju.today.monthDescription && (
-                            <p className="text-xs text-blue-100 mt-1">{result.saju.today.monthDescription}</p>
-                          )}
                         </div>
                         <div className="bg-blue-500/20 p-2 rounded-lg">
                           <p className="text-xs text-blue-200">年運（今年）</p>
                           <p className="font-bold text-sm text-white">{result.saju.today.year}</p>
-                          {result.saju.today.yearDescription && (
-                            <p className="text-xs text-blue-100 mt-1">{result.saju.today.yearDescription}</p>
-                          )}
                         </div>
                       </div>
                     </div>
@@ -925,12 +919,11 @@ export default function SpiritualDiary() {
                       <div>
                         <h3 className="text-xs font-bold text-purple-200 mb-2">🌌 大運（中長期）</h3>
                         <div className="bg-purple-500/20 p-3 rounded-lg">
-                          <div className="flex justify-between items-center mb-1">
+                          <div className="flex justify-between items-center">
                             <span className="text-xs text-purple-200">現在の大運</span>
                             <span className="text-xs text-purple-300">{result.saju.taiun.age}歳〜</span>
                           </div>
-                          <p className="font-bold text-white">{result.saju.taiun.pillar}</p>
-                          <p className="text-xs text-purple-200 mt-1">{result.saju.taiun.description}</p>
+                          <p className="font-bold text-white mt-1">{result.saju.taiun.pillar}</p>
                         </div>
                       </div>
                     )}

@@ -382,55 +382,9 @@ function calculateTaiun(birthYear, birthMonth, currentAge) {
 
   const pillar = stems[stemIndex] + branches[branchIndex];
 
-
-  // 大運の語彙バリエーション
-  const descriptions = [
-    [
-      '基盤を築く時期。じっくりと実力を蓄える流れ。',
-      '足元を固める10年。急がず、整えることが力になる。',
-      '土台づくりがテーマの期間。後から効いてくる。'
-    ],
-    [
-      '変化と挑戦の時期。新しい可能性に触れやすい。',
-      '動きが生まれやすい10年。試してみる価値がある。',
-      'これまでと違う選択肢が目に入りやすい流れ。'
-    ],
-    [
-      '成長と発展の時期。広がりを感じやすい。',
-      '手応えを感じやすい10年。積み上げが形になる。',
-      '伸びる方向が見えやすい期間。焦らなくていい。'
-    ],
-    [
-      '安定と調和の時期。内側を整える流れ。',
-      '落ち着きが生まれやすい10年。守ることで育つ。',
-      '外よりも内を充実させることが鍵になりそう。'
-    ],
-    [
-      '変革の時期。古いものを手放しやすい。',
-      '切り替えが起きやすい10年。終わりは始まり。',
-      '役割や価値観が入れ替わる流れに入りやすい。'
-    ],
-    [
-      '充実と達成の時期。積み重ねが実を結びやすい。',
-      '結果が見えやすい10年。評価はあとからついてくる。',
-      'これまでの流れが一度まとまりやすい期間。'
-    ],
-    [
-      '調整の時期。バランスを取り戻す流れ。',
-      '微調整がテーマの10年。無理をしない選択が◎。',
-      '立ち止まりながら整えることで先が楽になる。'
-    ],
-    [
-      '内省と準備の時期。次の流れに備える。',
-      '表に出るより、内側を育てる10年。',
-      '静かな準備期間。ここで蓄えたものが次に活きる。'
-    ]
-  ];
-
   return {
     age: taiunStart,
-    pillar: pillar,
-    description: pick(descriptions[taiunIndex % descriptions.length])
+    pillar: pillar
   };
 }
 
@@ -466,30 +420,6 @@ function getDayDescription(dayPillar) {
   };
   
   return element ? pick(descriptions[element]) : '今日という一日。';
-}
-
-// 月運のdescriptionを生成
-function getMonthDescription(monthPillar) {
-  const descriptions = [
-    '今月は変化の兆しがある時期。',
-    '今月は落ち着いた流れの中にいる。',
-    '今月は新しい展開を感じやすい。',
-    '今月は整理と調整に向いている。',
-    '今月は内省的になりやすい期間。'
-  ];
-  return pick(descriptions);
-}
-
-// 年運のdescriptionを生成
-function getYearDescription(yearPillar) {
-  const descriptions = [
-    '今年は大きな変化の年。',
-    '今年は基盤を固める年。',
-    '今年は発展と成長の年。',
-    '今年は調整とバランスの年。',
-    '今年は内面を育てる年。'
-  ];
-  return pick(descriptions);
 }
 
 // 時運のdescriptionを生成
@@ -665,14 +595,14 @@ export async function POST(request) {
 ${hasBirthTime ? `時運: ${todayHourPillar} ← 現在時刻(${hourNowJST}時)の運勢` : ''}
 
 【大運（10年周期の中長期運）】
-現在の大運: ${taiun.pillar} (${currentAge}歳〜、${taiun.description})
+現在の大運: ${taiun.pillar} (${currentAge}歳〜)
 
 ※${sajuNote}
 
 ※四柱推命の解釈ポイント（参考。すべてに触れる必要はありません）:
-- 日柱（本命）と日運の相性が今日の調子を左右します
-- 月運・年運は背景として作用します
-- 大運は人生の大きな流れを示します
+- 日運と時運が今日の調子を左右します（最重要）
+- 日柱（本命）と日運の相性も影響します
+- 月運・年運・大運は背景として作用します（メッセージで詳しく触れる必要はありません）
 
 【バイオリズム】
 身体: ${biorhythm.p}%
@@ -755,11 +685,12 @@ ${nickname ? `- ${nickname}さんと呼びかけ、親しみやすく温かく` 
 必ず JSONのみ。前後の説明文、装飾、\`\`\` は禁止。
 {
   "deepMessage": "Kiriからの観測と翻訳。${namePrefix}から始める。導入→今日の全体的な流れ→テーマ別運勢（特に高い/低いものを各1つ以上）→今のユーザーの状態の言語化、の順で記述する。やや長めでもよい。",
-  ※導入→今日の全体的な流れ→テーマ別運勢の中身と全体の流れが定型的で平凡なものにならないよう、変化をつける。
+  ※導入が定型的にならないよう、変化をつける。例えば毎回時間帯や季節感に関することに言及するのはやめる。
+  ※導入→今日の全体的な流れ→テーマ別運勢という全体の流れが型通りの平凡なものにならないよう、時折文脈に変化をつける。
   ※短くまとめすぎず、段落を意識して丁寧に言葉を重ねてよい。
    ※語彙や文のまとまりが重複して単調にならないよう、文の流れに変化をつける。
    ※謎めいた存在として、性別を感じさせない言葉を使う。
-   ※ありきたりの言葉・文ではなく、ユーザーの内面を掘り下げた文体でユーザーを惹きつける。
+   ※抽象的・ありきたりな言葉・文ではなく、ユーザーの内面を掘り下げた文体でユーザーを惹きつける。
 
   "innerMessage": "直感についての洞察。deepMessageの補足として、感情・身体感覚・迷いなどの内側の動きに焦点を当てて書く。",
   
@@ -820,9 +751,7 @@ ${nickname ? `- ${nickname}さんと呼びかけ、親しみやすく温かく` 
           },
           today: {
             year: todaySaju.year,
-            yearDescription: getYearDescription(todaySaju.year),
             month: todaySaju.month,
-            monthDescription: getMonthDescription(todaySaju.month),
             day: todaySaju.day,
             dayDescription: getDayDescription(todaySaju.day),
             hour: hasBirthTime ? todayHourPillar : null,
