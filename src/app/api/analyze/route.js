@@ -434,6 +434,78 @@ function calculateTaiun(birthYear, birthMonth, currentAge) {
   };
 }
 
+// 日運のdescriptionを生成
+function getDayDescription(dayPillar) {
+  const element = getElement(dayPillar);
+  const descriptions = {
+    '木': [
+      '伸びやかなエネルギーが流れている日。',
+      '新しいことを始めるのに向いている時。',
+      '成長の予感がある一日。'
+    ],
+    '火': [
+      '情熱と行動力が高まりやすい日。',
+      '直感が冴える時間。',
+      '明るい展開を感じやすい一日。'
+    ],
+    '土': [
+      '落ち着いて整理できる日。',
+      '安定感を感じやすい時。',
+      'じっくり取り組むのに適した一日。'
+    ],
+    '金': [
+      '冷静な判断がしやすい日。',
+      '整理整頓が心地よく感じられる時。',
+      '明確さを求めたくなる一日。'
+    ],
+    '水': [
+      '柔軟に対応できる日。',
+      '流れに身を任せるのが良い時。',
+      '直感を信じやすい一日。'
+    ]
+  };
+  
+  return element ? pick(descriptions[element]) : '今日という一日。';
+}
+
+// 月運のdescriptionを生成
+function getMonthDescription(monthPillar) {
+  const descriptions = [
+    '今月は変化の兆しがある時期。',
+    '今月は落ち着いた流れの中にいる。',
+    '今月は新しい展開を感じやすい。',
+    '今月は整理と調整に向いている。',
+    '今月は内省的になりやすい期間。'
+  ];
+  return pick(descriptions);
+}
+
+// 年運のdescriptionを生成
+function getYearDescription(yearPillar) {
+  const descriptions = [
+    '今年は大きな変化の年。',
+    '今年は基盤を固める年。',
+    '今年は発展と成長の年。',
+    '今年は調整とバランスの年。',
+    '今年は内面を育てる年。'
+  ];
+  return pick(descriptions);
+}
+
+// 時運のdescriptionを生成
+function getHourDescription(hourPillar) {
+  const element = getElement(hourPillar);
+  const descriptions = {
+    '木': ['今の時間は伸びやかな気配。', '今は動きを感じやすい時間。'],
+    '火': ['今の時間は明るい勢い。', '今は活気を感じる時間。'],
+    '土': ['今の時間は落ち着いた安定感。', '今は穏やかな時間。'],
+    '金': ['今の時間は整った冷静さ。', '今は明確さを感じる時間。'],
+    '水': ['今の時間は流れるような柔らかさ。', '今は適応しやすい時間。']
+  };
+  
+  return element ? pick(descriptions[element]) : '今という時間。';
+}
+
 
 function jstHour() {
   return new Date(
@@ -520,8 +592,21 @@ export async function POST(request) {
     // 時運（出生時刻がある場合のみ）
     let todayHourPillar = "";
     if (hasBirthTime) {
-      todayHourPillar = todaySaju.hour || "";
+      todayHourPillar = todaySaju.hour;
+      
+      // 時柱が取れない場合は直接取得を試みる
+      if (!todayHourPillar) {
+        try {
+          const timeGan = todayLunar.getTimeGan();
+          const timeZhi = todayLunar.getTimeZhi();
+          todayHourPillar = timeGan + timeZhi;
+        } catch (e) {
+          console.error('Failed to get today hour pillar:', e);
+        }
+      }
     }
+    
+    console.log('[時運]', { hasBirthTime, todayHourPillar });
 
     // 大運の計算
     const birthYear = y;
@@ -735,9 +820,13 @@ ${nickname ? `- ${nickname}さんと呼びかけ、親しみやすく温かく` 
           },
           today: {
             year: todaySaju.year,
+            yearDescription: getYearDescription(todaySaju.year),
             month: todaySaju.month,
+            monthDescription: getMonthDescription(todaySaju.month),
             day: todaySaju.day,
+            dayDescription: getDayDescription(todaySaju.day),
             hour: hasBirthTime ? todayHourPillar : null,
+            hourDescription: hasBirthTime && todayHourPillar ? getHourDescription(todayHourPillar) : null,
           },
           taiun: taiun,
           note: sajuNote,

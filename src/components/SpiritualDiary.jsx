@@ -755,23 +755,28 @@ export default function SpiritualDiary() {
           onClose={() => setShowThemeInfo(false)}
           title="🌟 テーマ別運勢の算出方法"
         >
-          <p>このスコアは、以下の3つの要素から算出されています。</p>
-          <div className="space-y-2 mt-3">
-            <div className="bg-white/10 p-3 rounded-lg">
-              <p className="font-bold text-yellow-300">四柱推命（40%）</p>
-              <p className="text-xs mt-1">生まれた日と今日の五行の相性</p>
-            </div>
-            <div className="bg-white/10 p-3 rounded-lg">
-              <p className="font-bold text-blue-400">バイオリズム（30%）</p>
-              <p className="text-xs mt-1">身体・感情・知性の周期的な波</p>
-            </div>
-            <div className="bg-white/10 p-3 rounded-lg">
-              <p className="font-bold text-pink-400">あなたのコメント（30%）</p>
-              <p className="text-xs mt-1">気分の絵文字と文章から読み取った雰囲気</p>
-            </div>
-          </div>
-          <p className="mt-3 text-xs text-purple-200">※これらをKiriの直感で組み合わせています。</p>
-        </InfoPopup>
+     <p>このスコアは、以下を総合的に判断しています。</p>
+<div className="space-y-2 mt-3">
+  <div className="bg-white/10 p-3 rounded-lg">
+    <p className="font-bold text-yellow-300">四柱推命</p>
+    <p className="text-xs mt-1">生まれた日と今日の五行の相性（主要因）</p>
+  </div>
+  <div className="bg-white/10 p-3 rounded-lg">
+    <p className="font-bold text-blue-400">バイオリズム</p>
+    <p className="text-xs mt-1">身体・感情・知性の周期的な波（主要因）</p>
+  </div>
+  <div className="bg-white/10 p-3 rounded-lg">
+    <p className="font-bold text-pink-400">今日の気分</p>
+    <p className="text-xs mt-1">気分の絵文字から読み取った雰囲気（微調整）</p>
+  </div>
+  {hasBirthTime && (
+    <div className="bg-white/10 p-3 rounded-lg">
+      <p className="font-bold text-purple-400">時柱の相性</p>
+      <p className="text-xs mt-1">出生時刻による精密化（記入された場合）</p>
+    </div>
+  )}
+</div>
+<p className="mt-3 text-xs text-purple-200">※これらをKiriの直感で組み合わせています。</p>
 
         <InfoPopup 
           show={showHintInfo.color} 
@@ -800,7 +805,7 @@ export default function SpiritualDiary() {
         >
           <p>この方角は、五行の方位論（風水）から導いています。</p>
           <p className="mt-2">五行（木火土金水）にはそれぞれ方角があり、今日の運勢の五行とバイオリズムから、Kiriが感じた方向をお伝えしています。</p>
-          <p className="mt-2 text-purple-200 text-xs">気にしなくても大丈夫。気が向いたときだけ、Kiriに寄り添ってみてください。</p>
+          <p className="mt-2 text-purple-200 text-xs">気にしなくても大丈夫。気が向いたときだけ、Kiriと視線を合わせてみてください。</p>
         </InfoPopup>
 
         <InfoPopup 
@@ -879,11 +884,17 @@ export default function SpiritualDiary() {
                         <div className="bg-yellow-500/20 p-2 rounded-lg">
                           <p className="text-xs text-yellow-200">日運（今日）</p>
                           <p className="font-bold text-sm text-white">{result.saju.today.day}</p>
+                          {result.saju.today.dayDescription && (
+                            <p className="text-xs text-yellow-100 mt-1">{result.saju.today.dayDescription}</p>
+                          )}
                         </div>
                         {result.saju.today.hour && (
                           <div className="bg-yellow-500/20 p-2 rounded-lg">
                             <p className="text-xs text-yellow-200">時運（現在）</p>
                             <p className="font-bold text-sm text-white">{result.saju.today.hour}</p>
+                            {result.saju.today.hourDescription && (
+                              <p className="text-xs text-yellow-100 mt-1">{result.saju.today.hourDescription}</p>
+                            )}
                           </div>
                         )}
                       </div>
@@ -895,10 +906,16 @@ export default function SpiritualDiary() {
                         <div className="bg-blue-500/20 p-2 rounded-lg">
                           <p className="text-xs text-blue-200">月運（今月）</p>
                           <p className="font-bold text-sm text-white">{result.saju.today.month}</p>
+                          {result.saju.today.monthDescription && (
+                            <p className="text-xs text-blue-100 mt-1">{result.saju.today.monthDescription}</p>
+                          )}
                         </div>
                         <div className="bg-blue-500/20 p-2 rounded-lg">
                           <p className="text-xs text-blue-200">年運（今年）</p>
                           <p className="font-bold text-sm text-white">{result.saju.today.year}</p>
+                          {result.saju.today.yearDescription && (
+                            <p className="text-xs text-blue-100 mt-1">{result.saju.today.yearDescription}</p>
+                          )}
                         </div>
                       </div>
                     </div>
