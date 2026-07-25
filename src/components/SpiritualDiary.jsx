@@ -42,6 +42,7 @@ export default function SpiritualDiary() {
     direction: false, 
     distance: false 
   });
+  const [showPremiumInfo, setShowPremiumInfo] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
 
   useEffect(() => {
@@ -860,6 +861,20 @@ export default function SpiritualDiary() {
           <p className="mt-2 text-purple-200 text-xs">正解はないので、心地よい距離を自分で選んでくださいね。</p>
         </InfoPopup>
 
+        <InfoPopup
+          show={showPremiumInfo}
+          onClose={() => setShowPremiumInfo(false)}
+          title="💬 Kiriとの対話（プレミアム）"
+        >
+          <p>今日の占い結果と過去の記録をもとに、Kiriへ続けて相談できる機能です。</p>
+          <div className="bg-white/10 p-3 rounded-lg space-y-1.5">
+            <p>・今日の無料占い結果：このまま利用できます</p>
+            <p>・端末内の履歴保存：この端末で利用できます</p>
+            <p>・Kiriとの対話：有料機能として準備中です</p>
+          </div>
+          <p className="text-xs text-purple-200">購入機能はまだ接続されていません。App Store公開前にStoreKitまたはRevenueCatとサーバー側の購読確認を追加します。</p>
+        </InfoPopup>
+
         <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 p-4 pb-20">
           <div className="max-w-2xl mx-auto">
             <div className="text-center mb-4 pt-2">
@@ -1112,17 +1127,22 @@ export default function SpiritualDiary() {
               </div>
 
               <div className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 rounded-xl p-4 border-2 border-yellow-400/50">
-                <div className="flex items-start gap-3">
+                  <div className="flex items-start gap-3">
                   <Lock className="text-yellow-300 w-6 h-6 flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
                     <h3 className="text-base font-bold text-yellow-300 mb-1">プレミアム版</h3>
+                    <p className="text-xs text-yellow-100/90 mb-2">今日の占い結果は無料。Kiriとの継続チャットは有料オプションです。</p>
                     <ul className="text-white space-y-0.5 mb-2 text-xs">
                       <li>📚 過去の記録を全て閲覧</li>
                       <li>📊 あなた専用のパターン分析</li>
                       <li>💬 Kiriとの対話無制限</li>
                     </ul>
-                    <button className="bg-gradient-to-r from-yellow-400 to-orange-500 text-black px-4 py-2 rounded-lg text-sm font-bold hover:scale-[1.02] active:scale-[0.98] transition-transform shadow-md">
-                      月額500円
+                    <button
+                      type="button"
+                      onClick={() => setShowPremiumInfo(true)}
+                      className="bg-gradient-to-r from-yellow-400 to-orange-500 text-black px-4 py-2 rounded-lg text-sm font-bold hover:scale-[1.02] active:scale-[0.98] transition-transform shadow-md"
+                    >
+                      詳細を見る
                     </button>
                   </div>
                 </div>
