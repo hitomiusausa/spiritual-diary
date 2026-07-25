@@ -38,6 +38,21 @@ describe("saju calculation contract", () => {
     expect(chart.hour).toBeTruthy();
   });
 
+  it("keeps the selected sect-2 convention stable at the 23:00 boundary", () => {
+    const before = calculateBirthChart({
+      birthDate: "1988-02-15",
+      birthTime: "22:30",
+    });
+    const after = calculateBirthChart({
+      birthDate: "1988-02-15",
+      birthTime: "23:30",
+    });
+
+    expect(before.day).toBe("庚子");
+    expect(after.day).toBe("庚子");
+    expect(after.hour).toBe("戊子");
+  });
+
   it("rejects impossible dates and times", () => {
     expect(() => parseBirthInput("1999-02-29")).toThrow();
     expect(() => parseBirthInput("1999-06-07", "24:00")).toThrow();
