@@ -284,7 +284,7 @@ export default function SpiritualDiary() {
 
     return (
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
-        <div className="bg-gradient-to-br from-purple-900 to-indigo-900 rounded-2xl p-6 max-w-md w-full border-2 border-purple-400/50 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="kiri-card-strong rounded-2xl p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xl font-bold text-yellow-300">{title}</h3>
             <button onClick={onClose} className="text-white hover:bg-white/20 rounded-full p-1">
@@ -385,8 +385,8 @@ export default function SpiritualDiary() {
       <>
         <WhiteoutTransition />
         <ErrorBanner />
-        <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 p-4 flex items-center justify-center">
-          <div className="w-full max-w-md bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-purple-300/30 shadow-2xl">
+        <div className="min-h-screen kiri-shell p-4 flex items-center justify-center">
+          <div className="w-full max-w-md kiri-card rounded-2xl p-6">
             <div className="text-center mb-6">
               <Sparkles className="w-12 h-12 text-yellow-300 mx-auto mb-3" />
               <h1 className="text-2xl font-bold text-white mb-1">Mind & Energy Note</h1>
@@ -394,7 +394,7 @@ export default function SpiritualDiary() {
             </div>
 
             {/* Kiriの紹介 */}
-            <div className="bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-xl p-4 mb-6 border border-purple-300/30">
+            <div className="kiri-card-strong rounded-xl p-4 mb-6">
               <div className="flex items-center gap-3 mb-2">
                 <img 
                   src="/kiri.png" 
@@ -500,7 +500,7 @@ export default function SpiritualDiary() {
               <button
                 onClick={() => birthDate && setStep('input')}
                 disabled={!birthDate}
-                className="w-full bg-gradient-to-r from-pink-500 to-purple-500 text-white py-3 rounded-xl font-bold text-sm hover:scale-[1.02] active:scale-[0.98] transition-transform disabled:opacity-50 shadow-lg"
+                className="w-full kiri-button py-3 rounded-xl font-bold text-sm hover:scale-[1.01] active:scale-[0.98] transition-transform disabled:opacity-50"
               >
                 はじめる
               </button>
@@ -516,7 +516,7 @@ export default function SpiritualDiary() {
       <>
         <WhiteoutTransition />
         <ErrorBanner />
-        <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 p-4 pb-20">
+        <div className="min-h-screen kiri-shell p-4 pb-20">
           <div className="max-w-2xl mx-auto">
             <div className="text-center mb-4 pt-2">
               <h1 className="text-xl font-bold text-white mb-1">
@@ -527,7 +527,7 @@ export default function SpiritualDiary() {
             </div>
 
             <div className="space-y-3">
-              <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-purple-300/30">
+              <div className="kiri-card rounded-xl p-4">
                 <div className="space-y-4">
                   <div>
                     <label className="block text-white text-sm mb-2 font-medium text-center">💖 今日の気分（絵文字を選んでください）</label>
@@ -569,7 +569,7 @@ export default function SpiritualDiary() {
                   <button
                     onClick={analyze}
                     disabled={!entry.event || loading}
-                    className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white py-3 rounded-xl font-bold hover:scale-[1.02] active:scale-[0.98] transition-transform disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                    className="w-full kiri-button py-3 rounded-xl font-bold hover:scale-[1.01] active:scale-[0.98] transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {loading ? (
                       <span className="flex items-center justify-center gap-2 text-sm">
@@ -605,7 +605,7 @@ export default function SpiritualDiary() {
       <>
         <WhiteoutTransition />
         <ErrorBanner />
-        <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 p-4 flex items-center justify-center relative overflow-hidden">
+        <div className="min-h-screen kiri-shell p-4 flex items-center justify-center relative overflow-hidden">
           {/* 背景の大きな光の玉 */}
           <div className="absolute inset-0 opacity-40">
             <div className="absolute top-1/4 left-1/4 w-32 h-32 bg-purple-500 rounded-full blur-3xl animate-pulse" style={{animationDuration: '3s'}}></div>
@@ -617,7 +617,7 @@ export default function SpiritualDiary() {
 
           <div className="relative z-10 text-center">
             {/* 中央の光の玉（浮遊・変化） */}
-            <div className="mb-8 relative h-80 w-full">
+            <div className="kiri-orbit mb-8 relative h-20 w-full" aria-hidden="true">
               {/* メインの大きな光 - 中央 */}
               <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
                 <div className="w-32 h-32 bg-gradient-to-br from-purple-300 via-pink-300 to-blue-300 rounded-full blur-2xl opacity-70 animate-pulse" style={{animationDuration: `${2 + Math.random()}s`}}></div>
@@ -1064,7 +1064,7 @@ export default function SpiritualDiary() {
               )}
 
               {/* メインメッセージ */}
-              <div className="bg-gradient-to-br from-yellow-400/80 via-orange-400/70 to-pink-400/60 rounded-xl p-4 text-white shadow-lg backdrop-blur-sm">
+              <div className="kiri-card-strong rounded-xl p-4 text-white">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-3xl">{result.time === '朝' ? '🌅' : result.time === '昼' ? '☀️' : '🌙'}</span>
                   <h2 className="text-lg font-bold drop-shadow-md">Kiriが映すあなたのエネルギー</h2>
@@ -1126,7 +1126,7 @@ export default function SpiritualDiary() {
                 </div>
               </div>
 
-              <div className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 rounded-xl p-4 border-2 border-yellow-400/50">
+              <div className="kiri-card-strong rounded-xl p-4">
                   <div className="flex items-start gap-3">
                   <Lock className="text-yellow-300 w-6 h-6 flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
@@ -1140,7 +1140,7 @@ export default function SpiritualDiary() {
                     <button
                       type="button"
                       onClick={() => setShowPremiumInfo(true)}
-                      className="bg-gradient-to-r from-yellow-400 to-orange-500 text-black px-4 py-2 rounded-lg text-sm font-bold hover:scale-[1.02] active:scale-[0.98] transition-transform shadow-md"
+                      className="kiri-button px-4 py-2 rounded-lg text-sm font-bold hover:scale-[1.01] active:scale-[0.98] transition-transform"
                     >
                       詳細を見る
                     </button>
