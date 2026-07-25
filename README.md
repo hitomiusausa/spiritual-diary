@@ -20,7 +20,7 @@ cp .env.example .env.local # まだ存在しない場合は CLAUDE_API_KEY を�
 npm run dev
 ```
 
-`http://localhost:3000` を開いてください。APIルートは `/api/analyze` と `/api/generate-placeholders` です。
+`http://localhost:3000` を開いてください。分析APIは `/api/analyze` です。
 
 ## 技術構成
 
@@ -28,7 +28,6 @@ npm run dev
 src/app/page.js                            入口
 src/components/SpiritualDiary.jsx          入力・分析待ち・結果画面
 src/app/api/analyze/route.js               命式・運勢計算とKiriメッセージ生成
-src/app/api/generate-placeholders/route.js 入力例の生成
 src/app/layout.js                          メタデータとレイアウト
 public/kiri.png                            Kiri画像
 ```

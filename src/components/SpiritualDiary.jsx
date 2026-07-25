@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Sparkles, Lock, AlertCircle, X, ChevronDown, ChevronUp, HelpCircle } from 'lucide-react';
 
 export default function SpiritualDiary() {
@@ -22,7 +22,6 @@ export default function SpiritualDiary() {
     event: '例: 朝のコーヒーが美味しくて気分が上がった。今日までの仕事も無事終わらせることができた。/nこれから買い物に行って、晩酌しながらドラマの続きを観る予定。',
     intuition: '例: 大切な人との繋がりを感じる'
   });
-  const [loadingPlaceholders, setLoadingPlaceholders] = useState(false);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -85,34 +84,6 @@ export default function SpiritualDiary() {
       i: Math.round(Math.sin(2 * Math.PI * d / 33) * 100)
     };
   };
-
-  const generatePlaceholders = async () => {
-    setLoadingPlaceholders(true);
-    try {
-      const response = await fetch('/api/generate-placeholders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          timeOfDay: new Date().getHours() < 12 ? '朝' : new Date().getHours() < 18 ? '昼' : '夜'
-        })
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        setPlaceholders(data.placeholders);
-      }
-    } catch (error) {
-      console.log('プレースホルダー生成エラー（デフォルト値を使用）');
-    } finally {
-      setLoadingPlaceholders(false);
-    }
-  };
-
-  useEffect(() => {
-    if (step === 'input') {
-      generatePlaceholders();
-    }
-  }, [step]);
 
   const analyze = async () => {
     setLoading(true);
@@ -528,7 +499,7 @@ export default function SpiritualDiary() {
                     <textarea
                       value={entry.event}
                       onChange={(e) => setEntry({...entry, event: e.target.value})}
-                      placeholder={loadingPlaceholders ? 'ちょっと待って...' : placeholders.event}
+                      placeholder={placeholders.event}
                       className="w-full px-3 py-2.5 text-sm rounded-lg bg-white/20 text-white border border-purple-300/50 focus:outline-none focus:ring-2 focus:ring-purple-400 h-32 resize-none placeholder-purple-300/70"
                     />
                   </div>
@@ -539,7 +510,7 @@ export default function SpiritualDiary() {
                       type="text"
                       value={entry.intuition}
                       onChange={(e) => setEntry({...entry, intuition: e.target.value})}
-                      placeholder={loadingPlaceholders ? 'ちょっと待って...' : placeholders.intuition}
+                      placeholder={placeholders.intuition}
                       className="w-full px-3 py-2.5 text-sm rounded-lg bg-white/20 text-white border border-purple-300/50 focus:outline-none focus:ring-2 focus:ring-purple-400 placeholder-purple-300/70"
                     />
                   </div>

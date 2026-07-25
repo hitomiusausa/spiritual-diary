@@ -21,9 +21,6 @@ src/app/api/analyze/route.js
   ├─ 五行相性、テーマ別スコア、今日のヒント、大運を算出
   └─ Anthropic APIでdeepMessage / innerMessage / actionAdviceを生成
 
-src/app/api/generate-placeholders/route.js
-  └─ 入力画面の例文をKiriの文脈に合わせて生成
-
 src/lib/kiriPersonality.js
   └─ チャット版と占い版で共有するKiriの人格定義
 src/lib/saju.js
@@ -123,5 +120,5 @@ src/components/SpiritualDiary.jsx
 
 - 外部の命式表・専門家基準との照合ケースはまだ1件のみ
 - Anthropic APIを使った実生成文のユーザーテストは未実施
-- プレースホルダーAPIの入力検証と、実API応答を使ったE2E確認は未実施
+- 入力画面のプレースホルダーは外部API依存をやめ、固定例文で安定表示する
 - 真太陽時、流派ごとの大運差、出生地の扱いは未確定
