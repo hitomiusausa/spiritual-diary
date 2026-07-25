@@ -1,17 +1,23 @@
 import { NextResponse } from "next/server";
-import { Solar } from "lunar-javascript";
+import { calculateSaju } from "@/lib/saju";
+import { KIRI_PERSONA } from "@/lib/kiriPersonality";
 
-const GZ = "[甲乙丙丁戊己庚辛壬癸][子丑寅卯辰巳午未申酉戌亥]";
+const FORTUNE_MODE = `
+# 占い結果モード
+これは自由チャットではなく、計算済みの四柱推命と今日の記録をKiriが翻訳する場面です。
+自由チャット版のKiriと同じ世界観・語尾・距離感を保ちつつ、占いを求めるユーザーに届く具体性を優先します。
 
-function parseSajuFromLunarFullString(full) {
-  const year = full.match(new RegExp(`(${GZ})\\([^\\)]*\\)年`))?.[1] || "";
-  const month = full.match(new RegExp(`(${GZ})\\([^\\)]*\\)月`))?.[1] || "";
-  const day = full.match(new RegExp(`(${GZ})\\([^\\)]*\\)日`))?.[1] || "";
-  const hour = full.match(new RegExp(`(${GZ})\\([^\\)]*\\)时`))?.[1] || "";
-  const zodiac = full.match(new RegExp(`${GZ}\\(([^\\)]*)\\)年`))?.[1] || "";
-  
-  return { year, month, day, hour, zodiac, raw: full };
-}
+- 「エネルギー」「流れ」「気配」だけで終わらせず、今日起こりやすい場面・反応・選択を最低1つ具体的に書く。
+- 日柱（日主）と日運の関係を軸にし、月運・年運・大運は背景として必要なときだけ使う。
+- 事実（柱・五行・入力された記録）とKiriの読み（傾向・予感）を混ぜず、読みは「〜になりやすい」「〜が見えやすい」と伝える。
+- 断定・脅し・運命の固定化はしない。ただし「何も決めつけない」ことを理由に抽象語だけで逃げない。
+- ユーザーの記録に触れ、Kiri側から霧の谷の小さな比喩を1つだけ添える。毎回同じ比喩を繰り返さない。
+- 行動を置くときは1つか2つの具体的な選択肢にする。「〜しましょう」「〜すべき」は使わない。
+- 格言・名言の引用、一般的な自己啓発、健康・金融の専門助言は足さない。
+- deepMessageは3〜5文、innerMessageは1〜2文、actionAdviceは2〜3文を目安にする。段落は改行で分ける。
+- 返答は日本語の常体（〜だね、〜かな、〜だよ）で、敬語の定型は避ける。
+- JSON以外を出力しない。各値は文字列にする。
+`;
 
 // 五行の要素を取得
 function getElement(pillar) {
@@ -370,24 +376,6 @@ number: {
 };
 }
 
-function calculateTaiun(birthYear, birthMonth, currentAge) {
-  const taiunStart = Math.floor(currentAge / 10) * 10;
-  const taiunIndex = Math.floor(currentAge / 10);
-
-  const stems = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
-  const branches = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
-
-  const stemIndex = (taiunIndex + birthMonth) % 10;
-  const branchIndex = (taiunIndex + birthMonth) % 12;
-
-  const pillar = stems[stemIndex] + branches[branchIndex];
-
-  return {
-    age: taiunStart,
-    pillar: pillar
-  };
-}
-
 // 日運のdescriptionを生成
 function getDayDescription(dayPillar) {
   const element = getElement(dayPillar);
@@ -474,75 +462,13 @@ export async function POST(request) {
     const gender = (userProfile.gender || "").trim();
     const nickname = (userProfile.nickname || "").trim();
 
-    const timeForCalc = /^\d{2}:\d{2}$/.test(birthTime) ? birthTime : "12:00";
-    const hasBirthTime = /^\d{2}:\d{2}$/.test(birthTime);
-    
-    console.log('[出生時刻]', { birthTime, hasBirthTime, timeForCalc });
-
-    // 生まれた時の四柱推命
-    const [y, m, d] = birthDate.split("-").map(v => Number(v));
-    const [hour, minute] = timeForCalc.split(":").map(v => Number(v));
-    
-    const birthSolar = Solar.fromYmdHms(y, m, d, hour, minute, 0);
-    const birthLunar = birthSolar.getLunar();
-    const birthLunarFullString = birthLunar.toFullString();
-    const birthSaju = parseSajuFromLunarFullString(birthLunarFullString);
-    
-    console.log('[生まれた時の四柱推命]', birthSaju);
-    
-    // 時柱が取得できない場合、時柱を直接取得
-    if (!birthSaju.hour) {
-      try {
-        const timeGan = birthLunar.getTimeGan();
-        const timeZhi = birthLunar.getTimeZhi();
-        birthSaju.hour = timeGan + timeZhi;
-      } catch (e) {
-        console.error('Failed to get hour pillar:', e);
-      }
-    }
-
-    // 今日の四柱推命（日運・月運・年運）
-    const today = new Date();
-    const todayJST = new Date(today.toLocaleString("en-US", { timeZone: "Asia/Tokyo" }));
-    const currentHour = todayJST.getHours();
-    
-    const todaySolar = Solar.fromYmdHms(
-      todayJST.getFullYear(),
-      todayJST.getMonth() + 1,
-      todayJST.getDate(),
-      currentHour,
-      0,
-      0
-    );
-    const todayLunar = todaySolar.getLunar();
-    const todaySaju = parseSajuFromLunarFullString(todayLunar.toFullString());
-    
-    console.log('[今日の四柱推命]', todaySaju);
-
-    // 時運（出生時刻がある場合のみ）
-    let todayHourPillar = "";
-    if (hasBirthTime) {
-      todayHourPillar = todaySaju.hour;
-      
-      // 時柱が取れない場合は直接取得を試みる
-      if (!todayHourPillar) {
-        try {
-          const timeGan = todayLunar.getTimeGan();
-          const timeZhi = todayLunar.getTimeZhi();
-          todayHourPillar = timeGan + timeZhi;
-        } catch (e) {
-          console.error('Failed to get today hour pillar:', e);
-        }
-      }
-    }
-    
-    console.log('[時運]', { hasBirthTime, todayHourPillar });
-
-    // 大運の計算
-    const birthYear = y;
-    const birthMonth = m;
-    const currentAge = todayJST.getFullYear() - birthYear;
-    const taiun = calculateTaiun(birthYear, birthMonth, currentAge);
+    const now = new Date();
+    const saju = calculateSaju({ birthDate, birthTime, gender, now });
+    const birthSaju = saju.birth;
+    const todaySaju = saju.today;
+    const hasBirthTime = birthSaju.hasBirthTime;
+    const todayHourPillar = hasBirthTime ? todaySaju.hour : "";
+    const taiun = saju.taiun;
 
     // テーマ別スコアを計算
     const themeScores = calculateThemeScores(birthSaju, todaySaju, biorhythm, entry.emoji, hasBirthTime);
@@ -550,9 +476,9 @@ export async function POST(request) {
     // 今日のヒントを計算
     const todayHints = calculateTodayHints(birthSaju, todaySaju, biorhythm, themeScores);
 
-    const sajuNote = hasBirthTime
-      ? "出生時刻あり（時柱・時運も反映）"
-      : "出生時刻未入力のため 12:00 で概算（時柱は参考値、時運は非表示）";
+    const sajuNote = saju.note + (
+      taiun.available ? "" : "。大運は性別未入力のため保留"
+    );
 
     const hourNowJST = jstHour();
     const namePrefix = nickname ? `${nickname}さん、` : "あなたへ、";
@@ -595,7 +521,9 @@ export async function POST(request) {
 ${hasBirthTime ? `時運: ${todayHourPillar} ← 現在時刻(${hourNowJST}時)の運勢` : ''}
 
 【大運（10年周期の中長期運）】
-現在の大運: ${taiun.pillar} (${currentAge}歳〜)
+${taiun.available
+  ? `現在の大運: ${taiun.current?.pillar || "判定中"} (${taiun.current?.startAge || ""}歳〜)`
+  : "性別未入力のため、順逆を決める大運は今回のメッセージでは扱わない"}
 
 ※${sajuNote}
 
@@ -637,9 +565,7 @@ ${hourNowJST}時
 3. 記録から読み取れる心の動きや気づき
 4. 今日の運勢を踏まえた具体的なアクション
    - テーマ別スコアに基づいたKiriからのアドバイス
-   - 必ず国内外の格言・名言・諺を一つ『』で括って取り入れる。
-    ※教訓としてではなく、ユーザーへのアドバイスの裏付けや余韻となるよう自然に置く。
-    ※ありきたりなものではなく、あまり知られていないような格言や名言を引用することを意識する。
+   - 格言・名言・諺は使わず、入力された記録に根ざした具体的な一場面を置く。
 
 【Kiriの話者定義】
 - Kiriは人間ではない
@@ -651,20 +577,16 @@ ${hourNowJST}時
 【トーン】
 ${nickname ? `- ${nickname}さんと呼びかけ、親しみやすく温かく` : '- 敬意を持ちつつ親しみやすく'}
 - 中性的で優しい口調（「〜かしら」「〜なの」「〜わ」「などの女言葉は絶対に使わない）
-- 共感や寄り添いを示すため、文末に「〜ですね」「〜ですよ」など丁寧体に「よ」「ね」を使うことはある
+- 共感や寄り添いを示すため、文末は「〜だね」「〜かな」「〜だよ」などの常体を基本にする
 - 謎めいた存在として、性別を感じさせない言葉選び
 - 押し付けがましくなく、寄り添うように
 - テーマ別運勢を自然に織り込む
 - 実践しやすく、受け身でも楽しめる内容
 
 【文体ルール】
-- 丁寧体（です・ます調）で統一
-- 効果的に「普通体」を使うことは認められる
-- 「〜です」「〜ます」「〜でしょう」
-- 「〜かもしれません」「〜そうです」「〜ようです」
-- 「〜かも」「〜みたい」「〜ね」（親しみを込めて控えめに）
-- 「〜してみては」「〜するといい」（提案として）
-- 常体（だ・だろう・だね・だよ）は使用しない
+- 常体（だ・だろう・だね・だよ）で統一する
+- 「〜かもしれない」「〜になりやすい」「〜みたい」を使い、断定を避ける
+- 「〜してみては」「〜するといい」「〜しましょう」は使わない
 
 【口調の禁止事項】
 - 女言葉: 「〜かしら」「〜なの」「〜わ」「〜だわ」「〜のよ」など
@@ -673,7 +595,7 @@ ${nickname ? `- ${nickname}さんと呼びかけ、親しみやすく温かく` 
 - 説明的: 「なぜなら〜」「つまり〜」「よって〜」など
 
 【提案表現の指定】
-- 提案は「〜してみてもよさそうです」「〜という選択もありそうです」「〜を選択してもいいかもしれません」「〜という方法もあるかもしれません」など柔らかい表現を使用する
+- 提案は「〜を選んでもいい」「〜にしておくのもありだね」「〜だけ置いておくとよさそう」など、ひとつの選択肢として置く
 - 「〜みてはどうだろう」は使用しない
 
 【最終確認】
@@ -700,7 +622,7 @@ ${nickname ? `- ${nickname}さんと呼びかけ、親しみやすく温かく` 
 
   "innerMessage": "直感についての洞察。deepMessageの補足として、感情・身体感覚・迷いなどの内側の動きに焦点を当てて書く。重要な箇所は**で囲む。",
   
-  "actionAdvice": "テーマ別運勢を踏まえた具体的アクション。スコアが高いテーマの活かし方、低いテーマで避けたい反応を含める。国内外の格言・名言・諺をひとつ、『』で括り、自然に添える。重要な箇所は**で囲む。"
+  "actionAdvice": "テーマ別運勢を踏まえた具体的アクション。スコアが高いテーマの活かし方、低いテーマで避けたい反応を含める。入力された記録に結びつく1〜2個の選択肢を置く。重要な箇所は**で囲む。"
 }
     `.trim();
 
@@ -714,6 +636,7 @@ ${nickname ? `- ${nickname}さんと呼びかけ、親しみやすく温かく` 
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
         max_tokens: 1200,
+        system: KIRI_PERSONA + FORTUNE_MODE,
         messages: [{ role: "user", content: prompt }],
       }),
     });
