@@ -21,6 +21,14 @@ describe("saju calculation contract", () => {
     expect(chart.hasBirthTime).toBe(true);
   });
 
+  it.each([
+    ["2005-12-23", "08:37", "乙酉 戊子 辛巳 壬辰"],
+    ["1988-02-15", "23:30", "戊辰 甲寅 庚子 戊子"],
+    ["1988-02-02", "22:30", "丁卯 癸丑 丁亥 辛亥"],
+  ])("matches the library reference for %s %s", (birthDate, birthTime, raw) => {
+    expect(calculateBirthChart({ birthDate, birthTime }).raw).toBe(raw);
+  });
+
   it("uses noon only as an explicit reference when birth time is absent", () => {
     const input = parseBirthInput("1999-06-07");
     const chart = calculateBirthChart({ birthDate: "1999-06-07" });
