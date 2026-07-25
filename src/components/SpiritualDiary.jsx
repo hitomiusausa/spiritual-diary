@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Sparkles, Lock, AlertCircle, X, ChevronDown, ChevronUp, HelpCircle } from 'lucide-react';
+import { clearHistory, deleteHistoryItem, loadHistory, saveHistory, toHistoryRecord } from '@/lib/history';
 
 export default function SpiritualDiary() {
   const [step, setStep] = useState('start');
@@ -23,6 +24,7 @@ export default function SpiritualDiary() {
     intuition: '例: 大切な人との繋がりを感じる'
   });
   const [result, setResult] = useState(null);
+  const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [expandedSections, setExpandedSections] = useState({
@@ -41,6 +43,10 @@ export default function SpiritualDiary() {
     distance: false 
   });
   const [isTransitioning, setIsTransitioning] = useState(false);
+
+  useEffect(() => {
+    setHistory(loadHistory(window.localStorage));
+  }, []);
 
   // テキスト内の**強調**を処理する関数
   const renderHighlightedText = (text) => {
@@ -113,13 +119,20 @@ export default function SpiritualDiary() {
         const energy = avg > 30 ? '高揚' : avg > -30 ? '調和' : '内省';
         const time = h < 11 ? '朝' : h < 16 ? '昼' : '夜';
 
-        setResult({
+        const nextResult = {
           energy,
           time,
           bio,
           timestamp: now,
           ...data.data
+        };
+        setResult(nextResult);
+        const record = toHistoryRecord({
+          result: nextResult,
+          entry,
+          userProfile: { birthDate, birthTime, gender, nickname },
         });
+        setHistory(saveHistory(window.localStorage, record));
         
         // ホワイトアウト遷移
         setIsTransitioning(true);
@@ -396,6 +409,43 @@ export default function SpiritualDiary() {
                 Kiriは、心のエネルギーを読み解き、あなたの日々にそっと寄り添います
               </p>
             </div>
+
+            {history.length > 0 && (
+              <div className="bg-white/10 rounded-xl p-4 mb-6 border border-purple-300/30">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-sm font-bold text-yellow-300">📖 最近の記録</h2>
+                  <button
+                    type="button"
+                    onClick={() => setHistory(clearHistory(window.localStorage))}
+                    className="text-xs text-purple-200 hover:text-white"
+                  >
+                    すべて削除
+                  </button>
+                </div>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {history.slice(0, 5).map((item) => (
+                    <div key={item.id} className="bg-black/15 rounded-lg p-2.5 flex items-start gap-2">
+                      <span className="text-lg">{item.entry?.emoji || '✨'}</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs text-purple-200">
+                          {item.createdAt ? new Date(item.createdAt).toLocaleDateString('ja-JP') : '記録'}
+                        </p>
+                        <p className="text-sm text-white truncate">{item.entry?.event || '記録なし'}</p>
+                      </div>
+                      <button
+                        type="button"
+                        aria-label="この記録を削除"
+                        onClick={() => setHistory(deleteHistoryItem(window.localStorage, item.id))}
+                        className="text-purple-200 hover:text-white px-1"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[11px] text-purple-200/80 mt-2">記録はこの端末内にのみ保存されます。</p>
+              </div>
+            )}
 
             <div className="space-y-3">
               <div>
