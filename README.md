@@ -1,36 +1,49 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# Mind & Energy Note — Kiri
 
-## Getting Started
+生年月日・出生時刻・その日の気分や出来事をもとに、バイオリズムと四柱推命の結果をKiriがやわらかく読み解くWebアプリです。
 
-First, run the development server:
+## 現在の機能
+
+- 生年月日、出生時刻（任意）、性別（任意）、ニックネームの入力
+- 気分・出来事・直感の記録
+- `lunar-javascript`による本命（年柱/月柱/日柱/時柱）と日運・時運・月運・年運・大運の算出
+- 恋愛・お金・仕事・健康のテーマ別スコア
+- 色・数字・方角・距離感の「今日のヒント」
+- Anthropic APIを使ったKiriの文章生成
+- モバイル向けの入力・ローディング・結果画面
+
+## セットアップ
 
 ```bash
+npm install
+cp .env.example .env.local # まだ存在しない場合は CLAUDE_API_KEY を設定
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+`http://localhost:3000` を開いてください。APIルートは `/api/analyze` と `/api/generate-placeholders` です。
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+## 技術構成
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```text
+src/app/page.js                            入口
+src/components/SpiritualDiary.jsx          入力・分析待ち・結果画面
+src/app/api/analyze/route.js               命式・運勢計算とKiriメッセージ生成
+src/app/api/generate-placeholders/route.js 入力例の生成
+src/app/layout.js                          メタデータとレイアウト
+public/kiri.png                            Kiri画像
+```
 
-## Learn More
+## 課金について
 
-To learn more about Next.js, take a look at the following resources:
+結果画面にはプレミアム案内（過去記録、パターン分析、Kiriとの対話）が表示されていますが、購入処理・購読状態・チャット機能はまだ未接続です。App Store公開前に、iOSの購入検証とサーバー側の権限判定を実装する必要があります。
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 確認コマンド
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm run lint
+npm run build
+```
 
-## Deploy on Vercel
+## 方針・次の作業
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+全体の現状と優先順位は [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) にまとめています。
