@@ -1,47 +1,6 @@
 import { NextResponse } from "next/server";
-import { Solar } from "lunar-javascript";
-
-const GZ = "[甲乙丙丁戊己庚辛壬癸][子丑寅卯辰巳午未申酉戌亥]";
-
-function parseSajuFromLunarFullString(full) {
-  const year = full.match(new RegExp(`(${GZ})\\([^\\)]*\\)年`))?.[1] || "";
-  const month = full.match(new RegExp(`(${GZ})\\([^\\)]*\\)月`))?.[1] || "";
-  const day = full.match(new RegExp(`(${GZ})\\([^\\)]*\\)日`))?.[1] || "";
-  const hour = full.match(new RegExp(`(${GZ})\\([^\\)]*\\)时`))?.[1] || "";
-  const zodiac = full.match(new RegExp(`${GZ}\\(([^\\)]*)\\)年`))?.[1] || "";
-  
-  return { year, month, day, hour, zodiac, raw: full };
-}
-
-function calculateTaiun(birthYear, birthMonth, currentAge) {
-  const taiunStart = Math.floor(currentAge / 10) * 10;
-  const taiunIndex = Math.floor(currentAge / 10);
-  
-  const stems = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
-  const branches = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
-  
-  const stemIndex = (taiunIndex + birthMonth) % 10;
-  const branchIndex = (taiunIndex + birthMonth) % 12;
-  
-  const pillar = stems[stemIndex] + branches[branchIndex];
-  
-  const descriptions = [
-    '基盤を築く時期。じっくりと実力を蓄える',
-    '変化と挑戦の時期。新しい可能性を探る',
-    '成長と発展の時期。積極的に行動する',
-    '安定と調和の時期。内面を充実させる',
-    '変革の時期。古いものを手放し新しいものへ',
-    '充実と達成の時期。努力が実を結ぶ',
-    '調整の時期。バランスを整える',
-    '内省と準備の時期。次の飛躍に備える'
-  ];
-  
-  return {
-    age: taiunStart,
-    pillar: pillar,
-    description: descriptions[taiunIndex % descriptions.length]
-  };
-}
+import { calculateSaju } from "@/lib/saju";
+import { parseFortuneResponse, validateFortuneText } from "@/lib/fortuneResponse";
 
 function jstHour() {
   return new Date(
@@ -80,48 +39,14 @@ export async function POST(request) {
     const gender = (userProfile.gender || "").trim();
     const nickname = (userProfile.nickname || "").trim();
 
-    const timeForCalc = /^\d{2}:\d{2}$/.test(birthTime) ? birthTime : "12:00";
-    const hasBirthTime = /^\d{2}:\d{2}$/.test(birthTime);
-
-    // 生まれた時の四柱推命
-    const [y, m, d] = birthDate.split("-").map(v => Number(v));
-    const [hour, minute] = timeForCalc.split(":").map(v => Number(v));
-    
-    const birthSolar = Solar.fromYmdHms(y, m, d, hour, minute, 0);
-    const birthLunar = birthSolar.getLunar();
-    const birthSaju = parseSajuFromLunarFullString(birthLunar.toFullString());
-
-    // 今日の四柱推命（日運・月運・年運）
-    const today = new Date();
-    const todayJST = new Date(today.toLocaleString("en-US", { timeZone: "Asia/Tokyo" }));
-    const currentHour = todayJST.getHours();
-    
-    const todaySolar = Solar.fromYmdHms(
-      todayJST.getFullYear(),
-      todayJST.getMonth() + 1,
-      todayJST.getDate(),
-      currentHour,
-      0,
-      0
-    );
-    const todayLunar = todaySolar.getLunar();
-    const todaySaju = parseSajuFromLunarFullString(todayLunar.toFullString());
-
-    // 時運（出生時刻がある場合のみ）
-    let todayHourPillar = "";
-    if (hasBirthTime) {
-      todayHourPillar = todaySaju.hour || "";
-    }
-
-    // 大運の計算
-    const birthYear = y;
-    const birthMonth = m;
-    const currentAge = todayJST.getFullYear() - birthYear;
-    const taiun = calculateTaiun(birthYear, birthMonth, currentAge);
-
-    const sajuNote = hasBirthTime
-      ? "出生時刻あり（時柱・時運も反映）"
-      : "出生時刻未入力のため 12:00 で概算（時柱は参考値、時運は非表示）";
+    const now = new Date();
+    const saju = calculateSaju({ birthDate, birthTime, gender, now });
+    const birthSaju = saju.birth;
+    const todaySaju = saju.today;
+    const hasBirthTime = birthSaju.hasBirthTime;
+    const todayHourPillar = hasBirthTime ? todaySaju.hour : "";
+    const taiun = saju.taiun;
+    const sajuNote = saju.note + (taiun.available ? "" : "。大運は性別未入力のため保留");
 
     const hourNowJST = jstHour();
     const namePrefix = nickname ? `${nickname}さん、` : "あなたへ、";
@@ -158,7 +83,7 @@ ${nickname ? `【ユーザー名】\n${nickname}さん\n※メッセージでは
 ${hasBirthTime ? `時運: ${todayHourPillar} ← 現在時刻(${hourNowJST}時)の運勢` : ''}
 
 【大運（10年周期の中長期運）】
-現在の大運: ${taiun.pillar} (${currentAge}歳〜、${taiun.description})
+${taiun.available ? `現在の大運: ${taiun.current?.pillar || "判定中"} (${taiun.current?.startAge || ""}歳〜)` : "性別未入力のため、順逆を決める大運は今回のメッセージでは扱わない"}
 
 ※四柱推命の解釈ポイント:
 ※以下は参考。すべてに触れる必要はありません。
@@ -227,27 +152,20 @@ ${nickname ? `- ${nickname}さんと呼びかけ、親しみやすく温かく` 
     });
 
     if (!response.ok) {
-      const detail = await response.text();
-      return NextResponse.json(
-        { success: false, error: `API error: ${response.status}`, detail },
-        { status: 502 }
-      );
+      await response.text();
+      console.error("[kiri-placeholders] upstream status", response.status);
+      return NextResponse.json({ success: false, error: "Placeholder generation failed" }, { status: 502 });
     }
 
     const data = await response.json();
 
-    let aiText = data?.content?.[0]?.text ?? "";
-    aiText = aiText.replace(/```json\n?|```/g, "").trim();
-
-    let aiResponse;
-    try {
-      aiResponse = JSON.parse(aiText);
-    } catch {
-      return NextResponse.json(
-        { success: false, error: "Failed to parse JSON", raw: aiText },
-        { status: 500 }
-      );
+    const aiResponse = parseFortuneResponse(data?.content?.[0]?.text);
+    if (!aiResponse) {
+      console.error("[kiri-placeholders] invalid structured response");
+      return NextResponse.json({ success: false, error: "Placeholder generation failed" }, { status: 502 });
     }
+    const warnings = validateFortuneText(aiResponse);
+    if (warnings.length) console.warn("[kiri-fortune-validate]", warnings);
 
     return NextResponse.json({
       success: true,
@@ -273,9 +191,7 @@ ${nickname ? `- ${nickname}さんと呼びかけ、親しみやすく温かく` 
       },
     });
   } catch (error) {
-    return NextResponse.json(
-      { success: false, error: error?.message ?? String(error) },
-      { status: 500 }
-    );
+    console.error("[kiri-placeholders] request failed", error?.message ?? String(error));
+    return NextResponse.json({ success: false, error: "Placeholder generation failed" }, { status: 500 });
   }
 }

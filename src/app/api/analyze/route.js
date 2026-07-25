@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { calculateSaju } from "@/lib/saju";
 import { KIRI_PERSONA } from "@/lib/kiriPersonality";
+import { parseFortuneResponse, validateFortuneText } from "@/lib/fortuneResponse";
 
 const FORTUNE_MODE = `
 # 占い結果モード
@@ -436,17 +437,20 @@ export async function POST(request) {
     const body = await request.json();
     const { userProfile, biorhythm, entry } = body || {};
 
-    if (!userProfile?.birthDate) {
-      return NextResponse.json(
-        { success: false, error: "userProfile.birthDate is required" },
-        { status: 400 }
-      );
-    }
-    if (!biorhythm || !entry) {
-      return NextResponse.json(
-        { success: false, error: "biorhythm and entry are required" },
-        { status: 400 }
-      );
+    const bioValues = [biorhythm?.p, biorhythm?.e, biorhythm?.i];
+    const validBio = bioValues.every((value) => Number.isFinite(Number(value)) && Number(value) >= -100 && Number(value) <= 100);
+    const validEntry = entry && typeof entry === "object"
+      && typeof entry.event === "string" && entry.event.trim().length > 0 && entry.event.length <= 1200
+      && (!entry.emoji || (typeof entry.emoji === "string" && entry.emoji.length <= 8))
+      && (!entry.intuition || (typeof entry.intuition === "string" && entry.intuition.length <= 600))
+      && (!entry.type || entry.type === "past" || entry.type === "future");
+    const validProfile = userProfile && typeof userProfile === "object"
+      && typeof userProfile.birthDate === "string" && userProfile.birthDate.length <= 10
+      && (!userProfile.birthTime || (typeof userProfile.birthTime === "string" && userProfile.birthTime.length <= 5))
+      && (!userProfile.nickname || (typeof userProfile.nickname === "string" && userProfile.nickname.trim().length <= 40))
+      && (!userProfile.gender || ["female", "male", "other", "no_answer"].includes(userProfile.gender));
+    if (!validProfile || !validBio || !validEntry) {
+      return NextResponse.json({ success: false, error: "Invalid analysis input" }, { status: 400 });
     }
 
     const apiKey = process.env.CLAUDE_API_KEY;
@@ -642,27 +646,20 @@ ${nickname ? `- ${nickname}さんと呼びかけ、親しみやすく温かく` 
     });
 
     if (!response.ok) {
-      const detail = await response.text();
-      return NextResponse.json(
-        { success: false, error: `API error: ${response.status}`, detail },
-        { status: 502 }
-      );
+      await response.text();
+      console.error("[kiri-analyze] upstream status", response.status);
+      return NextResponse.json({ success: false, error: "Fortune analysis failed" }, { status: 502 });
     }
 
     const data = await response.json();
 
-    let aiText = data?.content?.[0]?.text ?? "";
-    aiText = aiText.replace(/```json\n?|```/g, "").trim();
-
-    let aiResponse;
-    try {
-      aiResponse = JSON.parse(aiText);
-    } catch {
-      return NextResponse.json(
-        { success: false, error: "Failed to parse JSON", raw: aiText },
-        { status: 500 }
-      );
+    const aiResponse = parseFortuneResponse(data?.content?.[0]?.text);
+    if (!aiResponse) {
+      console.error("[kiri-analyze] invalid structured response");
+      return NextResponse.json({ success: false, error: "Fortune analysis failed" }, { status: 502 });
     }
+    const warnings = validateFortuneText(aiResponse);
+    if (warnings.length) console.warn("[kiri-fortune-validate]", warnings);
 
     return NextResponse.json({
       success: true,
@@ -692,9 +689,7 @@ ${nickname ? `- ${nickname}さんと呼びかけ、親しみやすく温かく` 
       },
     });
   } catch (error) {
-    return NextResponse.json(
-      { success: false, error: error?.message ?? String(error) },
-      { status: 500 }
-    );
+    console.error("[kiri-analyze] request failed", error?.message ?? String(error));
+    return NextResponse.json({ success: false, error: "Analysis failed" }, { status: 500 });
   }
 }
