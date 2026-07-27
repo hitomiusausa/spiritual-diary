@@ -500,7 +500,7 @@ export default function SpiritualDiary() {
           </div>
           <div className="bg-white/10 rounded-xl p-4">
             <h4 className="text-sm font-bold text-kiri-gold mb-1">バックアップ</h4>
-            <p className="text-xs text-kiri-lilac mb-3 leading-relaxed">記録・プロフィール・会話をJSONファイルとして保存/復元できます。読み込みは既存の記録を消しません。バックアップは自動では行われないので、大切な記録は設定アイコンの「バックアップ」から定期的に書き出してください。</p>
+            <p className="text-xs text-kiri-lilac mb-3 leading-relaxed">記録・プロフィール・会話をJSONファイルとして保存/復元できます。読み込みは既存の記録を消しません。バックアップは自動では行われないので、大切な記録は設定アイコンの「バックアップ」を選択して定期的に書き出してください。</p>
             <div className="flex gap-2">
               <button
                 type="button"
@@ -605,7 +605,7 @@ export default function SpiritualDiary() {
             {isAll ? 'すべての記録を削除しますか？' : 'この記録を削除しますか？'}
           </h3>
           <p className="text-sm text-kiri-lilac leading-relaxed mb-4">
-            削除した記録は元に戻せません。バックアップを取っていない場合、復元はできません（バックアップは設定アイコンの「バックアップ」から書き出せます）。
+            削除した記録は元に戻せません。バックアップを取っていない場合、復元はできません（バックアップは設定アイコンの「バックアップ」を選択して書き出せます）。
           </p>
           <div className="flex gap-2">
             <button
