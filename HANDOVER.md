@@ -9,7 +9,7 @@
 - 正規リポジトリ: `/Users/usausagi/Documents/Playground/spiritual-diary`
 - ブランチ: `agent/consolidate-spiritual-diary`
 - GitHub: `https://github.com/hitomiusausa/spiritual-diary`
-- 最新状態: 作業ツリー clean。直近のドキュメント変更はGitHubへpush済み。
+- 最新状態: 作業ツリー clean。2026-07-28のD-08〜D-12（API保護・バックアップ・四柱照合・法務ページ）までGitHubへpush済み。
 
 ## できていること
 
