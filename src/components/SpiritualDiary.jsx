@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState, useEffect, useRef } from 'react';
-import { Sparkles, Lock, AlertCircle, X, ChevronDown, ChevronUp, HelpCircle, Heart, Smile, Frown, Meh, Angry, Star, Sun, Moon, Cloud, Zap, CircleHelp, Download, Upload } from 'lucide-react';
+import { Sparkles, Lock, AlertCircle, X, ChevronDown, ChevronUp, HelpCircle, Heart, Smile, Frown, Meh, Angry, Star, Sun, Moon, Cloud, Zap, CircleHelp, Download, Upload, Settings, History } from 'lucide-react';
 import { clearHistory, deleteHistoryItem, loadHistory, saveHistory, toHistoryRecord, loadProfile, saveProfile } from '@/lib/history';
 import { buildBackup, backupFileName, parseBackup, applyBackup } from '@/lib/backup';
 import KiriChatPanel from '@/components/KiriChatPanel';
@@ -29,6 +29,8 @@ export default function SpiritualDiary() {
   const [result, setResult] = useState(null);
   const [history, setHistory] = useState([]);
   const [openedRecord, setOpenedRecord] = useState(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showHistoryList, setShowHistoryList] = useState(false);
   const [backupNotice, setBackupNotice] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -410,11 +412,12 @@ export default function SpiritualDiary() {
     );
   };
 
+  // 見出し行はdiv+個別ボタン構成にする（button入れ子はHTML違反でhydrationエラーになる）
   const CollapsibleSection = ({ title, isExpanded, onToggle, children, badge, onInfoClick }) => (
     <div className="bg-white/10 backdrop-blur-md rounded-xl border border-kiri-lilac/30 overflow-hidden">
-      <button
+      <div
         onClick={onToggle}
-        className="w-full p-4 flex items-center justify-between text-left active:bg-white/5 transition-colors"
+        className="w-full p-4 flex items-center justify-between cursor-pointer active:bg-white/5 transition-colors"
       >
         <div className="flex items-center gap-2">
           <h2 className="font-display text-lg font-bold text-kiri-gold">{title}</h2>
@@ -425,6 +428,8 @@ export default function SpiritualDiary() {
           )}
           {onInfoClick && (
             <button
+              type="button"
+              aria-label={`${title}の説明`}
               onClick={(e) => {
                 e.stopPropagation();
                 onInfoClick();
@@ -435,12 +440,23 @@ export default function SpiritualDiary() {
             </button>
           )}
         </div>
-        {isExpanded ? (
-          <ChevronUp className="w-5 h-5 text-kiri-lilac" />
-        ) : (
-          <ChevronDown className="w-5 h-5 text-kiri-lilac" />
-        )}
-      </button>
+        <button
+          type="button"
+          aria-expanded={isExpanded}
+          aria-label={isExpanded ? `${title}を折りたたむ` : `${title}を開く`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggle();
+          }}
+          className="text-kiri-lilac hover:text-white p-1"
+        >
+          {isExpanded ? (
+            <ChevronUp className="w-5 h-5" />
+          ) : (
+            <ChevronDown className="w-5 h-5" />
+          )}
+        </button>
+      </div>
       {isExpanded && (
         <div className="px-4 pb-4">
           {children}
@@ -462,6 +478,111 @@ export default function SpiritualDiary() {
     />
   );
 
+  // 設定（バックアップの書き出し/読み込み）
+  const SettingsModal = () => {
+    if (!showSettings) return null;
+    return (
+      <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowSettings(false)} role="dialog" aria-modal="true" aria-label="設定">
+        <div className="kiri-card-strong rounded-2xl w-full max-w-md p-6 kiri-rise" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-display text-xl font-bold text-kiri-gold">設定</h3>
+            <button type="button" onClick={() => setShowSettings(false)} aria-label="閉じる" className="text-white hover:bg-white/20 rounded-full p-1">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="bg-white/10 rounded-xl p-4">
+            <h4 className="text-sm font-bold text-kiri-gold mb-1">バックアップ</h4>
+            <p className="text-xs text-kiri-lilac mb-3 leading-relaxed">記録・プロフィール・会話をJSONファイルとして保存/復元できます。読み込みは既存の記録を消しません。</p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={exportBackup}
+                className="flex-1 flex items-center justify-center gap-1.5 bg-white/10 hover:bg-white/20 text-white text-sm py-2.5 rounded-lg transition-colors"
+              >
+                <Download className="w-4 h-4" />書き出す
+              </button>
+              <button
+                type="button"
+                onClick={() => importInputRef.current?.click()}
+                className="flex-1 flex items-center justify-center gap-1.5 bg-white/10 hover:bg-white/20 text-white text-sm py-2.5 rounded-lg transition-colors"
+              >
+                <Upload className="w-4 h-4" />読み込む
+              </button>
+              <input
+                ref={importInputRef}
+                type="file"
+                accept="application/json,.json"
+                onChange={importBackup}
+                className="hidden"
+              />
+            </div>
+            {backupNotice && (
+              <p className={`text-xs mt-2 ${backupNotice.type === 'error' ? 'text-kiri-danger' : 'text-kiri-gold'}`}>{backupNotice.text}</p>
+            )}
+          </div>
+          <p className="text-[11px] text-kiri-lilac/80 mt-3">記録はこの端末内にのみ保存されます。</p>
+        </div>
+      </div>
+    );
+  };
+
+  // 最近の記録の一覧（結果画面の「今日の記録」下から開く）
+  const HistoryListModal = () => {
+    if (!showHistoryList) return null;
+    return (
+      <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-3" onClick={() => setShowHistoryList(false)} role="dialog" aria-modal="true" aria-label="最近の記録">
+        <div className="kiri-card-strong rounded-2xl w-full max-w-lg max-h-[88vh] flex flex-col overflow-hidden kiri-rise" onClick={(e) => e.stopPropagation()}>
+          <div className="p-4 border-b border-white/10 flex items-center justify-between">
+            <h2 className="font-display font-bold text-kiri-gold">最近の記録</h2>
+            <div className="flex items-center gap-3">
+              {history.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setHistory(clearHistory(window.localStorage))}
+                  className="text-xs text-kiri-lilac hover:text-white"
+                >
+                  すべて削除
+                </button>
+              )}
+              <button type="button" onClick={() => setShowHistoryList(false)} aria-label="閉じる" className="text-kiri-lilac hover:text-white"><X className="w-5 h-5" /></button>
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4 space-y-2">
+            {history.length === 0 && (
+              <p className="text-sm text-kiri-lilac leading-relaxed">まだ記録がありません。今日の記録が、最初のひとつになるよ。</p>
+            )}
+            {history.map((item) => (
+              <div key={item.id} className="bg-black/15 rounded-lg flex items-stretch">
+                <button
+                  type="button"
+                  onClick={() => setOpenedRecord(item)}
+                  className="flex-1 min-w-0 p-2.5 flex items-start gap-2 text-left rounded-l-lg hover:bg-white/5 transition-colors"
+                >
+                  <span className="text-kiri-fog"><MoodIcon value={item.entry?.emoji || '✨'} className="w-5 h-5" /></span>
+                  <span className="min-w-0 flex-1 block">
+                    <span className="block text-xs text-kiri-lilac">
+                      記入日: {item.createdAt ? new Date(item.createdAt).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' }) : '不明'}
+                    </span>
+                    <span className="block text-sm text-white truncate">{item.entry?.event || '記録なし'}</span>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  aria-label="この記録を削除"
+                  onClick={() => setHistory(deleteHistoryItem(window.localStorage, item.id))}
+                  className="text-kiri-lilac hover:text-white px-2.5 rounded-r-lg"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+          <p className="px-4 pb-3 text-[11px] text-kiri-lilac/80">タップすると当時のKiriの読み解きを読み返せます。</p>
+        </div>
+      </div>
+    );
+  };
+
   // 過去の記録の詳細（履歴タップで開く読み返しモーダル）
   const RecordDetail = ({ record, onClose }) => {
     if (!record) return null;
@@ -470,7 +591,7 @@ export default function SpiritualDiary() {
       : '記録';
     const entryLabel = record.entry?.type === 'future' ? '予定' : '出来事';
     return (
-      <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-3" onClick={onClose} role="dialog" aria-modal="true" aria-label="過去の記録">
+      <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-3" onClick={onClose} role="dialog" aria-modal="true" aria-label="過去の記録">
         <div className="kiri-card-strong rounded-2xl w-full max-w-lg max-h-[88vh] flex flex-col overflow-hidden kiri-rise" onClick={(e) => e.stopPropagation()}>
           <div className="p-4 border-b border-white/10 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
@@ -522,7 +643,7 @@ export default function SpiritualDiary() {
       <>
         <WhiteoutTransition />
         <ErrorBanner />
-        <RecordDetail record={openedRecord} onClose={() => setOpenedRecord(null)} />
+        <SettingsModal />
         <div className="min-h-screen kiri-shell p-4 py-8 flex items-center justify-center relative overflow-hidden">
           {/* 霧の谷: トップページの静かな光 */}
           <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
@@ -532,6 +653,14 @@ export default function SpiritualDiary() {
           </div>
 
           <div className="w-full max-w-md kiri-card rounded-2xl p-6 relative kiri-rise">
+            <button
+              type="button"
+              aria-label="設定"
+              onClick={() => setShowSettings(true)}
+              className="absolute top-4 right-4 text-kiri-lilac hover:text-white p-1.5 rounded-full hover:bg-white/10 transition-colors"
+            >
+              <Settings className="w-5 h-5" />
+            </button>
             <div className="text-center mb-6">
               <Sparkles className="w-12 h-12 text-kiri-gold mx-auto mb-3" />
               <h1 className="font-display text-2xl font-bold text-white mb-1">Mind & Energy Note</h1>
@@ -554,82 +683,6 @@ export default function SpiritualDiary() {
               <p className="text-sm text-white/90 leading-relaxed">
                 Kiriは、心のエネルギーを読み解き、あなたの日々にそっと寄り添います
               </p>
-            </div>
-
-            {history.length > 0 && (
-              <div className="bg-white/10 rounded-xl p-4 mb-6 border border-kiri-lilac/30">
-                <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-sm font-bold text-kiri-gold">最近の記録</h2>
-                  <button
-                    type="button"
-                    onClick={() => setHistory(clearHistory(window.localStorage))}
-                    className="text-xs text-kiri-lilac hover:text-white"
-                  >
-                    すべて削除
-                  </button>
-                </div>
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {history.slice(0, 5).map((item) => (
-                    <div key={item.id} className="bg-black/15 rounded-lg flex items-stretch">
-                      <button
-                        type="button"
-                        onClick={() => setOpenedRecord(item)}
-                        className="flex-1 min-w-0 p-2.5 flex items-start gap-2 text-left rounded-l-lg hover:bg-white/5 transition-colors"
-                      >
-                        <span className="text-kiri-fog"><MoodIcon value={item.entry?.emoji || '✨'} className="w-5 h-5" /></span>
-                        <span className="min-w-0 flex-1 block">
-                          <span className="block text-xs text-kiri-lilac">
-                            {item.createdAt ? new Date(item.createdAt).toLocaleDateString('ja-JP') : '記録'}
-                          </span>
-                          <span className="block text-sm text-white truncate">{item.entry?.event || '記録なし'}</span>
-                        </span>
-                      </button>
-                      <button
-                        type="button"
-                        aria-label="この記録を削除"
-                        onClick={() => setHistory(deleteHistoryItem(window.localStorage, item.id))}
-                        className="text-kiri-lilac hover:text-white px-2.5 rounded-r-lg"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                <p className="text-[11px] text-kiri-lilac/80 mt-2">タップすると当時のKiriの読み解きを読み返せます。記録はこの端末内にのみ保存されます。</p>
-              </div>
-            )}
-
-            <div className="bg-white/10 rounded-xl p-4 mb-6 border border-kiri-lilac/30">
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-bold text-kiri-gold">バックアップ</h2>
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={exportBackup}
-                    className="flex items-center gap-1 text-xs text-kiri-lilac hover:text-white"
-                  >
-                    <Download className="w-4 h-4" />書き出す
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => importInputRef.current?.click()}
-                    className="flex items-center gap-1 text-xs text-kiri-lilac hover:text-white"
-                  >
-                    <Upload className="w-4 h-4" />読み込む
-                  </button>
-                  <input
-                    ref={importInputRef}
-                    type="file"
-                    accept="application/json,.json"
-                    onChange={importBackup}
-                    className="hidden"
-                  />
-                </div>
-              </div>
-              <p className="text-[11px] text-kiri-lilac/80 mt-2">記録・プロフィール・会話をJSONファイルとして保存/復元できます。読み込みは既存の記録を消しません。</p>
-              {backupNotice && (
-                <p className={`text-xs mt-1 ${backupNotice.type === 'error' ? 'text-kiri-danger' : 'text-kiri-gold'}`}>{backupNotice.text}</p>
-              )}
             </div>
 
             <div className="space-y-3">
@@ -861,6 +914,8 @@ export default function SpiritualDiary() {
       <>
         <WhiteoutTransition />
         <ErrorBanner />
+        <HistoryListModal />
+        <RecordDetail record={openedRecord} onClose={() => setOpenedRecord(null)} />
         {showChat && (
           <KiriChatPanel
             userProfile={{ nickname, birthDate, birthTime, gender }}
@@ -1247,6 +1302,13 @@ export default function SpiritualDiary() {
                     </div>
                   )}
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setShowHistoryList(true)}
+                  className="mt-3 w-full flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 active:scale-[0.98] text-white py-2.5 rounded-lg font-medium text-sm transition-all"
+                >
+                  <History className="w-4 h-4" />最近の記録
+                </button>
               </div>
 
               <div className="kiri-card-strong rounded-xl p-4">
