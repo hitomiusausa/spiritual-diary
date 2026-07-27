@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   HISTORY_STORAGE_KEY,
+  PROFILE_STORAGE_KEY,
   clearHistory,
   deleteHistoryItem,
   loadHistory,
   saveHistory,
+  loadProfile,
+  saveProfile,
 } from "@/lib/history";
 
 function storage() {
@@ -38,5 +41,12 @@ describe("history storage", () => {
     const store = storage();
     store.setItem(HISTORY_STORAGE_KEY, "not-json");
     expect(loadHistory(store)).toEqual([]);
+  });
+
+  it("persists only the basic profile fields", () => {
+    const store = storage();
+    saveProfile(store, { nickname: "みお", birthDate: "1990-02-03", birthTime: "08:10", gender: "female", secret: "ignored" });
+    expect(loadProfile(store)).toEqual({ nickname: "みお", birthDate: "1990-02-03", birthTime: "08:10", gender: "female" });
+    expect(store.getItem(PROFILE_STORAGE_KEY)).not.toContain("secret");
   });
 });

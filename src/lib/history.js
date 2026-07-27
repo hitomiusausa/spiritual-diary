@@ -1,4 +1,5 @@
 export const HISTORY_STORAGE_KEY = "spiritual-diary.history.v1";
+export const PROFILE_STORAGE_KEY = "spiritual-diary.profile.v1";
 export const MAX_HISTORY_ITEMS = 30;
 
 export function toHistoryRecord({ result, entry, userProfile }) {
@@ -54,4 +55,24 @@ export function deleteHistoryItem(storage, id) {
 export function clearHistory(storage) {
   storage?.removeItem(HISTORY_STORAGE_KEY);
   return [];
+}
+
+export function loadProfile(storage) {
+  try {
+    const parsed = JSON.parse(storage?.getItem(PROFILE_STORAGE_KEY) ?? "null");
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveProfile(storage, profile) {
+  const safeProfile = {
+    nickname: String(profile?.nickname || "").slice(0, 40),
+    birthDate: String(profile?.birthDate || "").slice(0, 10),
+    birthTime: String(profile?.birthTime || "").slice(0, 5),
+    gender: String(profile?.gender || "").slice(0, 16),
+  };
+  storage?.setItem(PROFILE_STORAGE_KEY, JSON.stringify(safeProfile));
+  return safeProfile;
 }
