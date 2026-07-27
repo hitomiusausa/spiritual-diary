@@ -137,7 +137,7 @@ src/lib/chatHistory.js
 - 入力画面のプレースホルダーは外部API依存をやめ、固定例文で安定表示
 - 占い結果を端末の`localStorage`へ最大30件保存し、開始画面から直近5件の確認と個別/全削除を可能にした
 - 検証: `npm test` 18件成功、`npm run build`成功、`npm run lint`エラーなし、`npm audit --omit=dev`脆弱性0件
-- GitHubブランチ: `agent/consolidate-spiritual-diary`、最新コミット: `a9a3669`
+- GitHubブランチ: `agent/consolidate-spiritual-diary`（最新SHAは`git log -1`で確認）
 
 ### 未完了の検証
 
