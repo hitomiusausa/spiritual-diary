@@ -1,6 +1,6 @@
 # Kiri / Mind & Energy Note — 現状と次の作業
 
-更新日: 2026-07-25
+更新日: 2026-07-28
 
 ## 1. このリポジトリの位置づけ
 
@@ -112,7 +112,7 @@ src/lib/chatHistory.js
 
 - `npm run build`: 成功
 - `npm run lint`: エラーなし（`<img>`の最適化警告が1件）
-- `npm test`: 12件成功（命式・入力検証・大運・AI応答契約）
+- `npm test`: 18件成功（命式・入力検証・大運・AI応答契約・履歴）
 - `npm audit --omit=dev`: 実行時依存の脆弱性0件
 
 ## 8. 今回追加した計算・文章の基準
@@ -136,8 +136,8 @@ src/lib/chatHistory.js
 - 分析APIの入力検証、AI応答契約、上流エラーの情報漏えい防止を追加
 - 入力画面のプレースホルダーは外部API依存をやめ、固定例文で安定表示
 - 占い結果を端末の`localStorage`へ最大30件保存し、開始画面から直近5件の確認と個別/全削除を可能にした
-- 検証: `npm test` 15件成功、`npm run build`成功、`npm run lint`エラーなし、`npm audit --omit=dev`脆弱性0件
-- GitHubブランチ: `agent/consolidate-spiritual-diary`、コミット: `8b74fdc`
+- 検証: `npm test` 18件成功、`npm run build`成功、`npm run lint`エラーなし、`npm audit --omit=dev`脆弱性0件
+- GitHubブランチ: `agent/consolidate-spiritual-diary`、最新コミット: `d70c58d`
 
 ### 未完了の検証
 
@@ -146,7 +146,5 @@ src/lib/chatHistory.js
 - チャットの購読状態判定・課金接続は未実施（会話履歴は端末内保存を実装済み）
 - 端末内履歴の実機確認（Safariプライベートブラウズ、容量超過時を含む）は未実施
 - デザインの実機確認（iPhoneの明るさ・文字サイズ変更・ダーク環境）は未実施
-- 生年月日を年・月・日の選択式に変更し、気分選択を絵文字表示から線画アイコン表示へ変更
-- 基本情報（ニックネーム・生年月日・出生時刻・性別）を端末内に保存し、次回起動時に入力欄へ復元
 - Anthropicの利用可能モデル一覧を確認し、分析APIのモデルを`CLAUDE_MODEL`で切り替え可能にした（未設定時は`claude-sonnet-4-6`）
 - 真太陽時、流派ごとの大運差、出生地の扱いは未確定
