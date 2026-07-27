@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Sparkles, Lock, AlertCircle, X, ChevronDown, ChevronUp, HelpCircle, Heart, Smile, Frown, Meh, Angry, Star, Sun, Moon, Cloud, Zap, CircleHelp } from 'lucide-react';
+import { Sparkles, Lock, AlertCircle, X, ChevronDown, ChevronUp, HelpCircle, Heart, Smile, Frown, Meh, Angry, Star, Sun, Moon, Cloud, Zap, CircleHelp, Download, Upload } from 'lucide-react';
 import { clearHistory, deleteHistoryItem, loadHistory, saveHistory, toHistoryRecord, loadProfile, saveProfile } from '@/lib/history';
+import { buildBackup, backupFileName, parseBackup, applyBackup } from '@/lib/backup';
 import KiriChatPanel from '@/components/KiriChatPanel';
 
 export default function SpiritualDiary() {
@@ -26,6 +27,7 @@ export default function SpiritualDiary() {
   });
   const [result, setResult] = useState(null);
   const [history, setHistory] = useState([]);
+  const [backupNotice, setBackupNotice] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [expandedSections, setExpandedSections] = useState({
@@ -47,6 +49,39 @@ export default function SpiritualDiary() {
   const [showChat, setShowChat] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const profileHydrated = useRef(false);
+  const importInputRef = useRef(null);
+
+  const exportBackup = () => {
+    const blob = new Blob([JSON.stringify(buildBackup(window.localStorage), null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = backupFileName();
+    link.click();
+    URL.revokeObjectURL(url);
+    setBackupNotice({ type: 'ok', text: 'バックアップを書き出しました' });
+  };
+
+  const importBackup = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    try {
+      const summary = applyBackup(window.localStorage, parseBackup(await file.text()));
+      setHistory(loadHistory(window.localStorage));
+      if (summary.profileApplied) {
+        const restored = loadProfile(window.localStorage);
+        setNickname(restored?.nickname || '');
+        setBirthDate(restored?.birthDate || '');
+        setBirthTime(restored?.birthTime || '');
+        setGender(restored?.gender || '');
+      }
+      setBackupNotice({ type: 'ok', text: `読み込みました（追加された記録 ${summary.historyAdded}件・全${summary.historyTotal}件）` });
+    } catch (importError) {
+      console.error('[kiri-backup]', importError);
+      setBackupNotice({ type: 'error', text: 'このファイルは読み込めませんでした' });
+    }
+  };
 
   const moodIconMap = {
     '🥰': Heart, '❤️': Heart, '😆': Smile, '💓': Heart,
@@ -492,6 +527,39 @@ export default function SpiritualDiary() {
                 <p className="text-[11px] text-purple-200/80 mt-2">記録はこの端末内にのみ保存されます。</p>
               </div>
             )}
+
+            <div className="bg-white/10 rounded-xl p-4 mb-6 border border-purple-300/30">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-bold text-yellow-300">バックアップ</h2>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={exportBackup}
+                    className="flex items-center gap-1 text-xs text-purple-200 hover:text-white"
+                  >
+                    <Download className="w-4 h-4" />書き出す
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => importInputRef.current?.click()}
+                    className="flex items-center gap-1 text-xs text-purple-200 hover:text-white"
+                  >
+                    <Upload className="w-4 h-4" />読み込む
+                  </button>
+                  <input
+                    ref={importInputRef}
+                    type="file"
+                    accept="application/json,.json"
+                    onChange={importBackup}
+                    className="hidden"
+                  />
+                </div>
+              </div>
+              <p className="text-[11px] text-purple-200/80 mt-2">記録・プロフィール・会話をJSONファイルとして保存/復元できます。読み込みは既存の記録を消しません。</p>
+              {backupNotice && (
+                <p className={`text-xs mt-1 ${backupNotice.type === 'error' ? 'text-red-300' : 'text-yellow-200'}`}>{backupNotice.text}</p>
+              )}
+            </div>
 
             <div className="space-y-3">
               <div>
