@@ -32,6 +32,7 @@ export default function SpiritualDiary() {
   const [showSettings, setShowSettings] = useState(false);
   const [showHistoryList, setShowHistoryList] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(null); // null | { type: 'one', id } | { type: 'all' }
+  const [deleteNotice, setDeleteNotice] = useState(null);
   const [backupNotice, setBackupNotice] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -137,6 +138,12 @@ export default function SpiritualDiary() {
       saveProfile(window.localStorage, { nickname, birthDate, birthTime, gender });
     }
   }, [nickname, birthDate, birthTime, gender]);
+
+  useEffect(() => {
+    if (!deleteNotice) return undefined;
+    const timer = setTimeout(() => setDeleteNotice(null), 3000);
+    return () => clearTimeout(timer);
+  }, [deleteNotice]);
 
   // テキスト内の**強調**を処理する関数
   const renderHighlightedText = (text) => {
@@ -549,6 +556,9 @@ export default function SpiritualDiary() {
             </div>
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-2">
+            {deleteNotice && (
+              <p className="text-xs text-kiri-gold" role="status">{deleteNotice}</p>
+            )}
             {history.length === 0 && (
               <p className="text-sm text-kiri-lilac leading-relaxed">まだ記録がありません。今日の記録が、最初のひとつになるよ。</p>
             )}
@@ -614,6 +624,7 @@ export default function SpiritualDiary() {
                   setHistory(deleteHistoryItem(window.localStorage, confirmDelete.id));
                 }
                 setConfirmDelete(null);
+                setDeleteNotice(isAll ? 'すべての記録を削除しました' : '記録を削除しました');
               }}
               className="flex-1 bg-kiri-danger text-kiri-night py-2.5 rounded-lg text-sm font-bold hover:opacity-90 transition-opacity"
             >
