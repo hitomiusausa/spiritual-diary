@@ -123,7 +123,7 @@ function calculateThemeScores(birthSaju, todaySaju, biorhythm, userMood, hasBirt
 // 今日のヒントを計算
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
-function calculateTodayHints(birthSaju, todaySaju, biorhythm, themeScores) {
+function calculateTodayHints(birthSaju, todaySaju, biorhythm, themeScores, entry = {}) {
   // --- 基本指標 ---
   const todayElement = getElement(todaySaju.day);
   const bioAvg = (biorhythm.p + biorhythm.e + biorhythm.i) / 3;
@@ -132,6 +132,17 @@ function calculateTodayHints(birthSaju, todaySaju, biorhythm, themeScores) {
       themeScores.money +
       themeScores.work +
       themeScores.health) / 4;
+  const themeLabels = {
+    love: '人とのやりとり',
+    money: 'お金や判断',
+    work: '仕事や学び',
+    health: '体と休息',
+  };
+  const dominantTheme = Object.entries(themeScores)
+    .sort(([, a], [, b]) => b - a)[0]?.[0] || 'work';
+  const dominantLabel = themeLabels[dominantTheme];
+  const eventLabel = String(entry.event || '').trim().replace(/\s+/g, ' ').slice(0, 36);
+  const recordLead = eventLabel ? `「${eventLabel}」と書いていた今日` : '今日の記録を振り返ると';
   
 // 色の計算（語彙バリエーション拡張版）
 const colorMap = {
@@ -228,6 +239,10 @@ const colorName = Array.isArray(variants)
 // 距離感の計算（語彙さらに拡張版）
 let distanceValue = '';
 let distanceMessage = '';
+const chooseDistance = (values, messages) => {
+  const index = Math.floor(Math.random() * Math.min(values.length, messages.length));
+  return { value: values[index], message: messages[index] };
+};
 
 
 if (themeAvg >= 75) {
@@ -245,8 +260,7 @@ if (themeAvg >= 75) {
     '今日は呼吸が重なる距離が落ち着きそう\n合わせようとしなくていい。',
     '今日は安心が伝わる距離が向いていそう\n近さは、信頼の延長で'
   ];
-  distanceValue = pick(values);
-  distanceMessage = pick(messages);
+  ({ value: distanceValue, message: distanceMessage } = chooseDistance(values, messages));
 
 } else if (themeAvg >= 55) {
   const values = [
@@ -263,8 +277,7 @@ if (themeAvg >= 75) {
     '今日は気配がわかる距離が楽そう\n意識しすぎなくていい',
     '今日は視線が合う距離がちょうどよさそう\n確認できれば、それで足りる'
   ];
-  distanceValue = pick(values);
-  distanceMessage = pick(messages);
+  ({ value: distanceValue, message: distanceMessage } = chooseDistance(values, messages));
 
 } else if (themeAvg >= 40) {
   const values = [
@@ -281,8 +294,7 @@ if (themeAvg >= 75) {
     '今日は干渉しない距離が向いていそう\n関わらない＝冷たい、ではない',
     '今日は自分の輪郭を保つ距離が安心につながりそう\n曖昧にしなくていい'
   ];
-  distanceValue = pick(values);
-  distanceMessage = pick(messages);
+  ({ value: distanceValue, message: distanceMessage } = chooseDistance(values, messages));
 
 } else if (themeAvg >= 25) {
   const values = [
@@ -299,8 +311,7 @@ if (themeAvg >= 75) {
     '今日は関わりを減らす選択が心を守りそう\n減らすことも調整',
     '今日は視界の外に置くことで落ち着けそう\n今はそれで十分'
   ];
-  distanceValue = pick(values);
-  distanceMessage = pick(messages);
+  ({ value: distanceValue, message: distanceMessage } = chooseDistance(values, messages));
 
 } else {
   const values = [
@@ -317,19 +328,16 @@ if (themeAvg >= 75) {
     '今日は誰とも比べない距離が安心につながりそう\n測らなくていい',
     '今日は何もしない距離が回復を助けそう\n止まることも進むこと'
   ];
-  distanceValue = pick(values);
-  distanceMessage = pick(messages);
+  ({ value: distanceValue, message: distanceMessage } = chooseDistance(values, messages));
 }
 
 return {
   color: {
     value: colorName,
     message: pick([
-      `無理に意識しなくても、目に入るだけで十分`,
-      `今日の気配にいちばん近そう`,
-      `選ばなくても、気づくだけでいい`,
-      `取り入れようとしなくても、そばに感じる`,
-      `今日の色もあなたを美しく彩る`
+      `${recordLead}、${colorName}を身近なものの中からひとつ見つけてみる。${dominantLabel}を整理するときの目印にできそう`,
+      `${colorName}は今日の気配を置いておく色。${recordLead}、画面や窓の外で見つけたら、ひと呼吸ぶんだけ手を止める合図に`,
+      `身につけなくても大丈夫。${colorName}が目に入ったとき、${dominantLabel}をひとつだけ選び直す時間にできそう`
     ]),
     emoji: '💙',
     bgColor: colorData.bgColor,
@@ -339,13 +347,9 @@ return {
 number: {
   value: number,
   message: pick([
-    `今日は「${number}」が、ひとつのサイン\n意味を探さなくても、目に留まったらそれで十分`,
-    
-    `選択や判断の前に、ふと思い出すくらいで`,
-    
-    `何かを決めるためというより、意識の端に置いておく印として`,
-    
-    `使わなくてもいい、気づくだけでも意味がある`
+    `今日の数字は「${number}」。${dominantLabel}で迷ったら、候補を${number}個までに絞るための小さな目印に`,
+    `「${number}」を見かけたら、${recordLead}に残したことを${number}分だけ整理する。答えを急がなくていい`,
+    `意味を当てにいかなくて大丈夫。${number}回深く息を吐いてから、${dominantLabel}の次の一手をひとつ選ぶ`
   ]),
   emoji: '🔢'
 }
@@ -354,19 +358,11 @@ number: {
   direction: {
     value: direction,
     message: pick([
-      `もし歩くなら、${direction}の方に意識が向くかも`,
-      `今日は${direction}に何かありそう`,
-      `${direction}を意識すると、心が楽になるかも`,
-      `無理に向かなくても大丈夫、気が向けば`,
-      `疲れたら、少し進んでみて`
+      `${direction}へ移動する必要はないよ。窓や画面の${direction}側に視線を置いて、${dominantLabel}をひとつだけ見直す場所に`,
+      `帰り道や部屋の中で${direction}が目に入ったら、${recordLead}の続きを一行だけ書く。そこから先は明日に置いていい`,
+      `今日は${direction}を「進む方向」ではなく「視線を戻す方向」に。${dominantLabel}で急いでいたら、ひとつだけ余白を置けそう`
     ]),
     emoji: '🧭',
-    debug: {
-      todayDay: todaySaju.day,
-      stem: todaySaju.day?.[0],
-      element: todayElement,
-      baseDirection: directionMap[todayElement]
-    }
   },
 
   distance: {
@@ -478,7 +474,7 @@ export async function POST(request) {
     const themeScores = calculateThemeScores(birthSaju, todaySaju, biorhythm, entry.emoji, hasBirthTime);
     
     // 今日のヒントを計算
-    const todayHints = calculateTodayHints(birthSaju, todaySaju, biorhythm, themeScores);
+    const todayHints = calculateTodayHints(birthSaju, todaySaju, biorhythm, themeScores, entry);
 
     const sajuNote = saju.note + (
       taiun.available ? "" : "。大運は性別未入力のため保留"
