@@ -22,11 +22,12 @@
 - 同日・同一条件での分析結果の安定化
 - モバイル向けの静かな夜色UI、絵文字表示から線画アイコンへの変更
 - APIの第一段階保護（D-08）: IP別レート制限、JST日次クォータ、チャットの`KIRI_CHAT_PREVIEW`ゲート＋entitlementスタブ。403/429時はチャットUIがKiriの言葉で案内
+- 四柱推命の境界ケース独立照合（D-10）: 日柱連続性・立春前後・節入り前後・0時/夜子時・時柱境界がすべて古典ルール手計算と一致。流派方式3点を仕様承認済み
 
 ## 検証済み
 
 ```text
-npm test                 6 files / 33 tests passed
+npm test                 6 files / 40 tests passed
 npm run lint             errors 0、<img>最適化 warning 1件
 npm run build            success
 npm audit --omit=dev     vulnerabilities 0
@@ -36,17 +37,18 @@ APIの403（プレビュー無効）、429（レート制限・Retry-Afterヘッ
 
 ## まだ着手していない重要項目
 
-1. 四柱推命の専門家・外部命式表との照合ケース拡充
+1. 四柱推命の専門家・外部命式表との人による照合（独立演算照合はD-10で済。公開前推奨）
 2. `/api/analyze` と `/api/chat` の認証（レート制限・日次上限はD-08で第一段階済み。永続的な利用量監視は未実装）
 3. チャットの購読状態チェックとStoreKit/RevenueCat連携（`checkChatEntitlement()`内に実装する）
-4. プライバシーポリシー、利用規約、サポートページ
-5. iOSの器、App Store素材、実機iPhone QA
+4. 日記データのJSONエクスポート/インポート（D-09第一段階。方針確定済み・実装未着手）
+5. プライバシーポリシー、利用規約、サポートページ
+6. iOSの器、App Store素材、実機iPhone QA
 
 ## 次に進める順番
 
-1. 四柱推命の境界ケースを検証し、仕様を承認する
+1. 日記データのJSONエクスポート/インポートを実装する（D-09）
 2. 規約・プライバシー・サポート文面を作る
-3. iOS化と課金を実装する（entitlementはD-08のスタブに接続）
+3. iOS化と課金を実装する（entitlementはD-08のスタブに接続、バックアップはD-09第二段階へ）
 4. 実機QA後にApp Store提出準備へ進む
 
 ## 開発コマンド
