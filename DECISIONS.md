@@ -85,3 +85,14 @@
 - **決定**: iOSアプリは現在のReact UIをCapacitorで包む。課金はRevenueCat SDK経由でStoreKitを扱い、サーバー側の`checkChatEntitlement()`（D-08）に購読検証を接続する。「薄いWebView」審査リスク（App Storeガイドライン4.2）を避けるため、ネイティブストレージ移行（D-09第二段階）・ハプティクスなどのネイティブ統合を器の実装に含める。
 - **前提**: `/api/analyze`と`/api/chat`はサーバーが必要なため、Webデプロイ（ホスティング先は未決定）が先行条件。UIを静的同梱にするかリモートURL方式にするかは、フロントとAPIの分離構成の検討とセットでiOS着手時に決める。
 - **保留中の関連判断**: Webデプロイ先（未決定）、法務ページの運営者表記・問い合わせ窓口（未記入）、Apple Developer Program加入。
+
+## D-13 デザインシステム: 夜色トークン・明朝×角ゴ・霧の光
+
+- **Status**: 確定（2026-07-28ユーザー承認。フォントは実サンプル比較で選定）
+- **決定**:
+  - **色**: `globals.css`の`@theme`に定義したトークンのみを使う。地=night、面=mist/plum、線=line、主文=text、補助文=lilac/fog、**アクセントは gold 1色のみ**（Kiriの声・見出し・強調）。データ4色（leaf/rain/lilac/rose）はバイオリズム・テーマ運勢専用、五行5色（wood/fire/earth/metal/water）は今日のヒント専用。エラーはdanger。これ以外の生のTailwind色クラスを画面に追加しない。
+  - **フォント**: 見出しとKiriの言葉=しっぽり明朝（`--font-kiri-display`、`.font-display`/`.kiri-voice`）、UI本文=Zen Kaku Gothic New（`--font-kiri-body`）。next/font/googleで自前配信。`.kiri-voice`はline-height 2で組む。
+  - **アニメーション**: シグネチャーは「霧の谷の光」（`.kiri-fog-orb`のdrift+breathe）。読み解き中画面とトップページ背景で同じ言語を使い、強度だけ変える。入場は`.kiri-rise`、灯りの明滅は`.kiri-ember`。transform/opacityのみ・`prefers-reduced-motion`で全停止。レンダー内`Math.random()`は使わない。
+  - **画面遷移**: 白フラッシュではなく薄紫の霧トーンで覆う。
+- **理由**: 約40種に散らばっていた色を役割固定のトークンに集約し、「静かで神秘的でシンプル」（Apple HIGのClarity/Deference/Depth準拠）な世界観を全画面で一貫させるため。
+- **付随変更**: 履歴タップで過去の読み解きを読み返す詳細モーダルを追加（日記の核体験）。プレミアム案内の「過去の記録をすべて閲覧」をD-11に合わせ「会話ログの読み返し」へ修正。`<html lang="ja">`に修正。

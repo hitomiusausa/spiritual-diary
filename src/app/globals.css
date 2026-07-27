@@ -1,5 +1,14 @@
 @import "tailwindcss";
 
+/*
+  Kiri デザイントークン（D-13）
+  役割を固定し、ここにない色を画面に増やさない。
+  - 地: night / 面: mist(弱)・plum(強) / 線: line
+  - 文字: text(主)・lilac(補助)・fog(明るい補助)
+  - アクセントは gold 1色のみ = Kiriの声・見出し・聖域
+  - データ4色(leaf/rain/lilac/rose)はバイオリズム・テーマ専用
+  - 五行5色(wood/fire/earth/metal/water)は今日のヒント専用
+*/
 :root {
   --background: #171522;
   --foreground: #f8f4ef;
@@ -14,21 +23,34 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-kiri-night: #171522;
+  --color-kiri-plum: #28233a;
+  --color-kiri-text: #f8f4ef;
+  --color-kiri-fog: #e6def0;
+  --color-kiri-lilac: #c7b8dc;
+  --color-kiri-gold: #e8c98e;
+  --color-kiri-danger: #e39a9a;
+
+  --color-kiri-leaf: #9cc7ab;
+  --color-kiri-rain: #9db4dc;
+  --color-kiri-rose: #d8a8b8;
+
+  --color-kiri-wood: #8fbf9f;
+  --color-kiri-fire: #d9a180;
+  --color-kiri-earth: #d3b98a;
+  --color-kiri-metal: #c9c4bd;
+  --color-kiri-water: #94aed6;
+
+  --font-sans: var(--font-kiri-body), "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+  --font-display: var(--font-kiri-display), "Hiragino Mincho ProN", "Yu Mincho", serif;
+  --font-mono: ui-monospace, monospace;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+  font-family: var(--font-kiri-body), "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
   letter-spacing: 0.01em;
 }
 
@@ -58,19 +80,69 @@ body {
   background: #bb98c4;
 }
 
-.kiri-orbit {
-  height: 5rem;
+/* Kiriの言葉（読み解き文）: 明朝でゆったり組む */
+.kiri-voice {
+  font-family: var(--font-kiri-display), "Hiragino Mincho ProN", "Yu Mincho", serif;
+  line-height: 2;
+  letter-spacing: 0.02em;
 }
 
-.kiri-orbit > * {
-  display: none;
+/*
+  霧の谷の光（シグネチャー・アニメーション）
+  transform/opacityのみ。強度は opacity と blur で調整する。
+*/
+.kiri-fog-orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(46px);
+  pointer-events: none;
+  will-change: transform, opacity;
+  animation:
+    kiri-drift var(--drift, 70s) ease-in-out infinite,
+    kiri-breathe var(--breathe, 9s) ease-in-out infinite;
+  animation-delay: var(--delay, 0s), var(--delay, 0s);
 }
 
-.kiri-orbit::before {
-  content: "☾";
-  display: block;
-  color: var(--kiri-gold);
-  font-size: 2.5rem;
-  line-height: 5rem;
-  opacity: 0.8;
+@keyframes kiri-drift {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  33%  { transform: translate3d(6%, -5%, 0) scale(1.08); }
+  66%  { transform: translate3d(-5%, 4%, 0) scale(0.95); }
+  100% { transform: translate3d(0, 0, 0) scale(1); }
+}
+
+@keyframes kiri-breathe {
+  0%, 100% { opacity: var(--fog-min, 0.35); }
+  50%      { opacity: var(--fog-max, 0.7); }
+}
+
+/* 画面要素の静かな入場 */
+.kiri-rise {
+  animation: kiri-rise 0.7s ease-out both;
+  animation-delay: var(--rise-delay, 0s);
+}
+
+@keyframes kiri-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* 読み解き中の灯り（三つの光がゆっくり息をする） */
+.kiri-ember {
+  animation: kiri-breathe var(--breathe, 3.6s) ease-in-out infinite;
+  animation-delay: var(--delay, 0s);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kiri-fog-orb,
+  .kiri-rise,
+  .kiri-ember {
+    animation: none;
+  }
+  .kiri-fog-orb {
+    opacity: var(--fog-min, 0.35);
+  }
+  .kiri-rise {
+    opacity: 1;
+    transform: none;
+  }
 }
