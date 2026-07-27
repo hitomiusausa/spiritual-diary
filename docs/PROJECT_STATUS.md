@@ -31,6 +31,9 @@ src/components/SpiritualDiary.jsx
 
 src/lib/history.js
   └─ localStorageへの履歴保存・削除（最大30件）
+
+docs/DECISION_INPUT_MAP.md
+  └─ 判断材料と再現性の対応表
 ```
 
 ## 3. 実装済み
