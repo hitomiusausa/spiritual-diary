@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Sparkles, Lock, AlertCircle, X, ChevronDown, ChevronUp, HelpCircle } from 'lucide-react';
+import { Sparkles, Lock, AlertCircle, X, ChevronDown, ChevronUp, HelpCircle, Heart, Smile, Frown, Meh, Angry, Star, Sun, Moon, Cloud, Zap, CircleHelp } from 'lucide-react';
 import { clearHistory, deleteHistoryItem, loadHistory, saveHistory, toHistoryRecord } from '@/lib/history';
 
 export default function SpiritualDiary() {
@@ -44,6 +44,38 @@ export default function SpiritualDiary() {
   });
   const [showPremiumInfo, setShowPremiumInfo] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
+
+  const moodIconMap = {
+    '🥰': Heart, '❤️': Heart, '😆': Smile, '💓': Heart,
+    '😊': Smile, '😌': Smile, '✨': Sparkles, '🌈': Star, '⭐': Star, '😋': Smile,
+    '☀️': Sun, '💚': Heart, '💙': Heart,
+    '😴': Moon, '💤': Moon,
+    '😔': Frown, '😰': Cloud, '🌧️': Cloud,
+    '😢': Frown, '😭': Frown,
+    '😤': Angry, '😠': Angry,
+    '🤔': CircleHelp, '😮': Meh,
+  };
+
+  const MoodIcon = ({ value, className = 'w-7 h-7' }) => {
+    const Icon = moodIconMap[value] || Sparkles;
+    return <Icon className={className} strokeWidth={1.6} aria-hidden="true" />;
+  };
+
+  const setBirthPart = (part, value) => {
+    const [year = '', month = '', day = ''] = birthDate.split('-');
+    const next = { year, month, day, [part]: value };
+    if (next.year && next.month && next.day) {
+      const maxDay = new Date(Number(next.year), Number(next.month), 0).getDate();
+      next.day = String(Math.min(Number(next.day), maxDay)).padStart(2, '0');
+    }
+    setBirthDate(`${next.year}-${next.month}-${next.day}`);
+  };
+
+  const selectedYear = Number(birthDate.split('-')[0]);
+  const selectedMonth = Number(birthDate.split('-')[1]);
+  const daysInSelectedMonth = selectedYear && selectedMonth
+    ? new Date(selectedYear, selectedMonth, 0).getDate()
+    : 31;
 
   useEffect(() => {
     setHistory(loadHistory(window.localStorage));
@@ -426,7 +458,7 @@ export default function SpiritualDiary() {
                 <div className="space-y-2 max-h-48 overflow-y-auto">
                   {history.slice(0, 5).map((item) => (
                     <div key={item.id} className="bg-black/15 rounded-lg p-2.5 flex items-start gap-2">
-                      <span className="text-lg">{item.entry?.emoji || '✨'}</span>
+                      <span className="text-purple-100"><MoodIcon value={item.entry?.emoji || '✨'} className="w-5 h-5" /></span>
                       <div className="min-w-0 flex-1">
                         <p className="text-xs text-purple-200">
                           {item.createdAt ? new Date(item.createdAt).toLocaleDateString('ja-JP') : '記録'}
@@ -463,12 +495,42 @@ export default function SpiritualDiary() {
 
               <div>
                 <label className="block text-white text-sm mb-1.5 font-medium">生年月日</label>
-                <input
-                  type="date"
-                  value={birthDate}
-                  onChange={(e) => setBirthDate(e.target.value)}
-                  className="w-full px-3 py-2.5 text-sm rounded-lg bg-white/20 text-white border border-purple-300/50 focus:outline-none focus:ring-2 focus:ring-purple-400"
-                />
+                <div className="grid grid-cols-[1.25fr_1fr_1fr] gap-2">
+                  <select
+                    aria-label="生まれた年"
+                    value={birthDate.split('-')[0] || ''}
+                    onChange={(e) => setBirthPart('year', e.target.value)}
+                    className="w-full px-3 py-2.5 text-sm rounded-lg bg-white/20 text-white border border-purple-300/50 focus:outline-none focus:ring-2 focus:ring-purple-400"
+                  >
+                    <option value="">年</option>
+                    {Array.from({ length: new Date().getFullYear() - 1899 }, (_, index) => new Date().getFullYear() - index).map((year) => (
+                      <option key={year} value={year}>{year}年</option>
+                    ))}
+                  </select>
+                  <select
+                    aria-label="生まれた月"
+                    value={birthDate.split('-')[1] || ''}
+                    onChange={(e) => setBirthPart('month', e.target.value)}
+                    className="w-full px-3 py-2.5 text-sm rounded-lg bg-white/20 text-white border border-purple-300/50 focus:outline-none focus:ring-2 focus:ring-purple-400"
+                  >
+                    <option value="">月</option>
+                    {Array.from({ length: 12 }, (_, index) => index + 1).map((month) => (
+                      <option key={month} value={String(month).padStart(2, '0')}>{month}月</option>
+                    ))}
+                  </select>
+                  <select
+                    aria-label="生まれた日"
+                    value={birthDate.split('-')[2] || ''}
+                    onChange={(e) => setBirthPart('day', e.target.value)}
+                    className="w-full px-3 py-2.5 text-sm rounded-lg bg-white/20 text-white border border-purple-300/50 focus:outline-none focus:ring-2 focus:ring-purple-400"
+                  >
+                    <option value="">日</option>
+                    {Array.from({ length: daysInSelectedMonth }, (_, index) => index + 1).map((day) => (
+                      <option key={day} value={String(day).padStart(2, '0')}>{day}日</option>
+                    ))}
+                  </select>
+                </div>
+                <p className="text-xs text-purple-200 mt-1">年・月・日を順番に選んでください</p>
               </div>
 
               <div>
@@ -499,7 +561,7 @@ export default function SpiritualDiary() {
 
               <button
                 onClick={() => birthDate && setStep('input')}
-                disabled={!birthDate}
+                disabled={!/^\d{4}-\d{2}-\d{2}$/.test(birthDate)}
                 className="w-full kiri-button py-3 rounded-xl font-bold text-sm hover:scale-[1.01] active:scale-[0.98] transition-transform disabled:opacity-50"
               >
                 はじめる
@@ -530,15 +592,17 @@ export default function SpiritualDiary() {
               <div className="kiri-card rounded-xl p-4">
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-white text-sm mb-2 font-medium text-center">💖 今日の気分（絵文字を選んでください）</label>
-                    <div className="flex flex-wrap gap-2 justify-center">
+                    <label className="block text-white text-sm mb-2 font-medium text-center">今日の気分を選んでください</label>
+                    <div className="flex flex-wrap gap-2 justify-center" role="group" aria-label="今日の気分">
                       {emojis.map(e => (
                         <button
                           key={e}
+                          type="button"
+                          aria-label={`気分: ${e}`}
                           onClick={() => setEntry({...entry, emoji: e})}
-                          className={`text-3xl p-2 rounded-lg transition-all ${entry.emoji === e ? 'bg-purple-500 scale-110' : 'bg-white/10'} active:scale-95`}
+                          className={`p-2.5 rounded-lg transition-all text-purple-100 ${entry.emoji === e ? 'bg-purple-400/50 text-yellow-200 scale-110 ring-1 ring-yellow-200/70' : 'bg-white/10 hover:bg-white/20'} active:scale-95`}
                         >
-                          {e}
+                          <MoodIcon value={e} />
                         </button>
                       ))}
                     </div>
@@ -1109,7 +1173,7 @@ export default function SpiritualDiary() {
                 <div className="space-y-2">
                   <div className="bg-white/10 p-3 rounded-lg">
                     <div className="flex items-center gap-2">
-                      <span className="text-2xl">{entry.emoji}</span>
+                      <span className="text-purple-100"><MoodIcon value={entry.emoji} className="w-6 h-6" /></span>
                       <span className="font-bold text-sm text-white">今日の気分</span>
                     </div>
                   </div>
