@@ -21,6 +21,9 @@ src/app/api/analyze/route.js
   ├─ 五行相性、テーマ別スコア、今日のヒント、大運を算出
   └─ Anthropic APIでdeepMessage / innerMessage / actionAdviceを生成
 
+src/app/api/chat/route.js
+  └─ 占い結果を文脈に渡すKiriチャット（開発プレビュー）
+
 src/lib/kiriPersonality.js
   └─ チャット版と占い版で共有するKiriの人格定義
 src/lib/saju.js
@@ -31,6 +34,9 @@ src/components/SpiritualDiary.jsx
 
 src/lib/history.js
   └─ localStorageへの履歴保存・削除（最大30件）
+
+src/components/KiriChatPanel.jsx
+  └─ 結果画面から開くKiriチャットの最小UI
 
 docs/DECISION_INPUT_MAP.md
   └─ 判断材料と再現性の対応表
@@ -47,6 +53,7 @@ docs/DECISION_INPUT_MAP.md
 - モバイル向けの画面遷移とホワイトアウト演出
 - プレミアム案内のUI
 - 無料の占い結果と有料チャットの境界表示（購入処理は未接続）
+- 結果画面からKiriへ質問する開発プレビュー（占い結果・今日の記録を文脈として送信）
 - Kiriのデザイン基準を、低彩度の夜色・薄い境界線・余白中心の静かなUIへ更新
 - 「今日のヒント」をキーワード（色・数字・方角・距離感）と、記録/上位テーマに結びついたKiriの具体的な説明の二段構えへ改善
 - 同日・同一人物・同一記録の再分析を安定させるため、ヒント選択を入力シード化し、分析結果をサーバー内で最大200件キャッシュ。Anthropicには`temperature: 0`を指定
@@ -131,6 +138,7 @@ docs/DECISION_INPUT_MAP.md
 
 - 外部の命式表・専門家基準との照合ケースはまだ1件のみ
 - Anthropic APIを使った実生成文のユーザーテストは未実施
+- チャットの購読状態判定・会話履歴保存・課金接続は未実施
 - 端末内履歴の実機確認（Safariプライベートブラウズ、容量超過時を含む）は未実施
 - デザインの実機確認（iPhoneの明るさ・文字サイズ変更・ダーク環境）は未実施
 - 生年月日を年・月・日の選択式に変更し、気分選択を絵文字表示から線画アイコン表示へ変更

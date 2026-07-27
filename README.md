@@ -20,7 +20,7 @@ cp .env.example .env.local # まだ存在しない場合は CLAUDE_API_KEY を�
 npm run dev
 ```
 
-`http://localhost:3000` を開いてください。分析APIは `/api/analyze` です。
+`http://localhost:3000` を開いてください。分析APIは `/api/analyze`、チャット開発プレビューは `/api/chat` です。
 
 ## 技術構成
 

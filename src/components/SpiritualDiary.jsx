@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Sparkles, Lock, AlertCircle, X, ChevronDown, ChevronUp, HelpCircle, Heart, Smile, Frown, Meh, Angry, Star, Sun, Moon, Cloud, Zap, CircleHelp } from 'lucide-react';
 import { clearHistory, deleteHistoryItem, loadHistory, saveHistory, toHistoryRecord, loadProfile, saveProfile } from '@/lib/history';
+import KiriChatPanel from '@/components/KiriChatPanel';
 
 export default function SpiritualDiary() {
   const [step, setStep] = useState('start');
@@ -43,6 +44,7 @@ export default function SpiritualDiary() {
     distance: false 
   });
   const [showPremiumInfo, setShowPremiumInfo] = useState(false);
+  const [showChat, setShowChat] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const profileHydrated = useRef(false);
 
@@ -821,6 +823,14 @@ export default function SpiritualDiary() {
       <>
         <WhiteoutTransition />
         <ErrorBanner />
+        {showChat && (
+          <KiriChatPanel
+            userProfile={{ nickname, birthDate, birthTime, gender }}
+            entry={entry}
+            result={result}
+            onClose={() => setShowChat(false)}
+          />
+        )}
         <InfoPopup 
           show={showBioInfo} 
           onClose={() => setShowBioInfo(false)}
@@ -1218,6 +1228,13 @@ export default function SpiritualDiary() {
                       className="kiri-button px-4 py-2 rounded-lg text-sm font-bold hover:scale-[1.01] active:scale-[0.98] transition-transform"
                     >
                       詳細を見る
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowChat(true)}
+                      className="mt-2 w-full rounded-lg border border-yellow-200/40 px-3 py-2 text-xs font-bold text-yellow-100 hover:bg-white/10 transition-colors"
+                    >
+                      開発プレビューでKiriに聞く
                     </button>
                   </div>
                 </div>
