@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState, useEffect, useRef } from 'react';
 import { Sparkles, Lock, AlertCircle, X, ChevronDown, ChevronUp, HelpCircle, Heart, Smile, Frown, Meh, Angry, Star, Sun, Moon, Cloud, Zap, CircleHelp, Download, Upload } from 'lucide-react';
 import { clearHistory, deleteHistoryItem, loadHistory, saveHistory, toHistoryRecord, loadProfile, saveProfile } from '@/lib/history';
@@ -647,6 +648,12 @@ export default function SpiritualDiary() {
               >
                 はじめる
               </button>
+            </div>
+
+            <div className="flex items-center justify-center gap-4 mt-5 text-[11px] text-purple-200/80">
+              <Link href="/privacy" className="hover:text-white">プライバシー</Link>
+              <Link href="/terms" className="hover:text-white">利用規約</Link>
+              <Link href="/support" className="hover:text-white">サポート</Link>
             </div>
           </div>
         </div>
