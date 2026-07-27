@@ -31,6 +31,7 @@ export default function SpiritualDiary() {
   const [openedRecord, setOpenedRecord] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showHistoryList, setShowHistoryList] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(null); // null | { type: 'one', id } | { type: 'all' }
   const [backupNotice, setBackupNotice] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -492,7 +493,7 @@ export default function SpiritualDiary() {
           </div>
           <div className="bg-white/10 rounded-xl p-4">
             <h4 className="text-sm font-bold text-kiri-gold mb-1">バックアップ</h4>
-            <p className="text-xs text-kiri-lilac mb-3 leading-relaxed">記録・プロフィール・会話をJSONファイルとして保存/復元できます。読み込みは既存の記録を消しません。</p>
+            <p className="text-xs text-kiri-lilac mb-3 leading-relaxed">記録・プロフィール・会話をJSONファイルとして保存/復元できます。読み込みは既存の記録を消しません。バックアップは自動では行われないので、大切な記録は定期的に書き出してください。</p>
             <div className="flex gap-2">
               <button
                 type="button"
@@ -538,7 +539,7 @@ export default function SpiritualDiary() {
               {history.length > 0 && (
                 <button
                   type="button"
-                  onClick={() => setHistory(clearHistory(window.localStorage))}
+                  onClick={() => setConfirmDelete({ type: 'all' })}
                   className="text-xs text-kiri-lilac hover:text-white"
                 >
                   すべて削除
@@ -569,7 +570,7 @@ export default function SpiritualDiary() {
                 <button
                   type="button"
                   aria-label="この記録を削除"
-                  onClick={() => setHistory(deleteHistoryItem(window.localStorage, item.id))}
+                  onClick={() => setConfirmDelete({ type: 'one', id: item.id })}
                   className="text-kiri-lilac hover:text-white px-2.5 rounded-r-lg"
                 >
                   <X className="w-4 h-4" />
@@ -578,6 +579,47 @@ export default function SpiritualDiary() {
             ))}
           </div>
           <p className="px-4 pb-3 text-[11px] text-kiri-lilac/80">タップすると当時のKiriの読み解きを読み返せます。</p>
+        </div>
+      </div>
+    );
+  };
+
+  // 削除前の確認（バックアップは手動のみのため、復元不可を明示する）
+  const ConfirmDeleteModal = () => {
+    if (!confirmDelete) return null;
+    const isAll = confirmDelete.type === 'all';
+    return (
+      <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setConfirmDelete(null)} role="alertdialog" aria-modal="true" aria-label="削除の確認">
+        <div className="kiri-card-strong rounded-2xl w-full max-w-sm p-6 kiri-rise" onClick={(e) => e.stopPropagation()}>
+          <h3 className="font-display text-lg font-bold text-white mb-2">
+            {isAll ? 'すべての記録を削除しますか？' : 'この記録を削除しますか？'}
+          </h3>
+          <p className="text-sm text-kiri-lilac leading-relaxed mb-4">
+            削除した記録は元に戻せません。バックアップを取っていない場合、復元はできません。
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(null)}
+              className="flex-1 bg-white/10 hover:bg-white/20 text-white py-2.5 rounded-lg text-sm font-medium transition-colors"
+            >
+              キャンセル
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (isAll) {
+                  setHistory(clearHistory(window.localStorage));
+                } else {
+                  setHistory(deleteHistoryItem(window.localStorage, confirmDelete.id));
+                }
+                setConfirmDelete(null);
+              }}
+              className="flex-1 bg-kiri-danger text-kiri-night py-2.5 rounded-lg text-sm font-bold hover:opacity-90 transition-opacity"
+            >
+              削除する
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -915,6 +957,7 @@ export default function SpiritualDiary() {
         <WhiteoutTransition />
         <ErrorBanner />
         <HistoryListModal />
+        <ConfirmDeleteModal />
         <RecordDetail record={openedRecord} onClose={() => setOpenedRecord(null)} />
         {showChat && (
           <KiriChatPanel
