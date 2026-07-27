@@ -3,6 +3,38 @@ import { calculateSaju } from "@/lib/saju";
 import { KIRI_PERSONA } from "@/lib/kiriPersonality";
 import { parseFortuneResponse, validateFortuneText } from "@/lib/fortuneResponse";
 
+const ANALYSIS_CACHE = new Map();
+const ANALYSIS_CACHE_LIMIT = 200;
+
+function jstDateKey(date) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
+function analysisCacheKey({ userProfile, biorhythm, entry, date, model }) {
+  return JSON.stringify({
+    date: jstDateKey(date),
+    model,
+    userProfile: {
+      birthDate: userProfile.birthDate,
+      birthTime: userProfile.birthTime || "",
+      gender: userProfile.gender || "",
+      nickname: userProfile.nickname || "",
+    },
+    biorhythm: { p: Number(biorhythm.p), e: Number(biorhythm.e), i: Number(biorhythm.i) },
+    entry: {
+      emoji: entry.emoji || "",
+      type: entry.type || "past",
+      event: entry.event,
+      intuition: entry.intuition || "",
+    },
+  });
+}
+
 const FORTUNE_MODE = `
 # 占い結果モード
 これは自由チャットではなく、計算済みの四柱推命と今日の記録をKiriが翻訳する場面です。
@@ -125,6 +157,22 @@ const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
 function calculateTodayHints(birthSaju, todaySaju, biorhythm, themeScores, entry = {}) {
   // --- 基本指標 ---
+  const hintSeed = [
+    birthSaju.year, birthSaju.month, birthSaju.day, birthSaju.hour,
+    todaySaju.year, todaySaju.month, todaySaju.day,
+    biorhythm.p, biorhythm.e, biorhythm.i,
+    entry.emoji || '', entry.type || '', entry.event || '', entry.intuition || '',
+  ].join('|');
+  let hintPickCount = 0;
+  const stablePick = (items) => {
+    let hash = 2166136261;
+    for (const char of `${hintSeed}:${hintPickCount++}`) {
+      hash ^= char.charCodeAt(0);
+      hash = Math.imul(hash, 16777619);
+    }
+    return items[Math.abs(hash) % items.length];
+  };
+  const pick = stablePick;
   const todayElement = getElement(todaySaju.day);
   const bioAvg = (biorhythm.p + biorhythm.e + biorhythm.i) / 3;
   const themeAvg =
@@ -463,6 +511,11 @@ export async function POST(request) {
     const nickname = (userProfile.nickname || "").trim();
 
     const now = new Date();
+    const model = process.env.CLAUDE_MODEL || "claude-sonnet-4-6";
+    const cacheKey = analysisCacheKey({ userProfile, biorhythm, entry, date: now, model });
+    const cached = ANALYSIS_CACHE.get(cacheKey);
+    if (cached) return NextResponse.json(cached);
+
     const saju = calculateSaju({ birthDate, birthTime, gender, now });
     const birthSaju = saju.birth;
     const todaySaju = saju.today;
@@ -634,8 +687,9 @@ ${nickname ? `- ${nickname}さんと呼びかけ、親しみやすく温かく` 
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: process.env.CLAUDE_MODEL || "claude-sonnet-4-6",
+        model,
         max_tokens: 1200,
+        temperature: 0,
         system: KIRI_PERSONA + FORTUNE_MODE,
         messages: [{ role: "user", content: prompt }],
       }),
@@ -657,7 +711,7 @@ ${nickname ? `- ${nickname}さんと呼びかけ、親しみやすく温かく` 
     const warnings = validateFortuneText(aiResponse);
     if (warnings.length) console.warn("[kiri-fortune-validate]", warnings);
 
-    return NextResponse.json({
+    const payload = {
       success: true,
       data: {
         ...aiResponse,
@@ -683,7 +737,12 @@ ${nickname ? `- ${nickname}さんと呼びかけ、親しみやすく温かく` 
           note: sajuNote,
         },
       },
-    });
+    };
+    ANALYSIS_CACHE.set(cacheKey, payload);
+    if (ANALYSIS_CACHE.size > ANALYSIS_CACHE_LIMIT) {
+      ANALYSIS_CACHE.delete(ANALYSIS_CACHE.keys().next().value);
+    }
+    return NextResponse.json(payload);
   } catch (error) {
     console.error("[kiri-analyze] request failed", error?.message ?? String(error));
     return NextResponse.json({ success: false, error: "Analysis failed" }, { status: 500 });
