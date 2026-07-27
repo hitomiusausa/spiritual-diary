@@ -38,10 +38,19 @@ export default function KiriChatPanel({ userProfile, entry, result, onClose }) {
         }),
       });
       const data = await response.json();
-      if (!response.ok || !data.success) throw new Error(data.error || 'Chat failed');
+      if (!response.ok || !data.success) {
+        const error = new Error(data.error || 'Chat failed');
+        error.code = data.code;
+        throw error;
+      }
       setMessages([...nextMessages, { role: 'assistant', content: data.reply }]);
     } catch (error) {
-      setMessages([...nextMessages, { role: 'assistant', content: '……少し声が届かなかったみたい。もう一度聞かせて。', isSystem: true }]);
+      const fallback = {
+        chat_disabled: '……この対話は、いまは準備中みたい。開発プレビューが有効になるまで待っていて。',
+        rate_limited: '……少し言葉が続きすぎたみたい。ひと呼吸おいてから、また聞かせて。',
+        daily_limit: '……今日はここまでにしておこう。また明日、続きを聞かせて。',
+      }[error.code] || '……少し声が届かなかったみたい。もう一度聞かせて。';
+      setMessages([...nextMessages, { role: 'assistant', content: fallback, isSystem: true }]);
       console.error('[kiri-chat-ui]', error);
     } finally {
       setLoading(false);

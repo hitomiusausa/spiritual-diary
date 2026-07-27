@@ -1,8 +1,18 @@
 import { NextResponse } from "next/server";
 import { KIRI_PERSONA } from "@/lib/kiriPersonality";
+import { createRateLimiter, createDailyQuota, clientKeyFromHeaders, positiveIntEnv } from "@/lib/apiGuard";
+import { checkChatEntitlement } from "@/lib/entitlement";
 
 const MAX_MESSAGES = 12;
 const MAX_MESSAGE_CHARS = 1200;
+
+const RATE_LIMITER = createRateLimiter({
+  windowMs: 60_000,
+  max: positiveIntEnv("RATE_LIMIT_CHAT_PER_MIN", 20),
+});
+const DAILY_QUOTA = createDailyQuota({
+  limit: positiveIntEnv("DAILY_LIMIT_CHAT", 600),
+});
 
 const CHAT_MODE = `
 これは占い結果のあとに続く、Kiriとの短い対話です。
@@ -46,6 +56,22 @@ function compactContext(context) {
 
 export async function POST(request) {
   try {
+    const entitlement = checkChatEntitlement();
+    if (!entitlement.allowed) {
+      return NextResponse.json(
+        { success: false, error: "Chat is not available", code: "chat_disabled" },
+        { status: 403 }
+      );
+    }
+
+    const rate = RATE_LIMITER.check(clientKeyFromHeaders(request.headers));
+    if (!rate.allowed) {
+      return NextResponse.json(
+        { success: false, error: "Too many requests", code: "rate_limited" },
+        { status: 429, headers: { "Retry-After": String(rate.retryAfterSeconds) } }
+      );
+    }
+
     const body = await request.json();
     const messages = cleanMessages(body?.messages);
     if (!messages.length) {
@@ -56,6 +82,16 @@ export async function POST(request) {
     if (!apiKey) {
       return NextResponse.json({ success: false, error: "Chat is not configured" }, { status: 503 });
     }
+
+    const quota = DAILY_QUOTA.consume();
+    if (!quota.allowed) {
+      console.warn("[kiri-usage] chat daily limit reached", quota.used, "/", quota.limit);
+      return NextResponse.json(
+        { success: false, error: "Daily limit reached", code: "daily_limit" },
+        { status: 429 }
+      );
+    }
+    console.log("[kiri-usage] chat", quota.used, "/", quota.limit);
 
     const nickname = String(body?.userProfile?.nickname || "").trim().slice(0, 40);
     const dynamicContext = `${nickname ? `\n【呼びかけ】${nickname}さん` : ""}${compactContext(body?.context)}`;

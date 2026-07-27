@@ -2,9 +2,18 @@ import { NextResponse } from "next/server";
 import { calculateSaju } from "@/lib/saju";
 import { KIRI_PERSONA } from "@/lib/kiriPersonality";
 import { parseFortuneResponse, validateFortuneText } from "@/lib/fortuneResponse";
+import { createRateLimiter, createDailyQuota, clientKeyFromHeaders, positiveIntEnv } from "@/lib/apiGuard";
 
 const ANALYSIS_CACHE = new Map();
 const ANALYSIS_CACHE_LIMIT = 200;
+
+const RATE_LIMITER = createRateLimiter({
+  windowMs: 60_000,
+  max: positiveIntEnv("RATE_LIMIT_ANALYZE_PER_MIN", 10),
+});
+const DAILY_QUOTA = createDailyQuota({
+  limit: positiveIntEnv("DAILY_LIMIT_ANALYZE", 300),
+});
 
 function jstDateKey(date) {
   return new Intl.DateTimeFormat("en-CA", {
@@ -478,6 +487,14 @@ function jstHour() {
 
 export async function POST(request) {
   try {
+    const rate = RATE_LIMITER.check(clientKeyFromHeaders(request.headers));
+    if (!rate.allowed) {
+      return NextResponse.json(
+        { success: false, error: "Too many requests", code: "rate_limited" },
+        { status: 429, headers: { "Retry-After": String(rate.retryAfterSeconds) } }
+      );
+    }
+
     const body = await request.json();
     const { userProfile, biorhythm, entry } = body || {};
 
@@ -515,6 +532,16 @@ export async function POST(request) {
     const cacheKey = analysisCacheKey({ userProfile, biorhythm, entry, date: now, model });
     const cached = ANALYSIS_CACHE.get(cacheKey);
     if (cached) return NextResponse.json(cached);
+
+    const quota = DAILY_QUOTA.consume();
+    if (!quota.allowed) {
+      console.warn("[kiri-usage] analyze daily limit reached", quota.used, "/", quota.limit);
+      return NextResponse.json(
+        { success: false, error: "Daily limit reached", code: "daily_limit" },
+        { status: 429 }
+      );
+    }
+    console.log("[kiri-usage] analyze", quota.used, "/", quota.limit);
 
     const saju = calculateSaju({ birthDate, birthTime, gender, now });
     const birthSaju = saju.birth;
