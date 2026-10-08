@@ -24,7 +24,8 @@
 ユーザー作業（デプロイ前）:
 1. ~~Upstash Redisを作成~~ 済み（下記）。Vercelの環境変数に`UPSTASH_REDIS_REST_URL`・`UPSTASH_REDIS_REST_TOKEN`を貼る
 2. Vercelの環境変数に`KIRI_STORE_SECRET`を設定（`openssl rand -base64 48`で生成、Sensitive指定）
-3. Anthropicコンソールで月の利用額上限を設定
+3. ~~Anthropicコンソールで月の利用額上限を設定~~ 済み: 組織全体$100（通知$30）。組織はつぶやきうさぎ・日本語資金ウォッチと共有なので、**Kiri専用ワークスペース`wrkspc_012jzv8UJ1hKnEB5THWJzark`を作成し月$20上限・$15で通知**（2026-10-08）。本番の`CLAUDE_API_KEY`はこのワークスペースで発行したキーを使う（Kiriが上限に達しても他サービスは止まらない）
+4. 1回の読み解きの実費を公開後のログ・Consoleで測り、`DAILY_LIMIT_ANALYZE`（既定300/日）を$20/月に収まる値へ調整する
 
 Upstash（2026-10-08 ユーザーが作成済み）:
 - DB名`kiri-prod`、Regional・Primary Region Tokyo（ap-northeast-1）、Read Regionsなし、Eviction ON、Freeプラン。URL/TOKENはローカルの`.env.local`に設定済み（Vercelには未設定）
