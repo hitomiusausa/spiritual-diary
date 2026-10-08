@@ -1,15 +1,40 @@
 # HANDOVER.md — Kiri 現在地
 
-最終更新: 2026-07-28
+最終更新: 2026-10-08
 
 新しいセッションでは、まず`CLAUDE.md` → `DECISIONS.md` → `HANDOVER.md`の順に読む。詳細な履歴は`docs/HANDOFF-2026-07-28.md`と`docs/PROJECT_STATUS.md`にある。
 
 ## 現在の場所
 
-- 正規リポジトリ: `/Users/usausagi/Documents/Playground/spiritual-diary`
+- 正規リポジトリ: `/Users/usausagi/Documents/AI_Playground/spiritual-diary`
 - ブランチ: `agent/consolidate-spiritual-diary`
 - GitHub: `https://github.com/hitomiusausa/spiritual-diary`
-- 最新状態: 作業ツリー clean。2026-07-28のD-08〜D-12（API保護・バックアップ・四柱照合・法務ページ）までGitHubへpush済み。
+- 最新状態: 2026-07-28分まではGitHubへpush済み。2026-10-08のリリース準備 Phase 0（D-14〜D-16）もpush済み。
+
+## 2026-10-08 リリース準備を開始（Phase 0 完了・push済み）
+
+リリースまでの道のり: **Phase 0 下準備（済）→ Phase 1 Web公開 → Phase 2 iOSの器 → Phase 3 課金 → Phase 4 審査準備・提出**。
+
+確定したこと:
+- **D-14**: 運営者はくうが株式会社（D-U-N-S 964317277 取得済み→Apple Developerは法人で加入）。Webは無料お試し版として公開し、Kiriとのチャットはアプリ限定の有料機能。公開URLは`kiri.kugainc.com`、問い合わせ窓口は`info@kugainc.com`で確定。法務3ページに記入済み
+- **D-15**: 危機対応（方式A）。日記で拾ったら窓口カード＋寄り添いモードの読み解き、チャットで拾ったらAIを呼ばずに固定文＋窓口カード
+- **D-16**: モデルをSonnet 5.5（分析）／Haiku 5.5（チャット）へ。`temperature`が使えなくなったので、文章の安定はキャッシュが担う
+
+この日にやったこと:
+- `src/lib/kiriSafety.js`（検出・窓口・安全指示）と`src/components/SupportCard.jsx`を新規作成し、結果画面・履歴詳細・チャット・/supportに組み込んだ
+- `src/lib/claudeResponse.js`で、思考ブロックを飛ばして本文を取り出すようにした
+- `npm audit fix`でNext.js 16.4.0／sharp 0.35.5へ更新（critical含む実行時の脆弱性を解消）。開発用依存に`braces`のhighが残るが、`--force`が必要なため保留
+- `<img>`を`next/image`に置き換え、lintの警告を0にした
+- 実APIで確認済み: 危機の日記→`support: true`＋寄り添い文、日常の日記（「死ぬほど笑った」）→通常、同一入力の2回目はキャッシュで同一、チャットの危機ワード→固定文。Playwrightで375px・1280pxの結果画面／チャット／サポートページを目視確認
+- 寄り添いモードでは今日のヒントの文が日記本文を引用しないようにした（「ここに書いてくれた今日」）
+- 法務3ページに運営者（くうが株式会社）と問い合わせ窓口（info@kugainc.com）を記入
+
+気づいたけど未対応:
+- チャットパネルの背景が半透明で、後ろの結果画面が透けて読みにくい（以前からのデザイン）
+
+次（Phase 1 Web公開）の順番:
+1. API保護と分析キャッシュをUpstash Redisへ移す。Anthropic側に利用額の上限を設定する
+2. Vercelへデプロイ → Cloudflareで`kiri.kugainc.com`のCNAME → 実環境で入力→分析→結果→履歴→バックアップを通し確認
 
 ## できていること
 
@@ -34,8 +59,8 @@
 ## 検証済み
 
 ```text
-npm test                 7 files / 53 tests passed
-npm run lint             errors 0、<img>最適化 warning 1件
+npm test                 9 files / 85 tests passed（2026-10-08）
+npm run lint             errors 0 / warnings 0
 npm run build            success
 npm audit --omit=dev     vulnerabilities 0
 ```
@@ -60,7 +85,7 @@ APIの403（プレビュー無効）、429（レート制限・Retry-Afterヘッ
 
 以降はすべてユーザーの決定・外部リソースが先行条件になる。
 
-- **運営者表記・問い合わせ窓口**: 「後で決める」で保留中。確定したら`/privacy` `/terms` `/support`のプレースホルダを差し替える
+- **運営者表記・問い合わせ窓口**: 2026-10-08確定・記入済み（くうが株式会社／info@kugainc.com）
 - **Webデプロイ**: 「まだデプロイしない」で保留中。/api があるためNodeホスティングが必要（Vercel推奨済み）
 - **iOSの器**: Capacitor方式で確定（D-12）。着手はWebデプロイ後。課金はRevenueCat→`checkChatEntitlement()`接続
 - **四柱推命の人による照合**: 独立演算照合はD-10で済。専門家または外部命式表での確認を公開前に推奨
@@ -77,7 +102,7 @@ APIの403（プレビュー無効）、429（レート制限・Retry-Afterヘッ
 ## 開発コマンド
 
 ```bash
-cd /Users/usausagi/Documents/Playground/spiritual-diary
+cd /Users/usausagi/Documents/AI_Playground/spiritual-diary
 npm install
 cp .env.example .env.local
 # .env.local に CLAUDE_API_KEY を設定
