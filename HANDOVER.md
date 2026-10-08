@@ -22,12 +22,16 @@
 - プライバシーポリシー2〜4節を改訂（保存先Upstash東京・IP由来の値は最長2分・回数カウンタは2日・端末内の当日一時保存と削除時の消去）
 
 ユーザー作業（デプロイ前）:
-1. Vercel MarketplaceでUpstash Redisを作成（Regional。東京リージョンを選べれば東京）
+1. ~~Upstash Redisを作成~~ 済み（下記）。Vercelの環境変数に`UPSTASH_REDIS_REST_URL`・`UPSTASH_REDIS_REST_TOKEN`を貼る
 2. Vercelの環境変数に`KIRI_STORE_SECRET`を設定（`openssl rand -base64 48`で生成、Sensitive指定）
 3. Anthropicコンソールで月の利用額上限を設定
 
+Upstash（2026-10-08 ユーザーが作成済み）:
+- DB名`kiri-prod`、Regional・Primary Region Tokyo（ap-northeast-1）、Read Regionsなし、Eviction ON、Freeプラン。URL/TOKENはローカルの`.env.local`に設定済み（Vercelには未設定）
+- 実サーバーで`MULTI`＋`INCR`＋`EXPIRE NX`を確認済み: 1回目は`[1,1]`でTTL 60、2秒後の2回目は`[2,0]`でTTL 58（延長されない）。テスト用キーは削除済み
+
 デプロイ後に確認すること:
-- `EXPIRE NX`が実サーバーで動くこと（型定義では確認済み。カウンタのキーにTTLが付き、降格の警告ログが出ていないこと）
+- 本番のログに`[kiri-store] incr fell back to memory`（降格の警告）が出ていないこと
 
 残課題:
 - チャットのAPI消費管理（購読と連動した上限など）は後日検討
