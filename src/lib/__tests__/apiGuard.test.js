@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { createRateLimiter, createDailyQuota, clientKeyFromHeaders } from "../apiGuard";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { createRateLimiter, createDailyQuota, clientKeyFromHeaders, rateLimitPerMin } from "../apiGuard";
 import { createMemoryStore } from "../kiriStore";
 
 const T0 = Date.UTC(2026, 6, 28, 3, 0, 0); // 2026-07-28 12:00 JST（分の境界ちょうど）
@@ -145,5 +145,25 @@ describe("clientKeyFromHeaders", () => {
       expect(clientKeyFromHeaders(headers, { VERCEL: "1" })).toBe("203.0.113.5");
       expect(clientKeyFromHeaders(headersOf({ "cf-connecting-ip": "192.0.2.44" }), { VERCEL: "1" })).toBe("unknown");
     });
+  });
+});
+
+describe("rateLimitPerMin（ルートとテストが同じ上限を使う）", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("既定値は analyze 10・chat 20", () => {
+    vi.stubEnv("RATE_LIMIT_ANALYZE_PER_MIN", "");
+    vi.stubEnv("RATE_LIMIT_CHAT_PER_MIN", "");
+    expect(rateLimitPerMin("analyze")).toBe(10);
+    expect(rateLimitPerMin("chat")).toBe(20);
+  });
+
+  it("環境変数で上書きできる", () => {
+    vi.stubEnv("RATE_LIMIT_ANALYZE_PER_MIN", "3");
+    expect(rateLimitPerMin("analyze")).toBe(3);
+  });
+
+  it("知らないルートは例外", () => {
+    expect(() => rateLimitPerMin("nope")).toThrow();
   });
 });

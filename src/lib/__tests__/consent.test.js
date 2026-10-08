@@ -48,4 +48,22 @@ describe("consent", () => {
     recordConsent(s);
     expect(JSON.stringify(buildBackup(s))).not.toContain("consent");
   });
+
+  it("細工したバックアップに同意キーが入っていても、取り込みで同意は立たない", async () => {
+    const { applyBackup, parseBackup, BACKUP_APP_NAME, BACKUP_SCHEMA_VERSION } = await import("@/lib/backup");
+    const consentRecord = { version: CONSENT_VERSION, acceptedAt: "2026-10-09T00:00:00.000Z" };
+    const crafted = JSON.stringify({
+      app: BACKUP_APP_NAME,
+      schemaVersion: BACKUP_SCHEMA_VERSION,
+      profile: { birthDate: "1990-01-01", nickname: "x", consent: consentRecord },
+      history: [],
+      chat: [],
+      consent: consentRecord,
+      [CONSENT_STORAGE_KEY]: JSON.stringify(consentRecord),
+    });
+    const s = createMemoryStorage();
+    applyBackup(s, parseBackup(crafted));
+    expect(hasConsent(s)).toBe(false);
+    expect(s.getItem(CONSENT_STORAGE_KEY)).toBeNull();
+  });
 });

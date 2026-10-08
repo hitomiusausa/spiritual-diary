@@ -14,6 +14,7 @@ vi.mock("@/lib/kiriStore", async (importOriginal) => {
   return { ...actual, getKiriStore: () => recording };
 });
 
+const { rateLimitPerMin } = await import("@/lib/apiGuard");
 const { POST: analyzePOST, OPTIONS: analyzeOPTIONS } = await import("@/app/api/analyze/route.api");
 const { POST: chatPOST, OPTIONS: chatOPTIONS } = await import("@/app/api/chat/route.api");
 
@@ -178,7 +179,9 @@ describe("CORS（iOS アプリ capacitor://localhost）", () => {
     stubDevEnv();
     const headers = { Origin: APP_ORIGIN, "x-real-ip": "198.51.100.77" };
     let response;
-    for (let i = 0; i < 11; i += 1) {
+    // ルートと同じ上限（RATE_LIMIT_ANALYZE_PER_MIN・既定10）から回数を決める。上限＋1回目で 429。
+    const attempts = rateLimitPerMin("analyze") + 1;
+    for (let i = 0; i < attempts; i += 1) {
       response = await analyzePOST(new Request("http://localhost/api/test", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...headers },

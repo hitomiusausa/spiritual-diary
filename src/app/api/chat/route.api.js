@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { preflightResponse, withCors } from "@/lib/cors";
 import { KIRI_PERSONA } from "@/lib/kiriPersonality";
-import { createRateLimiter, createDailyQuota, clientKeyFromHeaders, positiveIntEnv } from "@/lib/apiGuard";
+import { createRateLimiter, createDailyQuota, clientKeyFromHeaders, positiveIntEnv, rateLimitPerMin } from "@/lib/apiGuard";
 import { storeReadiness } from "@/lib/kiriStore";
 import { checkChatEntitlement } from "@/lib/entitlement";
 import { extractReplyText } from "@/lib/claudeResponse";
@@ -14,7 +14,7 @@ const CHAT_EFFORT = process.env.KIRI_CHAT_EFFORT || "low";
 const RATE_LIMITER = createRateLimiter({
   route: "chat",
   windowMs: 60_000,
-  max: positiveIntEnv("RATE_LIMIT_CHAT_PER_MIN", 20),
+  max: rateLimitPerMin("chat"),
 });
 const DAILY_QUOTA = createDailyQuota({
   route: "chat",

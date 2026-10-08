@@ -7,6 +7,12 @@ import { hashClientIp } from "@/lib/kiriCrypto";
 const RATE_LIMIT_TTL_WINDOWS = 2; // 窓の長さの2倍で消える（最長2分）
 const DAILY_QUOTA_TTL_SECONDS = 2 * 24 * 60 * 60;
 
+// 1分あたりの上限（IPごと）。環境変数で上書きでき、テストも同じ値から回数を決める。
+const RATE_LIMITS_PER_MIN = Object.freeze({
+  analyze: { env: "RATE_LIMIT_ANALYZE_PER_MIN", fallback: 10 },
+  chat: { env: "RATE_LIMIT_CHAT_PER_MIN", fallback: 20 },
+});
+
 const defaultStore = () => getKiriStore();
 const defaultHashKey = (ip) => hashClientIp(getStoreSecret(), ip);
 
@@ -77,4 +83,10 @@ export function clientKeyFromHeaders(headers, env = process.env) {
 export function positiveIntEnv(name, fallback) {
   const value = Number.parseInt(process.env[name] ?? "", 10);
   return Number.isInteger(value) && value > 0 ? value : fallback;
+}
+
+export function rateLimitPerMin(route) {
+  const config = RATE_LIMITS_PER_MIN[route];
+  if (!config) throw new Error(`unknown rate limit route: ${route}`);
+  return positiveIntEnv(config.env, config.fallback);
 }

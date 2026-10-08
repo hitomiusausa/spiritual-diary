@@ -6,7 +6,7 @@ import { extractReplyText } from "@/lib/claudeResponse";
 import { CRISIS_FORTUNE_GUIDANCE, SAFETY_GUIDANCE, entryNeedsSupport } from "@/lib/kiriSafety";
 import { moodBonus as moodBonusFor, moodLabel } from "@/lib/moods";
 import { parseFortuneResponse, validateFortuneText } from "@/lib/fortuneResponse";
-import { createRateLimiter, createDailyQuota, clientKeyFromHeaders, positiveIntEnv } from "@/lib/apiGuard";
+import { createRateLimiter, createDailyQuota, clientKeyFromHeaders, positiveIntEnv, rateLimitPerMin } from "@/lib/apiGuard";
 import { storeReadiness } from "@/lib/kiriStore";
 
 const ANALYZE_EFFORT = process.env.KIRI_ANALYZE_EFFORT || "medium";
@@ -15,7 +15,7 @@ const ANALYZE_EFFORT = process.env.KIRI_ANALYZE_EFFORT || "medium";
 const RATE_LIMITER = createRateLimiter({
   route: "analyze",
   windowMs: 60_000,
-  max: positiveIntEnv("RATE_LIMIT_ANALYZE_PER_MIN", 10),
+  max: rateLimitPerMin("analyze"),
 });
 const DAILY_QUOTA = createDailyQuota({
   route: "analyze",
