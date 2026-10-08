@@ -2,7 +2,17 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { resolveApiBase, findForbiddenInExport, PROD_API_BASE, DEV_API_BASE } from "../lib/iosBuild.mjs";
+import {
+  resolveApiBase,
+  findForbiddenInExport,
+  findPreviewUiInExport,
+  iosBuildEnv,
+  secretValuesFromDotenv,
+  secretValuesFromEnv,
+  verifyExport,
+  PROD_API_BASE,
+  DEV_API_BASE,
+} from "../lib/iosBuild.mjs";
 
 describe("resolveApiBase", () => {
   it("既定は本番 API", () => {
@@ -86,5 +96,143 @@ describe("secretValuesFromDotenv / 値の埋め込み検査", () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("secretValuesFromDotenv（dotenv と同じ読み方）", () => {
+  it.each([
+    ["CLAUDE_API_KEY=sk-ant-abcdefghijkl # 本番", "sk-ant-abcdefghijkl"],
+    ["CLAUDE_API_KEY=sk-ant-abcdefghijkl#本番", "sk-ant-abcdefghijkl"],
+    ['CLAUDE_API_KEY="sk-ant-abcdefghijkl" # 本番', "sk-ant-abcdefghijkl"],
+    ["CLAUDE_API_KEY='sk-ant-abcdefghijkl'   # 本番", "sk-ant-abcdefghijkl"],
+    ['CLAUDE_API_KEY="sk-ant-abc#defghijkl"', "sk-ant-abc#defghijkl"],
+    ["export   KIRI_STORE_SECRET = 0123456789abcdef  ", "0123456789abcdef"],
+    ["  export CLAUDE_API_KEY=\"sk-ant-abcdefghijkl\"", "sk-ant-abcdefghijkl"],
+  ])("%s", (line, expected) => {
+    expect(secretValuesFromDotenv(line)).toEqual([expected]);
+  });
+
+  it("コメント行・NEXT_PUBLIC_・短い値・空は拾わない", () => {
+    const text = ["# CLAUDE_API_KEY=sk-ant-abcdefghijkl", "NEXT_PUBLIC_X=abcdefghijklmnop # c", "A=short # x", "B=", 'C=""'].join("\n");
+    expect(secretValuesFromDotenv(text)).toEqual([]);
+  });
+});
+
+describe("secretValuesFromEnv（シェルで export した秘密も照合する）", () => {
+  it("既知の秘密名の十分長い値だけを拾う", () => {
+    expect(
+      secretValuesFromEnv({
+        CLAUDE_API_KEY: "sk-ant-abcdefghijkl",
+        KIRI_STORE_SECRET: "0123456789abcdef",
+        UPSTASH_REDIS_REST_TOKEN: "tok_abcdefghijklmn",
+        KV_REST_API_TOKEN: "short",
+        PATH: "/usr/bin:/bin:/usr/local/bin",
+      }).sort(),
+    ).toEqual(["0123456789abcdef", "sk-ant-abcdefghijkl", "tok_abcdefghijklmn"]);
+  });
+});
+
+describe("iosBuildEnv（チャットのプレビューは --dev 以外で必ず 0）", () => {
+  it("本番ビルドでは .env.local やシェルの 1 を上書きして 0 にする", () => {
+    const env = iosBuildEnv([], { NEXT_PUBLIC_KIRI_CHAT_PREVIEW: "1", HOME: "/h" }, PROD_API_BASE);
+    expect(env.NEXT_PUBLIC_KIRI_CHAT_PREVIEW).toBe("0");
+    expect(env.KIRI_BUILD_TARGET).toBe("ios");
+    expect(env.NEXT_PUBLIC_KIRI_API_BASE).toBe(PROD_API_BASE);
+    expect(env.HOME).toBe("/h");
+  });
+
+  it("未設定でも本番ビルドでは 0 をプロセス環境に置く（.env.local より優先させるため）", () => {
+    expect(iosBuildEnv([], {}, PROD_API_BASE).NEXT_PUBLIC_KIRI_CHAT_PREVIEW).toBe("0");
+  });
+
+  it("--dev では強制しない（開発者の設定に任せる）", () => {
+    expect(iosBuildEnv(["--dev"], { NEXT_PUBLIC_KIRI_CHAT_PREVIEW: "1" }, DEV_API_BASE).NEXT_PUBLIC_KIRI_CHAT_PREVIEW).toBe("1");
+    expect("NEXT_PUBLIC_KIRI_CHAT_PREVIEW" in iosBuildEnv(["--dev"], {}, DEV_API_BASE)).toBe(false);
+  });
+});
+
+describe("findPreviewUiInExport（本番の書き出しにチャット入口・開発者向け文言が無いこと）", () => {
+  let dir;
+  const escape = (text, upper = false) =>
+    [...text].map((ch) => {
+      const code = ch.charCodeAt(0);
+      if (code < 0x80) return ch;
+      const hex = code.toString(16).padStart(4, "0");
+      return `\\u${upper ? hex.toUpperCase() : hex}`;
+    }).join("");
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), "kiri-out-"));
+    mkdirSync(join(dir, "_next/static/chunks"), { recursive: true });
+    mkdirSync(join(dir, "terms"), { recursive: true });
+    writeFileSync(join(dir, "index.html"), "<html>Kiri</html>");
+    // 規約・サポートのページ本文は「開発プレビュー」に触れてよい（台帳 L-4・Phase 3 で改稿）。
+    writeFileSync(join(dir, "terms/index.html"), "対話機能は開発プレビューであり");
+    writeFileSync(join(dir, "terms/index.txt"), "対話機能は開発プレビューであり");
+  });
+  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+
+  it("クリーンな書き出しは問題なし", () => {
+    expect(findPreviewUiInExport(dir)).toEqual([]);
+  });
+
+  it.each([
+    ["生の UTF-8", (t) => t],
+    ["\\u エスケープ（小文字）", (t) => escape(t)],
+    ["\\u エスケープ（大文字）", (t) => escape(t, true)],
+  ])("チャット入口のボタン文言を見つける（%s）", (_label, encode) => {
+    writeFileSync(join(dir, "_next/static/chunks/a.js"), `children:"${encode("開発プレビューでKiriに聞く")}"`);
+    const problems = findPreviewUiInExport(dir);
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain("_next/static/chunks/a.js");
+  });
+
+  it("HTML に入ったチャット入口も見つける", () => {
+    writeFileSync(join(dir, "index.html"), "<button>開発プレビューでKiriに聞く</button>");
+    expect(findPreviewUiInExport(dir)).toHaveLength(1);
+  });
+
+  it.each([["StoreKit"], ["Kiriとの対話（プレミアム）"]])("開発者向けの文言 %s を見つける", (marker) => {
+    writeFileSync(join(dir, "_next/static/chunks/b.js"), `x="${escape(marker)}"`);
+    expect(findPreviewUiInExport(dir)).toHaveLength(1);
+  });
+
+  it("_next の中の「開発プレビュー」はどこでも問題（チャット欄の注記など）", () => {
+    writeFileSync(join(dir, "_next/static/chunks/c.js"), `x="${escape("開発プレビュー：購入")}"`);
+    expect(findPreviewUiInExport(dir)).toHaveLength(1);
+  });
+});
+
+describe("verifyExport（ビルド後の検査のまとめ）", () => {
+  let dir;
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), "kiri-out-"));
+    for (const page of ["privacy", "terms", "support"]) {
+      mkdirSync(join(dir, page), { recursive: true });
+      writeFileSync(join(dir, page, "index.html"), "<html></html>");
+    }
+    mkdirSync(join(dir, "_next"), { recursive: true });
+    writeFileSync(join(dir, "index.html"), "<html>Kiri</html>");
+  });
+  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+
+  it("クリーンなら空", () => {
+    expect(verifyExport(dir)).toEqual([]);
+  });
+
+  it("必須ページが欠けていたら問題", () => {
+    rmSync(join(dir, "terms"), { recursive: true });
+    expect(verifyExport(dir)[0]).toContain("terms/index.html");
+  });
+
+  it("本番向けではプレビュー UI を問題にし、--dev（production: false）では見逃す", () => {
+    writeFileSync(join(dir, "_next/a.js"), "開発プレビューでKiriに聞く");
+    expect(verifyExport(dir)).toHaveLength(1);
+    expect(verifyExport(dir, { production: false })).toEqual([]);
+  });
+
+  it("秘密の値はどちらでも問題", () => {
+    writeFileSync(join(dir, "_next/a.js"), "sk-test-abcdefghijklmnop");
+    expect(verifyExport(dir, { production: false, secretValues: ["sk-test-abcdefghijklmnop"] })).toHaveLength(1);
   });
 });
