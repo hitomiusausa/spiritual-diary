@@ -11,6 +11,8 @@ import SupportCard from '@/components/SupportCard';
 import { entryNeedsSupport } from '@/lib/kiriSafety';
 import { apiUrl } from '@/lib/apiUrl';
 import { getStorage, initStorage } from '@/lib/storage';
+import { exportBackupNative } from '@/lib/backupShare';
+import { isNativePlatform } from '@/lib/native';
 import { hasConsent, recordConsent, revokeConsent } from '@/lib/consent';
 import ConsentModal from '@/components/ConsentModal';
 import { browserSessionStorage, saveEntryDraft, takeEntryDraft } from '@/lib/entryDraft';
@@ -77,8 +79,22 @@ export default function SpiritualDiary() {
   const [profileHydrated, setProfileHydrated] = useState(false);
   const importInputRef = useRef(null);
 
-  const exportBackup = () => {
-    const blob = new Blob([JSON.stringify(buildBackup(getStorage()), null, 2)], { type: 'application/json' });
+  const exportBackup = async () => {
+    const json = JSON.stringify(buildBackup(getStorage()), null, 2);
+    if (isNativePlatform()) {
+      // iOS アプリ: シェアシートで"ファイル"に保存・AirDrop など（Ruling 6）。閉じただけなら書き出し済みと言わない。
+      try {
+        const { shared } = await exportBackupNative({ json, fileName: backupFileName(), title: 'Kiriのバックアップ' });
+        setBackupNotice(shared
+          ? { type: 'ok', text: 'バックアップを書き出しました' }
+          : { type: 'ok', text: '書き出しを取りやめました' });
+      } catch (exportError) {
+        console.error('[kiri-backup]', exportError?.message);
+        setBackupNotice({ type: 'error', text: 'バックアップを書き出せませんでした' });
+      }
+      return;
+    }
+    const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
