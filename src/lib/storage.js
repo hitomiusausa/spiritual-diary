@@ -175,14 +175,18 @@ async function loadFromPreferences(preferences, now) {
   return values;
 }
 
+// Capacitor のプラグインは Proxy で、未知のプロパティ（`then` を含む）をすべてネイティブ呼び出しにする。
+// async 関数から Proxy そのものを返す・await すると、Promise の解決が Preferences.then() を呼んで
+// 「not implemented」で止まり、initStorage が永遠に終わらない（T13 で起動が白紙のまま止まった原因）。
+// だから必ずオブジェクトに包んで受け渡す。
 async function loadPreferencesPlugin() {
   const { Preferences } = await import("@capacitor/preferences");
-  return Preferences;
+  return { plugin: Preferences };
 }
 
 async function initNative({ preferences, now }) {
   try {
-    const plugin = preferences ?? (await loadPreferencesPlugin());
+    const plugin = preferences ?? (await loadPreferencesPlugin()).plugin;
     const values = await loadFromPreferences(plugin, now);
     resolved = createNativeStorage(values, plugin);
   } catch {
