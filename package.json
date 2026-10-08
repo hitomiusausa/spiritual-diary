@@ -15,9 +15,13 @@
     "deploy": "npm run cf:build && npm run cf:deploy",
     "upload": "npm run cf:build && npm run cf:upload",
     "cf-typegen": "wrangler types --env-interface CloudflareEnv ./cloudflare-env.d.ts",
-    "ios:build": "node scripts/build-ios.mjs"
+    "ios:build": "node scripts/build-ios.mjs",
+    "ios:sync": "npm run ios:build && cap sync ios",
+    "ios:open": "cap open ios"
   },
   "dependencies": {
+    "@capacitor/core": "8.5.2",
+    "@capacitor/ios": "8.5.2",
     "@opennextjs/cloudflare": "1.20.7",
     "@upstash/redis": "^1.39.0",
     "lucide-react": "^0.562.0",
@@ -29,11 +33,13 @@
     "sharp": "^0.35.0"
   },
   "devDependencies": {
+    "@capacitor/cli": "8.5.2",
     "@tailwindcss/postcss": "^4",
     "esbuild": "0.27.2",
     "eslint": "^9",
     "eslint-config-next": "16.1.1",
     "tailwindcss": "^4",
+    "typescript": "5.9.3",
     "vitest": "^4.1.10",
     "wrangler": "4.143.1"
   },
