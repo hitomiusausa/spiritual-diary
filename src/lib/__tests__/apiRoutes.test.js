@@ -14,8 +14,8 @@ vi.mock("@/lib/kiriStore", async (importOriginal) => {
   return { ...actual, getKiriStore: () => recording };
 });
 
-const { POST: analyzePOST, OPTIONS: analyzeOPTIONS } = await import("@/app/api/analyze/route");
-const { POST: chatPOST, OPTIONS: chatOPTIONS } = await import("@/app/api/chat/route");
+const { POST: analyzePOST, OPTIONS: analyzeOPTIONS } = await import("@/app/api/analyze/route.api");
+const { POST: chatPOST, OPTIONS: chatOPTIONS } = await import("@/app/api/chat/route.api");
 
 const APP_ORIGIN = "capacitor://localhost";
 

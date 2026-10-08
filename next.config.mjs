@@ -1,12 +1,7 @@
+import { nextConfigFor } from "./scripts/lib/nextConfigFor.mjs";
+
+// 切り替えの中身は scripts/lib/nextConfigFor.mjs（テストあり）。iOS 用は npm run ios:build。
 /** @type {import('next').NextConfig} */
-const nextConfig = {
-  // devサーバー起動時にAGENTS.mdを自動生成させない
-  agentRules: false,
-  images: {
-    // Cloudflare Workers（OpenNext）では Next.js の画像最適化サーバーが動かないため、
-    // 画像は public/ の静的ファイルをそのまま配信する（画像は数枚のみ。DECISIONS.md D-19）。
-    unoptimized: true,
-  },
-};
+const nextConfig = nextConfigFor(process.env);
 
 export default nextConfig;

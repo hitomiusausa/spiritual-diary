@@ -30,7 +30,7 @@ Kiriの結果は、次の4層を順番に重ねています。
 
 ## 今日のヒントの内訳
 
-`src/app/api/analyze/route.js` の `calculateTodayHints()` がルールベースで生成します。AIがキーワードを決めているわけではありません。
+`src/app/api/analyze/route.api.js` の `calculateTodayHints()` がルールベースで生成します。AIがキーワードを決めているわけではありません。
 
 ### 色
 
@@ -74,6 +74,6 @@ Kiriの結果は、次の4層を順番に重ねています。
 ## 実装の参照先
 
 - 命式・大運: `src/lib/saju.js`
-- テーマスコア・今日のヒント: `src/app/api/analyze/route.js`
+- テーマスコア・今日のヒント: `src/app/api/analyze/route.api.js`
 - Kiri人格: `src/lib/kiriPersonality.js`
 - 占い結果の文章契約: `src/lib/fortuneResponse.js`
