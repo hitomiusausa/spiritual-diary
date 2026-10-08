@@ -70,11 +70,13 @@ Vercel（2026-10-08）:
 - 既存プロジェクト`spiritual-diary`（`spiritual-diary-tau.vercel.app`、GitHub連携・`main`が本番）を使う。`main`を作業ブランチまで早送りし、`vercel.json`で関数を東京（hnd1）に
 - 環境変数: `CLAUDE_API_KEY`（Kiriワークスペースのキーに差し替え・Secret・All Environments）、`UPSTASH_REDIS_REST_URL`、`UPSTASH_REDIS_REST_TOKEN`（Secret）、`KIRI_STORE_SECRET`（Secret）、`DAILY_LIMIT_ANALYZE=30`。いずれもProduction and Preview。`KIRI_CHAT_PREVIEW`は入れない（Webはチャットを閉じる、D-14）
 - 環境変数を入れる前の本番デプロイでは、`/api/analyze`・`/api/chat`が設計どおり503を返すことを確認済み
+- 環境変数を入れた後の本番（`1fad5ef`）で確認済み: 空の入力で`/api/analyze`は400（readinessを通過）、`/api/chat`は403（チャット閉鎖）。Upstashにレート制限キー（IPはハッシュ・TTL約2分）と日次クォータキー（TTL 2日）が書かれ、メモリ降格なし。Playwright 375pxで基本情報→日記→読み解き→結果を通し、端末キャッシュ1件・履歴1件を確認。リロード後は日記入力から始まり、同じ内容の再読み解きは端末キャッシュで即表示・日次クォータは1のまま（API非呼び出し）
+- 未確認: 1280px表示、バックアップ書き出し/読み込み、`kiri.kugainc.com`経由の表示
 - 料金プラン: Hobbyは非商用のみなので、`kiri.kugainc.com`で一般公開する前にProへ上げるか判断する
 
 次（Phase 1 Web公開）の順番:
 1. API保護をUpstash Redisへ移す（コード側は完了・D-18）。Upstash作成・`KIRI_STORE_SECRET`設定・Anthropic側の利用額上限はユーザー作業
-2. Vercelへデプロイ → Cloudflareで`kiri.kugainc.com`のCNAME → 実環境で入力→分析→結果→履歴→バックアップを通し確認
+2. ~~Vercelへデプロイ~~ 済み（`spiritual-diary-tau.vercel.app`で動作確認済み）→ Vercelの料金プラン判断（Pro）→ Vercelの Domains に`kiri.kugainc.com`を追加 → Cloudflareで CNAME（プロキシはオフ＝DNS only推奨）→ 実環境でバックアップまで通し確認
 
 ## できていること
 
