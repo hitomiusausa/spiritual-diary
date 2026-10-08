@@ -15,6 +15,9 @@ import ConsentModal from '@/components/ConsentModal';
 import { DEFAULT_MOOD, MOODS, findMood } from '@/lib/moods';
 import { analysisCacheKey, clearCachedAnalyses, loadCachedAnalysis, saveCachedAnalysis } from '@/lib/analysisCache';
 
+// ビルド時定数。未設定(本番)ならプレミアムカードとチャット入口を出さない。
+const CHAT_PREVIEW_ENABLED = process.env.NEXT_PUBLIC_KIRI_CHAT_PREVIEW === '1';
+
 export default function SpiritualDiary() {
   // 'boot' はプロフィール復元前。基本情報画面が一瞬見えないよう背景だけ描く。
   const [step, setStep] = useState('boot');
@@ -1452,34 +1455,37 @@ export default function SpiritualDiary() {
                 </button>
               </div>
 
-              <div className="kiri-card-strong rounded-xl p-4">
-                  <div className="flex items-start gap-3">
-                  <Lock className="text-kiri-gold w-6 h-6 flex-shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <h3 className="text-base font-bold text-kiri-gold mb-1">プレミアム版</h3>
-                    <p className="text-xs text-kiri-gold/90 mb-2">今日の占い結果は無料。Kiriとの継続チャットは有料オプションです。</p>
-                    <ul className="text-white space-y-0.5 mb-2 text-xs">
-                      <li>Kiriとの対話無制限</li>
-                      <li>Kiriとの会話ログの読み返し</li>
-                      <li>あなた専用のパターン分析</li>
-                    </ul>
-                    <button
-                      type="button"
-                      onClick={() => setShowPremiumInfo(true)}
-                      className="kiri-button px-4 py-2 rounded-lg text-sm font-bold hover:scale-[1.01] active:scale-[0.98] transition-transform"
-                    >
-                      詳細を見る
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowChat(true)}
-                      className="mt-2 w-full rounded-lg border border-kiri-gold/40 px-3 py-2 text-xs font-bold text-kiri-gold hover:bg-white/10 transition-colors"
-                    >
-                      開発プレビューでKiriに聞く
-                    </button>
+              {/* 課金開始までチャットは画面に出さない（Q4）。開発時だけ NEXT_PUBLIC_KIRI_CHAT_PREVIEW=1 で表示。 */}
+              {CHAT_PREVIEW_ENABLED && (
+                <div className="kiri-card-strong rounded-xl p-4">
+                    <div className="flex items-start gap-3">
+                    <Lock className="text-kiri-gold w-6 h-6 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <h3 className="text-base font-bold text-kiri-gold mb-1">プレミアム版</h3>
+                      <p className="text-xs text-kiri-gold/90 mb-2">今日の占い結果は無料。Kiriとの継続チャットは有料オプションです。</p>
+                      <ul className="text-white space-y-0.5 mb-2 text-xs">
+                        <li>Kiriとの対話無制限</li>
+                        <li>Kiriとの会話ログの読み返し</li>
+                        <li>あなた専用のパターン分析</li>
+                      </ul>
+                      <button
+                        type="button"
+                        onClick={() => setShowPremiumInfo(true)}
+                        className="kiri-button px-4 py-2 rounded-lg text-sm font-bold hover:scale-[1.01] active:scale-[0.98] transition-transform"
+                      >
+                        詳細を見る
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowChat(true)}
+                        className="mt-2 w-full rounded-lg border border-kiri-gold/40 px-3 py-2 text-xs font-bold text-kiri-gold hover:bg-white/10 transition-colors"
+                      >
+                        開発プレビューでKiriに聞く
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
               <div className="flex gap-2">
                 <button
