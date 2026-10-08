@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { preflightResponse, withCors } from "@/lib/cors";
 import { KIRI_PERSONA } from "@/lib/kiriPersonality";
 import { createRateLimiter, createDailyQuota, clientKeyFromHeaders, positiveIntEnv } from "@/lib/apiGuard";
 import { storeReadiness } from "@/lib/kiriStore";
@@ -60,7 +61,7 @@ function compactContext(context) {
 `;
 }
 
-export async function POST(request) {
+async function handlePost(request) {
   try {
     if (!storeReadiness().ready) {
       console.error("[kiri-store] store not configured");
@@ -147,4 +148,11 @@ export async function POST(request) {
     console.error("[kiri-chat] request failed", error?.message ?? String(error));
     return NextResponse.json({ success: false, error: "Chat request failed" }, { status: 500 });
   }
+}
+
+// iOS アプリ（capacitor://localhost）向けの CORS。Web の同一オリジン応答は変えない（Ruling 4）。
+export const POST = withCors(handlePost);
+
+export function OPTIONS(request) {
+  return preflightResponse(request);
 }

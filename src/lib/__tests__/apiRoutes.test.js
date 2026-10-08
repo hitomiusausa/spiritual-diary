@@ -14,15 +14,17 @@ vi.mock("@/lib/kiriStore", async (importOriginal) => {
   return { ...actual, getKiriStore: () => recording };
 });
 
-const { POST: analyzePOST } = await import("@/app/api/analyze/route");
-const { POST: chatPOST } = await import("@/app/api/chat/route");
+const { POST: analyzePOST, OPTIONS: analyzeOPTIONS } = await import("@/app/api/analyze/route.api");
+const { POST: chatPOST, OPTIONS: chatOPTIONS } = await import("@/app/api/chat/route.api");
+
+const APP_ORIGIN = "capacitor://localhost";
 
 let ipCounter = 0;
-function jsonRequest(body) {
+function jsonRequest(body, extraHeaders = {}) {
   ipCounter += 1;
   return new Request("http://localhost/api/test", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-real-ip": `203.0.113.${ipCounter}` },
+    headers: { "Content-Type": "application/json", "x-real-ip": `203.0.113.${ipCounter}`, ...extraHeaders },
     body: JSON.stringify(body),
   });
 }
@@ -88,5 +90,117 @@ describe("チャットの日次クォータ", () => {
     const response = await chatPOST(jsonRequest({ messages: [{ role: "user", content: "今日は海を見た" }] }));
     expect(response.status).toBe(502);
     expect(storeCalls.some((key) => key.startsWith("kiri:q:chat:"))).toBe(true);
+  });
+});
+
+describe("CORS（iOS アプリ capacitor://localhost）", () => {
+  function stubDevEnv() {
+    vi.stubEnv("VERCEL_ENV", "");
+    vi.stubEnv("KIRI_DEPLOY_ENV", "");
+    vi.stubEnv("KIRI_EXTRA_ALLOWED_ORIGINS", "");
+  }
+
+  function preflight(origin) {
+    return new Request("http://localhost/api/test", {
+      method: "OPTIONS",
+      headers: {
+        Origin: origin,
+        "Access-Control-Request-Method": "POST",
+        "Access-Control-Request-Headers": "content-type",
+      },
+    });
+  }
+
+  function expectCors(response) {
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBe(APP_ORIGIN);
+    expect(response.headers.get("Vary")).toBe("Origin");
+    expect(response.headers.get("Access-Control-Expose-Headers")).toBe("Retry-After");
+    expect(response.headers.get("Access-Control-Allow-Credentials")).toBeNull();
+  }
+
+  it.each([
+    ["analyze", () => analyzeOPTIONS],
+    ["chat", () => chatOPTIONS],
+  ])("/api/%s の OPTIONS は許可オリジンに 204 とヘッダを返す", async (_name, get) => {
+    stubDevEnv();
+    const response = await get()(preflight(APP_ORIGIN));
+    expect(response.status).toBe(204);
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBe(APP_ORIGIN);
+    expect(response.headers.get("Access-Control-Allow-Methods")).toBe("POST, OPTIONS");
+    expect(response.headers.get("Access-Control-Allow-Headers")).toBe("Content-Type");
+    expect(response.headers.get("Access-Control-Max-Age")).toBe("86400");
+    expect(storeCalls).toEqual([]);
+  });
+
+  it.each([
+    ["analyze", () => analyzeOPTIONS],
+    ["chat", () => chatOPTIONS],
+  ])("/api/%s の OPTIONS は他サイトのオリジンにヘッダを付けない", async (_name, get) => {
+    stubDevEnv();
+    const response = await get()(preflight("https://evil.example"));
+    expect(response.status).toBe(204);
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBeNull();
+  });
+
+  it.each([
+    ["analyze", () => analyzePOST],
+    ["chat", () => chatPOST],
+  ])("/api/%s の 503（共有ストア未設定）にもヘッダが乗る", async (_name, get) => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.stubEnv("VERCEL_ENV", "");
+    vi.stubEnv("KIRI_DEPLOY_ENV", "production");
+    vi.stubEnv("UPSTASH_REDIS_REST_URL", "");
+    vi.stubEnv("UPSTASH_REDIS_REST_TOKEN", "");
+    vi.stubEnv("KV_REST_API_URL", "");
+    vi.stubEnv("KV_REST_API_TOKEN", "");
+    vi.stubEnv("KIRI_STORE_SECRET", "");
+    const response = await get()(jsonRequest({}, { Origin: APP_ORIGIN }));
+    expect(response.status).toBe(503);
+    expectCors(response);
+  });
+
+  it("/api/analyze の 400（空の入力）にもヘッダが乗る", async () => {
+    stubDevEnv();
+    const response = await analyzePOST(jsonRequest({}, { Origin: APP_ORIGIN }));
+    expect(response.status).toBe(400);
+    expectCors(response);
+  });
+
+  it("/api/chat の 403（チャット無効）にもヘッダが乗る", async () => {
+    stubDevEnv();
+    vi.stubEnv("KIRI_CHAT_PREVIEW", "");
+    const response = await chatPOST(jsonRequest({ messages: [{ role: "user", content: "やあ" }] }, { Origin: APP_ORIGIN }));
+    expect(response.status).toBe(403);
+    expectCors(response);
+  });
+
+  it("/api/analyze の 429（レート制限）にもヘッダと Retry-After が乗る", async () => {
+    stubDevEnv();
+    const headers = { Origin: APP_ORIGIN, "x-real-ip": "198.51.100.77" };
+    let response;
+    for (let i = 0; i < 11; i += 1) {
+      response = await analyzePOST(new Request("http://localhost/api/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...headers },
+        body: "{}",
+      }));
+    }
+    expect(response.status).toBe(429);
+    expect(response.headers.get("Retry-After")).toMatch(/^\d+$/);
+    expectCors(response);
+  });
+
+  it("Origin なし（Web の同一オリジン）では CORS ヘッダを付けない", async () => {
+    stubDevEnv();
+    const response = await analyzePOST(jsonRequest({}));
+    expect(response.status).toBe(400);
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBeNull();
+  });
+
+  it("他サイトのオリジンからの POST には CORS ヘッダを付けない", async () => {
+    stubDevEnv();
+    const response = await analyzePOST(jsonRequest({}, { Origin: "https://evil.example" }));
+    expect(response.status).toBe(400);
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBeNull();
   });
 });

@@ -16,12 +16,12 @@ src/app/page.js
        ├─ loading: Kiriの分析演出
        └─ result: 命式・運勢・ヒント・Kiriメッセージ・端末内履歴
 
-src/app/api/analyze/route.js
+src/app/api/analyze/route.api.js
   ├─ lunar-javascriptで出生時と現在の四柱を算出
   ├─ 五行相性、テーマ別スコア、今日のヒント、大運を算出
   └─ Anthropic APIでdeepMessage / innerMessage / actionAdviceを生成
 
-src/app/api/chat/route.js
+src/app/api/chat/route.api.js
   └─ 占い結果を文脈に渡すKiriチャット（開発プレビュー）
 
 src/lib/kiriPersonality.js

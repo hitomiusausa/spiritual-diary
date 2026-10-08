@@ -27,7 +27,7 @@ npm run dev
 ```text
 src/app/page.js                            入口
 src/components/SpiritualDiary.jsx          入力・分析待ち・結果画面
-src/app/api/analyze/route.js               命式・運勢計算とKiriメッセージ生成
+src/app/api/analyze/route.api.js           命式・運勢計算とKiriメッセージ生成
 src/app/layout.js                          メタデータとレイアウト
 public/kiri.png                            Kiri画像
 ```

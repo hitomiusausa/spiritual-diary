@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { preflightResponse, withCors } from "@/lib/cors";
 import { calculateSaju } from "@/lib/saju";
 import { KIRI_PERSONA } from "@/lib/kiriPersonality";
 import { extractReplyText } from "@/lib/claudeResponse";
@@ -444,7 +445,7 @@ function jstHour() {
   ).getHours();
 }
 
-export async function POST(request) {
+async function handlePost(request) {
   try {
     if (!storeReadiness().ready) {
       console.error("[kiri-store] store not configured");
@@ -743,4 +744,11 @@ ${crisis ? `${CRISIS_FORTUNE_GUIDANCE}\n※この寄り添いモードの指示�
     console.error("[kiri-analyze] request failed", error?.message ?? String(error));
     return NextResponse.json({ success: false, error: "Analysis failed" }, { status: 500 });
   }
+}
+
+// iOS アプリ（capacitor://localhost）向けの CORS。Web の同一オリジン応答は変えない（Ruling 4）。
+export const POST = withCors(handlePost);
+
+export function OPTIONS(request) {
+  return preflightResponse(request);
 }
