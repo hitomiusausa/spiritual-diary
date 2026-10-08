@@ -66,6 +66,12 @@ Upstash（2026-10-08 ユーザーが作成済み）:
 気づいたけど未対応:
 - チャットパネルの背景が半透明で、後ろの結果画面が透けて読みにくい（以前からのデザイン）
 
+Vercel（2026-10-08）:
+- 既存プロジェクト`spiritual-diary`（`spiritual-diary-tau.vercel.app`、GitHub連携・`main`が本番）を使う。`main`を作業ブランチまで早送りし、`vercel.json`で関数を東京（hnd1）に
+- 環境変数: `CLAUDE_API_KEY`（Kiriワークスペースのキーに差し替え・Secret・All Environments）、`UPSTASH_REDIS_REST_URL`、`UPSTASH_REDIS_REST_TOKEN`（Secret）、`KIRI_STORE_SECRET`（Secret）、`DAILY_LIMIT_ANALYZE=30`。いずれもProduction and Preview。`KIRI_CHAT_PREVIEW`は入れない（Webはチャットを閉じる、D-14）
+- 環境変数を入れる前の本番デプロイでは、`/api/analyze`・`/api/chat`が設計どおり503を返すことを確認済み
+- 料金プラン: Hobbyは非商用のみなので、`kiri.kugainc.com`で一般公開する前にProへ上げるか判断する
+
 次（Phase 1 Web公開）の順番:
 1. API保護をUpstash Redisへ移す（コード側は完了・D-18）。Upstash作成・`KIRI_STORE_SECRET`設定・Anthropic側の利用額上限はユーザー作業
 2. Vercelへデプロイ → Cloudflareで`kiri.kugainc.com`のCNAME → 実環境で入力→分析→結果→履歴→バックアップを通し確認
