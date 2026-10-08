@@ -72,8 +72,53 @@ body {
   padding-left: env(safe-area-inset-left, 0px);
 }
 
+/*
+  スクロールした本文がステータスバー（時計・電池）の下に透けて重ならないよう、上端のセーフエリアに夜色の幕を置く。
+  inset が 0 の通常ブラウザでは高さ 0 で何も描かない。モーダル（z-50 以上）より下。
+*/
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 40;
+  height: env(safe-area-inset-top, 0px);
+  background: rgba(23, 21, 34, 0.94);
+  pointer-events: none;
+}
+
 .kiri-shell {
   min-height: calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+}
+
+/*
+  iOS（Safari・アプリの WKWebView）は、16px 未満の入力欄にフォーカスすると画面を拡大し、
+  フォーカスが外れても戻さない（T13 シミュレータで 1.14 倍のまま残った）。iOS だけ入力欄を 16px にする。
+  レイヤー外の指定なので Tailwind の text-sm より優先される。PC・Android の見た目は変えない。
+*/
+@supports (-webkit-touch-callout: none) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/*
+  type="time" は iOS で固有の最小幅と中央寄せを持ち、w-full でも枠の外へはみ出す（T13: 320px の列で 346px）。
+  見た目を他の入力欄にそろえる。ピッカーはそのまま開く。
+*/
+input[type="time"] {
+  color-scheme: dark; /* PC ブラウザの時計アイコンを夜色の上で見えるように */
+  min-width: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  text-align: left;
+}
+
+input[type="time"]::-webkit-date-and-time-value {
+  text-align: left;
 }
 
 .kiri-card {
