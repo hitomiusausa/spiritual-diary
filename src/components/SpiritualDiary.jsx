@@ -9,6 +9,7 @@ import { buildBackup, backupFileName, parseBackup, applyBackup } from '@/lib/bac
 import KiriChatPanel from '@/components/KiriChatPanel';
 import SupportCard from '@/components/SupportCard';
 import { apiUrl } from '@/lib/apiUrl';
+import { getStorage, initStorage } from '@/lib/storage';
 import { DEFAULT_MOOD, MOODS, findMood } from '@/lib/moods';
 import { analysisCacheKey, clearCachedAnalyses, loadCachedAnalysis, saveCachedAnalysis } from '@/lib/analysisCache';
 
@@ -65,7 +66,7 @@ export default function SpiritualDiary() {
   const importInputRef = useRef(null);
 
   const exportBackup = () => {
-    const blob = new Blob([JSON.stringify(buildBackup(window.localStorage), null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(buildBackup(getStorage()), null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -80,10 +81,10 @@ export default function SpiritualDiary() {
     event.target.value = '';
     if (!file) return;
     try {
-      const summary = applyBackup(window.localStorage, parseBackup(await file.text()));
-      setHistory(loadHistory(window.localStorage));
+      const summary = applyBackup(getStorage(), parseBackup(await file.text()));
+      setHistory(loadHistory(getStorage()));
       if (summary.profileApplied) {
-        const restored = loadProfile(window.localStorage);
+        const restored = loadProfile(getStorage());
         setNickname(restored?.nickname || '');
         setBirthDate(restored?.birthDate || '');
         setBirthTime(restored?.birthTime || '');
@@ -120,21 +121,30 @@ export default function SpiritualDiary() {
     : 31;
 
   useEffect(() => {
-    const storedProfile = loadProfile(window.localStorage);
-    if (storedProfile) {
-      setNickname(storedProfile.nickname || '');
-      setBirthDate(storedProfile.birthDate || '');
-      setBirthTime(storedProfile.birthTime || '');
-      setGender(storedProfile.gender || '');
-    }
-    setHistory(loadHistory(window.localStorage));
-    setStep(initialStepFor(storedProfile));
-    setProfileHydrated(true);
+    let cancelled = false;
+    (async () => {
+      await initStorage();
+      if (cancelled) return;
+      const storage = getStorage();
+      const storedProfile = loadProfile(storage);
+      if (storedProfile) {
+        setNickname(storedProfile.nickname || '');
+        setBirthDate(storedProfile.birthDate || '');
+        setBirthTime(storedProfile.birthTime || '');
+        setGender(storedProfile.gender || '');
+      }
+      setHistory(loadHistory(storage));
+      setStep(initialStepFor(storedProfile));
+      setProfileHydrated(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
     if (profileHydrated) {
-      saveProfile(window.localStorage, { nickname, birthDate, birthTime, gender });
+      saveProfile(getStorage(), { nickname, birthDate, birthTime, gender });
     }
   }, [profileHydrated, nickname, birthDate, birthTime, gender]);
 
@@ -190,13 +200,7 @@ export default function SpiritualDiary() {
       // 同じJST日・同じ入力なら端末内の前回結果を使い、APIを呼ばない（D-16, D-18）。
       // 成功した結果だけを保存する（寄り添いモードの結果も同日同入力なら同じ文を返す）。
       const cacheKey = await analysisCacheKey({ userProfile, biorhythm: bio, entry }, now);
-      // localStorageへのアクセス自体が例外になる環境では、キャッシュなしで続ける。
-      let cacheStorage = null;
-      try {
-        cacheStorage = window.localStorage;
-      } catch {
-        cacheStorage = null;
-      }
+      const cacheStorage = getStorage();
       const cached = loadCachedAnalysis(cacheStorage, cacheKey, now);
       let data;
       if (cached) {
@@ -240,7 +244,7 @@ export default function SpiritualDiary() {
           entry,
           userProfile,
         });
-        setHistory(saveHistory(window.localStorage, record));
+        setHistory(saveHistory(getStorage(), record));
         
         // ホワイトアウト遷移
         setIsTransitioning(true);
@@ -630,12 +634,12 @@ export default function SpiritualDiary() {
               type="button"
               onClick={() => {
                 if (isAll) {
-                  setHistory(clearHistory(window.localStorage));
+                  setHistory(clearHistory(getStorage()));
                 } else {
-                  setHistory(deleteHistoryItem(window.localStorage, confirmDelete.id));
+                  setHistory(deleteHistoryItem(getStorage(), confirmDelete.id));
                 }
                 // 端末に一時保存した当日の読み解きも一緒に消す（D-18）
-                clearCachedAnalyses(window.localStorage);
+                clearCachedAnalyses(getStorage());
                 setConfirmDelete(null);
                 setDeleteNotice(isAll ? 'すべての記録を削除しました' : '記録を削除しました');
               }}

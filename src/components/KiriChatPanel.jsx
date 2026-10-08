@@ -5,6 +5,7 @@ import { MessageCircle, Send, X, Trash2 } from 'lucide-react';
 import { clearChatHistory, loadChatHistory, saveChatHistory } from '@/lib/chatHistory';
 import SupportCard from '@/components/SupportCard';
 import { apiUrl } from '@/lib/apiUrl';
+import { getStorage, initStorage } from '@/lib/storage';
 
 export default function KiriChatPanel({ userProfile, entry, result, onClose }) {
   const [messages, setMessages] = useState([]);
@@ -13,12 +14,20 @@ export default function KiriChatPanel({ userProfile, entry, result, onClose }) {
   const hydrated = useRef(false);
 
   useEffect(() => {
-    setMessages(loadChatHistory(window.localStorage));
-    hydrated.current = true;
+    let cancelled = false;
+    (async () => {
+      await initStorage();
+      if (cancelled) return;
+      setMessages(loadChatHistory(getStorage()));
+      hydrated.current = true;
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
-    if (hydrated.current) saveChatHistory(window.localStorage, messages);
+    if (hydrated.current) saveChatHistory(getStorage(), messages);
   }, [messages]);
 
   const send = async (event) => {
@@ -65,7 +74,7 @@ export default function KiriChatPanel({ userProfile, entry, result, onClose }) {
         <div className="p-4 border-b border-white/10 flex items-center justify-between">
           <div className="flex items-center gap-2 text-kiri-gold"><MessageCircle className="w-5 h-5" /><h2 className="font-display font-bold">Kiriに聞く</h2></div>
           <div className="flex items-center gap-3">
-            {messages.length > 0 && <button type="button" onClick={() => setMessages(clearChatHistory(window.localStorage))} aria-label="会話を削除" className="text-kiri-lilac hover:text-white"><Trash2 className="w-4 h-4" /></button>}
+            {messages.length > 0 && <button type="button" onClick={() => setMessages(clearChatHistory(getStorage()))} aria-label="会話を削除" className="text-kiri-lilac hover:text-white"><Trash2 className="w-4 h-4" /></button>}
             <button type="button" onClick={onClose} aria-label="チャットを閉じる" className="text-kiri-lilac hover:text-white"><X className="w-5 h-5" /></button>
           </div>
         </div>
