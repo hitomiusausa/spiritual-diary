@@ -46,3 +46,13 @@ next-env.d.ts
 /.open-next/
 /.wrangler/
 cloudflare-env.d.ts
+
+# iOS (Capacitor) — 生成物。詳細は ios/.gitignore（Ruling 14）
+/ios/App/App/public
+/ios/App/App/capacitor.config.json
+/ios/App/App/config.xml
+/ios/App/build
+/ios/App/Pods
+DerivedData/
+xcuserdata/
+*.xcuserstate
