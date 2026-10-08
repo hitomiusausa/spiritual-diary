@@ -6,6 +6,9 @@ import { clearChatHistory, loadChatHistory, saveChatHistory } from '@/lib/chatHi
 import SupportCard from '@/components/SupportCard';
 import { apiUrl } from '@/lib/apiUrl';
 import { getStorage, initStorage } from '@/lib/storage';
+import { hasConsent } from '@/lib/consent';
+
+const CONSENT_REQUIRED_MESSAGE = '……ここで話した言葉は、Anthropic社のAI（Claude）に送られるの。いまは送信への同意が取り消されているから、届けられないみたい。「読み解く」の確認画面で同意すると、また話せるよ。';
 
 export default function KiriChatPanel({ userProfile, entry, result, onClose }) {
   const [messages, setMessages] = useState([]);
@@ -34,6 +37,12 @@ export default function KiriChatPanel({ userProfile, entry, result, onClose }) {
     event.preventDefault();
     const content = input.trim();
     if (!content || loading) return;
+    // 第三者AIへの送信は同意があるときだけ（5.1.2(i)）。同意は「読み解く」の確認画面で取る。
+    // 送らずに案内だけを出し、書いた言葉は入力欄に残す。
+    if (!hasConsent(getStorage())) {
+      setMessages([...messages, { role: 'assistant', content: CONSENT_REQUIRED_MESSAGE, isSystem: true }]);
+      return;
+    }
     const nextMessages = [...messages, { role: 'user', content }];
     setMessages(nextMessages);
     setInput('');
