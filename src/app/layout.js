@@ -23,6 +23,14 @@ export const metadata = {
   description: "バイオリズムと四柱推命から、Kiriが今日の心の流れをやわらかく読み解くノート",
 };
 
+// iOS アプリ（Capacitor）でノッチ・ホームバーの下まで夜色を広げ、本文は env(safe-area-inset-*) で避ける。
+// 通常のブラウザでは inset が 0 なので見た目は変わらない（Ruling 7 ⑥）。
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
 export default function RootLayout({ children }) {
   return (
     <html lang="ja">

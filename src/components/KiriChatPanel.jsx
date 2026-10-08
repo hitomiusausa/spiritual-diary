@@ -78,7 +78,7 @@ export default function KiriChatPanel({ userProfile, entry, result, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-3" role="dialog" aria-modal="true" aria-label="Kiriとの対話">
+    <div className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-3 pt-[calc(0.75rem+env(safe-area-inset-top))] pb-[calc(0.75rem+env(safe-area-inset-bottom))]" role="dialog" aria-modal="true" aria-label="Kiriとの対話">
       <div className="kiri-card-strong rounded-2xl w-full max-w-lg max-h-[88vh] flex flex-col overflow-hidden">
         <div className="p-4 border-b border-white/10 flex items-center justify-between">
           <div className="flex items-center gap-2 text-kiri-gold"><MessageCircle className="w-5 h-5" /><h2 className="font-display font-bold">Kiriに聞く</h2></div>

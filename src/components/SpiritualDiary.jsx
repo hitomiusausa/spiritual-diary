@@ -12,7 +12,7 @@ import { entryNeedsSupport } from '@/lib/kiriSafety';
 import { apiUrl } from '@/lib/apiUrl';
 import { getStorage, initStorage } from '@/lib/storage';
 import { exportBackupNative } from '@/lib/backupShare';
-import { isNativePlatform } from '@/lib/native';
+import { applyStatusBar, armSplashFallback, haptic, hideSplash, isNativePlatform } from '@/lib/native';
 import { hasConsent, recordConsent, revokeConsent } from '@/lib/consent';
 import ConsentModal from '@/components/ConsentModal';
 import { browserSessionStorage, saveEntryDraft, takeEntryDraft } from '@/lib/entryDraft';
@@ -150,30 +150,48 @@ export default function SpiritualDiary() {
 
   useEffect(() => {
     let cancelled = false;
+    // iOS: スプラッシュは復元の後に隠す。例外や停止でも残さないよう、タイマーの保険も張る（Ruling 7）。
+    armSplashFallback();
+    applyStatusBar();
     (async () => {
-      await initStorage();
-      if (cancelled) return;
-      const storage = getStorage();
-      const storedProfile = loadProfile(storage);
-      if (storedProfile) {
-        setNickname(storedProfile.nickname || '');
-        setBirthDate(storedProfile.birthDate || '');
-        setBirthTime(storedProfile.birthTime || '');
-        setGender(storedProfile.gender || '');
+      try {
+        await initStorage();
+      } catch (storageError) {
+        console.error('[kiri-storage]', storageError?.message);
       }
-      setHistory(loadHistory(storage));
-      setAiConsent(hasConsent(storage));
-      const initialStep = initialStepFor(storedProfile);
-      // 同意画面からポリシーを読みに行って戻ったときは、書きかけの記録を戻す。
-      const draft = takeEntryDraft(browserSessionStorage());
-      if (draft && initialStep === 'input') setEntry((current) => ({ ...current, ...draft }));
-      setStep(initialStep);
-      setProfileHydrated(true);
+      if (cancelled) return;
+      try {
+        const storage = getStorage();
+        const storedProfile = loadProfile(storage);
+        if (storedProfile) {
+          setNickname(storedProfile.nickname || '');
+          setBirthDate(storedProfile.birthDate || '');
+          setBirthTime(storedProfile.birthTime || '');
+          setGender(storedProfile.gender || '');
+        }
+        setHistory(loadHistory(storage));
+        setAiConsent(hasConsent(storage));
+        const initialStep = initialStepFor(storedProfile);
+        // 同意画面からポリシーを読みに行って戻ったときは、書きかけの記録を戻す。
+        const draft = takeEntryDraft(browserSessionStorage());
+        if (draft && initialStep === 'input') setEntry((current) => ({ ...current, ...draft }));
+        setStep(initialStep);
+        setProfileHydrated(true);
+      } catch (hydrateError) {
+        // 復元に失敗してもスプラッシュは残さない（通常は描画後の effect で隠す）。
+        console.error('[kiri-storage]', hydrateError?.message);
+        hideSplash();
+      }
     })();
     return () => {
       cancelled = true;
     };
   }, []);
+
+  // 復元した画面が描画されてからスプラッシュを隠す（iOS。Web では何もしない）。
+  useEffect(() => {
+    if (profileHydrated) hideSplash();
+  }, [profileHydrated]);
 
   useEffect(() => {
     if (profileHydrated) {
@@ -225,6 +243,7 @@ export default function SpiritualDiary() {
 
   // 初回の読み解き前に、第三者AIへの送信の同意を取る（5.1.2(i)）。
   const requestAnalyze = () => {
+    haptic('analyze');
     if (!hasConsent(getStorage())) {
       setShowConsent(true);
       return;
@@ -315,6 +334,7 @@ export default function SpiritualDiary() {
         setIsTransitioning(true);
         setTimeout(() => {
           setStep('result');
+          haptic('success');
           setTimeout(() => {
             setIsTransitioning(false);
           }, 400);
@@ -349,7 +369,7 @@ export default function SpiritualDiary() {
     if (!error) return null;
 
     return (
-      <div className="fixed top-4 left-4 right-4 z-50 max-w-md mx-auto">
+      <div className="fixed top-[calc(1rem+env(safe-area-inset-top))] left-4 right-4 z-50 max-w-md mx-auto">
         <div className="bg-kiri-plum/95 backdrop-blur-md text-white p-4 rounded-xl shadow-2xl border border-kiri-danger/60">
           <div className="flex items-start gap-3">
             <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-kiri-danger" />
@@ -455,7 +475,7 @@ export default function SpiritualDiary() {
     if (!show) return null;
 
     return (
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1rem+env(safe-area-inset-bottom))]" onClick={onClose}>
         <div className="kiri-card-strong rounded-2xl p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-display text-xl font-bold text-kiri-gold">{title}</h3>
@@ -570,7 +590,7 @@ export default function SpiritualDiary() {
   const SettingsModal = () => {
     if (!showSettings) return null;
     return (
-      <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowSettings(false)} role="dialog" aria-modal="true" aria-label="設定">
+      <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1rem+env(safe-area-inset-bottom))]" onClick={() => setShowSettings(false)} role="dialog" aria-modal="true" aria-label="設定">
         <div className="kiri-card-strong rounded-2xl w-full max-w-md p-6 kiri-rise" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-display text-xl font-bold text-kiri-gold">設定</h3>
@@ -635,7 +655,7 @@ export default function SpiritualDiary() {
   const HistoryListModal = () => {
     if (!showHistoryList) return null;
     return (
-      <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-3" onClick={() => setShowHistoryList(false)} role="dialog" aria-modal="true" aria-label="最近の記録">
+      <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-3 pt-[calc(0.75rem+env(safe-area-inset-top))] pb-[calc(0.75rem+env(safe-area-inset-bottom))]" onClick={() => setShowHistoryList(false)} role="dialog" aria-modal="true" aria-label="最近の記録">
         <div className="kiri-card-strong rounded-2xl w-full max-w-lg max-h-[88vh] flex flex-col overflow-hidden kiri-rise" onClick={(e) => e.stopPropagation()}>
           <div className="p-4 border-b border-white/10 flex items-center justify-between">
             <h2 className="font-display font-bold text-kiri-gold">最近の記録</h2>
@@ -696,7 +716,7 @@ export default function SpiritualDiary() {
     if (!confirmDelete) return null;
     const isAll = confirmDelete.type === 'all';
     return (
-      <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setConfirmDelete(null)} role="alertdialog" aria-modal="true" aria-label="削除の確認">
+      <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1rem+env(safe-area-inset-bottom))]" onClick={() => setConfirmDelete(null)} role="alertdialog" aria-modal="true" aria-label="削除の確認">
         <div className="kiri-card-strong rounded-2xl w-full max-w-sm p-6 kiri-rise" onClick={(e) => e.stopPropagation()}>
           <h3 className="font-display text-lg font-bold text-white mb-2">
             {isAll ? 'すべての記録を削除しますか？' : 'この記録を削除しますか？'}
@@ -715,6 +735,7 @@ export default function SpiritualDiary() {
             <button
               type="button"
               onClick={() => {
+                haptic('delete');
                 if (isAll) {
                   setHistory(clearHistory(getStorage()));
                 } else {
@@ -743,7 +764,7 @@ export default function SpiritualDiary() {
       : '記録';
     const entryLabel = record.entry?.type === 'future' ? '予定' : '出来事';
     return (
-      <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-3" onClick={onClose} role="dialog" aria-modal="true" aria-label="過去の記録">
+      <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-3 pt-[calc(0.75rem+env(safe-area-inset-top))] pb-[calc(0.75rem+env(safe-area-inset-bottom))]" onClick={onClose} role="dialog" aria-modal="true" aria-label="過去の記録">
         <div className="kiri-card-strong rounded-2xl w-full max-w-lg max-h-[88vh] flex flex-col overflow-hidden kiri-rise" onClick={(e) => e.stopPropagation()}>
           <div className="p-4 border-b border-white/10 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
@@ -996,7 +1017,10 @@ export default function SpiritualDiary() {
                           type="button"
                           aria-label={`気分: ${mood.label}`}
                           aria-pressed={entry.emoji === mood.value}
-                          onClick={() => setEntry({...entry, emoji: mood.value})}
+                          onClick={() => {
+                            haptic('select');
+                            setEntry({...entry, emoji: mood.value});
+                          }}
                           className={`flex flex-col items-center gap-1 py-2 rounded-lg transition-all text-kiri-fog ${entry.emoji === mood.value ? 'bg-kiri-lilac/50 text-kiri-gold ring-1 ring-kiri-gold/70' : 'bg-white/10 hover:bg-white/20'} active:scale-95`}
                         >
                           <MoodIcon value={mood.value} />

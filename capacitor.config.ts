@@ -18,7 +18,8 @@ const config: CapacitorConfig = {
   },
   plugins: {
     CapacitorHttp: { enabled: false },
-    // 以下は T9 でプラグインを入れた時点で効く値（Ruling 7・Q5）。
+    // Ruling 7・Q5。スプラッシュは自動で消さず、src/lib/native.js の hideSplash() が端末保存の復元後に隠す
+    // （起動処理が止まっても SPLASH_FALLBACK_MS で隠す保険あり）。画像は「静かな霧」（Assets.xcassets/Splash）。
     SplashScreen: {
       launchAutoHide: false,
       backgroundColor: NIGHT_COLOR,

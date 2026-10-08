@@ -9,7 +9,7 @@ export default function ConsentModal({ show, onAccept, onDecline, onReadPolicy }
   if (!show) return null;
   return (
     <div
-      className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+      className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1rem+env(safe-area-inset-bottom))]"
       onClick={onDecline}
       role="dialog"
       aria-modal="true"
