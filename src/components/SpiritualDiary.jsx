@@ -8,6 +8,7 @@ import { clearHistory, deleteHistoryItem, loadHistory, saveHistory, toHistoryRec
 import { buildBackup, backupFileName, parseBackup, applyBackup } from '@/lib/backup';
 import KiriChatPanel from '@/components/KiriChatPanel';
 import SupportCard from '@/components/SupportCard';
+import { apiUrl } from '@/lib/apiUrl';
 import { DEFAULT_MOOD, MOODS, findMood } from '@/lib/moods';
 import { analysisCacheKey, clearCachedAnalyses, loadCachedAnalysis, saveCachedAnalysis } from '@/lib/analysisCache';
 
@@ -201,7 +202,7 @@ export default function SpiritualDiary() {
       if (cached) {
         data = { success: true, data: cached };
       } else {
-        const response = await fetch('/api/analyze', {
+        const response = await fetch(apiUrl('/api/analyze'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

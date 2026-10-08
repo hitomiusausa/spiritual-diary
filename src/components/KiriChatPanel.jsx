@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { MessageCircle, Send, X, Trash2 } from 'lucide-react';
 import { clearChatHistory, loadChatHistory, saveChatHistory } from '@/lib/chatHistory';
 import SupportCard from '@/components/SupportCard';
+import { apiUrl } from '@/lib/apiUrl';
 
 export default function KiriChatPanel({ userProfile, entry, result, onClose }) {
   const [messages, setMessages] = useState([]);
@@ -29,7 +30,7 @@ export default function KiriChatPanel({ userProfile, entry, result, onClose }) {
     setInput('');
     setLoading(true);
     try {
-      const response = await fetch('/api/chat', {
+      const response = await fetch(apiUrl('/api/chat'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
