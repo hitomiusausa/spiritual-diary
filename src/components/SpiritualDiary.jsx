@@ -13,6 +13,7 @@ import { apiUrl } from '@/lib/apiUrl';
 import { getStorage, initStorage } from '@/lib/storage';
 import { hasConsent, recordConsent, revokeConsent } from '@/lib/consent';
 import ConsentModal from '@/components/ConsentModal';
+import { browserSessionStorage, saveEntryDraft, takeEntryDraft } from '@/lib/entryDraft';
 import { DEFAULT_MOOD, MOODS, findMood } from '@/lib/moods';
 import { analysisCacheKey, clearCachedAnalyses, loadCachedAnalysis, saveCachedAnalysis } from '@/lib/analysisCache';
 
@@ -146,7 +147,11 @@ export default function SpiritualDiary() {
       }
       setHistory(loadHistory(storage));
       setAiConsent(hasConsent(storage));
-      setStep(initialStepFor(storedProfile));
+      const initialStep = initialStepFor(storedProfile);
+      // 同意画面からポリシーを読みに行って戻ったときは、書きかけの記録を戻す。
+      const draft = takeEntryDraft(browserSessionStorage());
+      if (draft && initialStep === 'input') setEntry((current) => ({ ...current, ...draft }));
+      setStep(initialStep);
       setProfileHydrated(true);
     })();
     return () => {
@@ -928,7 +933,12 @@ export default function SpiritualDiary() {
         <WhiteoutTransition />
         <ErrorBanner />
         <SettingsModal />
-        <ConsentModal show={showConsent} onAccept={acceptConsent} onDecline={declineConsent} />
+        <ConsentModal
+          show={showConsent}
+          onAccept={acceptConsent}
+          onDecline={declineConsent}
+          onReadPolicy={() => saveEntryDraft(browserSessionStorage(), entry)}
+        />
         <div className="min-h-screen kiri-shell p-4 pb-20">
           <div className="max-w-2xl mx-auto">
             <div className="text-center mb-4 pt-2 relative">

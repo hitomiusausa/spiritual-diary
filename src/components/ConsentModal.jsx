@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { ShieldCheck, X } from 'lucide-react';
 
 // 第三者AIへの送信に対する同意（App Store 5.1.2(i)）。文言は承認済みの草案どおり。
-export default function ConsentModal({ show, onAccept, onDecline }) {
+// onReadPolicy: ポリシーへ移る直前に呼ぶ（書きかけの記録を退避するため）。
+export default function ConsentModal({ show, onAccept, onDecline, onReadPolicy }) {
   if (!show) return null;
   return (
     <div
@@ -34,7 +35,7 @@ export default function ConsentModal({ show, onAccept, onDecline }) {
             <li>同意はいつでも設定から取り消せます（取り消すと読み解きは使えなくなります）。</li>
           </ul>
           <p>
-            <Link href="/privacy" className="text-kiri-gold underline underline-offset-2">プライバシーポリシーを読む</Link>
+            <Link href="/privacy" onClick={onReadPolicy} className="text-kiri-gold underline underline-offset-2">プライバシーポリシーを読む</Link>
           </p>
         </div>
         <div className="flex gap-2 mt-5">
