@@ -3,6 +3,7 @@ import { calculateSaju } from "@/lib/saju";
 import { KIRI_PERSONA } from "@/lib/kiriPersonality";
 import { extractReplyText } from "@/lib/claudeResponse";
 import { CRISIS_FORTUNE_GUIDANCE, SAFETY_GUIDANCE, detectCrisis } from "@/lib/kiriSafety";
+import { moodBonus as moodBonusFor, moodLabel } from "@/lib/moods";
 import { parseFortuneResponse, validateFortuneText } from "@/lib/fortuneResponse";
 import { createRateLimiter, createDailyQuota, clientKeyFromHeaders, positiveIntEnv } from "@/lib/apiGuard";
 
@@ -105,25 +106,8 @@ function calculateThemeScores(birthSaju, todaySaju, biorhythm, userMood, hasBirt
     hourBonus = (hourCompatibility - 0.5) * 0.1; // -0.1 ~ +0.1 の範囲
   }
   
-  // C案: 感情タイプ別の細分化（24種類）
-  const joyLove = ['🥰', '❤️', '😆', '💓'];          // 喜び・愛: +20%
-  const calmHope = ['😊', '😌', '✨', '🌈', '⭐'];    // 穏やか・希望: +12%
-  const energy = ['☀️', '💚', '💙', '😋'];                // エネルギー: +8%
-  const tired = ['😴', '💤'];                        // 眠い・疲れ: -5%
-  const anxious = ['😔', '😰', '🌧️'];               // 不安・憂鬱: -12%
-  const sad = ['😢', '😭'];                          // 悲しい: -18%
-  const angry = ['😤', '😠'];                        // 怒り: -15%
-  const neutral = ['🤔', '😮'];                      // 中立: 0%
-  
-  let moodBonus = 0;
-  if (joyLove.includes(userMood)) moodBonus = 0.20;
-  else if (calmHope.includes(userMood)) moodBonus = 0.12;
-  else if (energy.includes(userMood)) moodBonus = 0.08;
-  else if (tired.includes(userMood)) moodBonus = -0.05;
-  else if (anxious.includes(userMood)) moodBonus = -0.12;
-  else if (sad.includes(userMood)) moodBonus = -0.18;
-  else if (angry.includes(userMood)) moodBonus = -0.15;
-  else if (neutral.includes(userMood)) moodBonus = 0;
+  // 気分補正は src/lib/moods.js の定義を使う（D-17）
+  const moodBonus = moodBonusFor(userMood);
   
   const scores = {
     love: Math.max(0, Math.min(1, 
@@ -639,7 +623,7 @@ ${taiun.available
 ${hourNowJST}時
 
 【ユーザーのアウトプット】
-気分: ${entry.emoji}
+気分: ${moodLabel(entry.emoji) || entry.emoji}
 記録: ${entry.event}
 直感: ${entry.intuition || "なし"}
 

@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  /* config options here */
+  // devサーバー起動時にAGENTS.mdを自動生成させない
+  agentRules: false,
 };
 
 export default nextConfig;

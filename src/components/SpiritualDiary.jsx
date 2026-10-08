@@ -3,11 +3,12 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useState, useEffect, useRef } from 'react';
-import { Sparkles, Lock, AlertCircle, X, ChevronDown, ChevronUp, HelpCircle, Heart, Smile, Frown, Meh, Angry, Star, Sun, Moon, Cloud, Zap, CircleHelp, Download, Upload, Settings, History } from 'lucide-react';
+import { Sparkles, Lock, AlertCircle, X, ChevronDown, ChevronUp, HelpCircle, Heart, Smile, Frown, Meh, Angry, Star, Sun, Moon, Cloud, Zap, CircleHelp, Download, Upload, Settings, History, Laugh, Leaf, CloudRain, Droplet } from 'lucide-react';
 import { clearHistory, deleteHistoryItem, loadHistory, saveHistory, toHistoryRecord, loadProfile, saveProfile } from '@/lib/history';
 import { buildBackup, backupFileName, parseBackup, applyBackup } from '@/lib/backup';
 import KiriChatPanel from '@/components/KiriChatPanel';
 import SupportCard from '@/components/SupportCard';
+import { DEFAULT_MOOD, MOODS, findMood } from '@/lib/moods';
 
 export default function SpiritualDiary() {
   const [step, setStep] = useState('start');
@@ -17,7 +18,7 @@ export default function SpiritualDiary() {
   const [nickname, setNickname] = useState('');
 
   const [entry, setEntry] = useState({
-    emoji: '😊',
+    emoji: DEFAULT_MOOD,
     mood: '',
     type: 'past',
     event: '',
@@ -25,7 +26,7 @@ export default function SpiritualDiary() {
   });
   const [placeholders, setPlaceholders] = useState({
     mood: '例: 穏やかで少し眠い',
-    event: '例: 朝のコーヒーが美味しくて気分が上がった。今日までの仕事も無事終わらせることができた。/nこれから買い物に行って、晩酌しながらドラマの続きを観る予定。',
+    event: '例: 朝のコーヒーが美味しくて気分が上がった。今日までの仕事も無事終わらせることができた。\nこれから買い物に行って、晩酌しながらドラマの続きを観る予定。',
     intuition: '例: 大切な人との繋がりを感じる'
   });
   const [result, setResult] = useState(null);
@@ -91,19 +92,10 @@ export default function SpiritualDiary() {
     }
   };
 
-  const moodIconMap = {
-    '🥰': Heart, '❤️': Heart, '😆': Smile, '💓': Heart,
-    '😊': Smile, '😌': Smile, '✨': Sparkles, '🌈': Star, '⭐': Star, '😋': Smile,
-    '☀️': Sun, '💚': Heart, '💙': Heart,
-    '😴': Moon, '💤': Moon,
-    '😔': Frown, '😰': Cloud, '🌧️': Cloud,
-    '😢': Frown, '😭': Frown,
-    '😤': Angry, '😠': Angry,
-    '🤔': CircleHelp, '😮': Meh,
-  };
+  const moodIconMap = { Laugh, Heart, Leaf, Sparkles, Sun, Moon, CloudRain, Droplet, Angry, CircleHelp, Meh, Smile, Star, Frown, Cloud };
 
   const MoodIcon = ({ value, className = 'w-7 h-7' }) => {
-    const Icon = moodIconMap[value] || Sparkles;
+    const Icon = moodIconMap[findMood(value)?.icon] || Sparkles;
     return <Icon className={className} strokeWidth={1.6} aria-hidden="true" />;
   };
 
@@ -167,17 +159,6 @@ export default function SpiritualDiary() {
     });
   };
 
-  // 絵文字24種類（感情タイプ別）
-  const emojis = [
-    '🥰', '❤️', '😆', '💓', // 喜び・愛 (+20%)
-    '😊', '😌', '✨', '🌈', '⭐', '😋', // 穏やか・希望 (+12%)
-    '☀️', '💚', '💙', // エネルギー (+8%)
-    '😴', '💤', // 眠い・疲れ (-5%)
-    '😔', '😰', // 不安・憂鬱 (-12%)
-    '😢', '😭', // 悲しい (-18%)
-    '😤', '😠', // 怒り (-15%)
-    '🤔', '😮'  // 中立 (0%)
-  ];
 
   const calcBio = (birth) => {
     const b = new Date(birth);
@@ -265,7 +246,7 @@ export default function SpiritualDiary() {
 
   const clearAll = () => {
     setStep('start');
-    setEntry({emoji: '😊', mood: '', type: 'past', event: '', intuition: ''});
+    setEntry({emoji: DEFAULT_MOOD, mood: '', type: 'past', event: '', intuition: ''});
     setResult(null);
   };
 
@@ -864,16 +845,18 @@ export default function SpiritualDiary() {
                 <div className="space-y-4">
                   <div>
                     <label className="block text-white text-sm mb-2 font-medium text-center">今日の気分を選んでください</label>
-                    <div className="flex flex-wrap gap-2 justify-center" role="group" aria-label="今日の気分">
-                      {emojis.map(e => (
+                    <div className="grid grid-cols-4 sm:grid-cols-6 gap-2" role="group" aria-label="今日の気分">
+                      {MOODS.map(mood => (
                         <button
-                          key={e}
+                          key={mood.value}
                           type="button"
-                          aria-label={`気分: ${e}`}
-                          onClick={() => setEntry({...entry, emoji: e})}
-                          className={`p-2.5 rounded-lg transition-all text-kiri-fog ${entry.emoji === e ? 'bg-kiri-lilac/50 text-kiri-gold scale-110 ring-1 ring-kiri-gold/70' : 'bg-white/10 hover:bg-white/20'} active:scale-95`}
+                          aria-label={`気分: ${mood.label}`}
+                          aria-pressed={entry.emoji === mood.value}
+                          onClick={() => setEntry({...entry, emoji: mood.value})}
+                          className={`flex flex-col items-center gap-1 py-2 rounded-lg transition-all text-kiri-fog ${entry.emoji === mood.value ? 'bg-kiri-lilac/50 text-kiri-gold ring-1 ring-kiri-gold/70' : 'bg-white/10 hover:bg-white/20'} active:scale-95`}
                         >
-                          <MoodIcon value={e} />
+                          <MoodIcon value={mood.value} />
+                          <span className="text-[11px] leading-none">{mood.label}</span>
                         </button>
                       ))}
                     </div>
@@ -1352,6 +1335,7 @@ export default function SpiritualDiary() {
                     <div className="flex items-center gap-2">
                       <span className="text-kiri-fog"><MoodIcon value={entry.emoji} className="w-6 h-6" /></span>
                       <span className="font-bold text-sm text-white">今日の気分</span>
+                      {findMood(entry.emoji)?.label && <span className="text-sm text-kiri-fog">{findMood(entry.emoji).label}</span>}
                     </div>
                   </div>
                   <div className="bg-white/10 p-3 rounded-lg">
