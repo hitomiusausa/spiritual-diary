@@ -1078,7 +1078,8 @@ export default function SpiritualDiary() {
         <HistoryListModal />
         <ConfirmDeleteModal />
         <RecordDetail record={openedRecord} onClose={() => setOpenedRecord(null)} />
-        {showChat && (
+        {/* チャットと「プレミアム」の詳細は開発プレビューのビルドにだけ入れる（定数で囲み、本番のバンドルから消す）。 */}
+        {CHAT_PREVIEW_ENABLED && showChat && (
           <KiriChatPanel
             userProfile={{ nickname, birthDate, birthTime, gender }}
             entry={entry}
@@ -1201,19 +1202,21 @@ export default function SpiritualDiary() {
           <p className="mt-2 text-kiri-lilac text-xs">正解はないので、心地よい距離を自分で選んでくださいね。</p>
         </InfoPopup>
 
-        <InfoPopup
-          show={showPremiumInfo}
-          onClose={() => setShowPremiumInfo(false)}
-          title="Kiriとの対話（プレミアム）"
-        >
-          <p>今日の占い結果と過去の記録をもとに、Kiriへ続けて相談できる機能です。</p>
-          <div className="bg-white/10 p-3 rounded-lg space-y-1.5">
-            <p>・今日の無料占い結果：このまま利用できます</p>
-            <p>・端末内の履歴保存：この端末で利用できます</p>
-            <p>・Kiriとの対話：有料機能として準備中です</p>
-          </div>
-          <p className="text-xs text-kiri-lilac">購入機能はまだ接続されていません。App Store公開前にStoreKitまたはRevenueCatとサーバー側の購読確認を追加します。</p>
-        </InfoPopup>
+        {CHAT_PREVIEW_ENABLED && (
+          <InfoPopup
+            show={showPremiumInfo}
+            onClose={() => setShowPremiumInfo(false)}
+            title="Kiriとの対話（プレミアム）"
+          >
+            <p>今日の占い結果と過去の記録をもとに、Kiriへ続けて相談できる機能です。</p>
+            <div className="bg-white/10 p-3 rounded-lg space-y-1.5">
+              <p>・今日の無料占い結果：このまま利用できます</p>
+              <p>・端末内の履歴保存：この端末で利用できます</p>
+              <p>・Kiriとの対話：有料機能として準備中です</p>
+            </div>
+            <p className="text-xs text-kiri-lilac">購入機能はまだ接続されていません。App Store公開前にStoreKitまたはRevenueCatとサーバー側の購読確認を追加します。</p>
+          </InfoPopup>
+        )}
 
         <div className="min-h-screen kiri-shell p-4 pb-20">
           <div className="max-w-2xl mx-auto">
