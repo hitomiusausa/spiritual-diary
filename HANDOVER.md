@@ -11,6 +11,27 @@
 - GitHub: `https://github.com/hitomiusausa/spiritual-diary`
 - 最新状態: 2026-07-28分まではGitHubへpush済み。2026-10-08のリリース準備 Phase 0（D-14〜D-16）もpush済み。
 
+## 2026-10-08 Phase 1-1 API保護の共有ストア化（コード側完了・未commit）
+
+確定したこと（**D-18**）:
+- レート制限・日次クォータのカウンタだけをUpstash Redis（`src/lib/kiriStore.js`）に置く。未設定ならプロセス内メモリ。IPは運営者だけが持つ秘密鍵（`KIRI_STORE_SECRET`）でHMAC化し、平文で保存しない（`src/lib/kiriCrypto.js`）
+- **サーバーには日記由来のデータを一切保存しない**。分析のサーバー内キャッシュは撤去
+- 同日同入力の文章の安定（D-16）は**端末側キャッシュ**（`src/lib/analysisCache.js`、localStorage`kiri-analysis-cache-v1`、キーは入力のSHA-256、当日分・最大10件）が担う。記録の個別削除・すべて削除で丸ごと消去する。別端末では文章が変わり得る
+- Redis障害・タイムアウト（1秒・再試行なし）時は、カウンタをメモリへ降格して制限を効かせ続ける
+- **503方針**: `VERCEL_ENV`がproduction/previewで、Redis設定か`KIRI_STORE_SECRET`（32文字以上）が欠けていれば、`/api/analyze`と`/api/chat`は503
+- プライバシーポリシー2〜4節を改訂（保存先Upstash東京・IP由来の値は最長2分・回数カウンタは2日・端末内の当日一時保存と削除時の消去）
+
+ユーザー作業（デプロイ前）:
+1. Vercel MarketplaceでUpstash Redisを作成（Regional。東京リージョンを選べれば東京）
+2. Vercelの環境変数に`KIRI_STORE_SECRET`を設定（`openssl rand -base64 48`で生成、Sensitive指定）
+3. Anthropicコンソールで月の利用額上限を設定
+
+デプロイ後に確認すること:
+- `EXPIRE NX`が実サーバーで動くこと（型定義では確認済み。カウンタのキーにTTLが付き、降格の警告ログが出ていないこと）
+
+残課題:
+- チャットのAPI消費管理（購読と連動した上限など）は後日検討
+
 ## 2026-10-08 リリース準備を開始（Phase 0 完了・push済み）
 
 リリースまでの道のり: **Phase 0 下準備（済）→ Phase 1 Web公開 → Phase 2 iOSの器 → Phase 3 課金 → Phase 4 審査準備・提出**。
@@ -34,7 +55,7 @@
 - チャットパネルの背景が半透明で、後ろの結果画面が透けて読みにくい（以前からのデザイン）
 
 次（Phase 1 Web公開）の順番:
-1. API保護と分析キャッシュをUpstash Redisへ移す。Anthropic側に利用額の上限を設定する
+1. API保護をUpstash Redisへ移す（コード側は完了・D-18）。Upstash作成・`KIRI_STORE_SECRET`設定・Anthropic側の利用額上限はユーザー作業
 2. Vercelへデプロイ → Cloudflareで`kiri.kugainc.com`のCNAME → 実環境で入力→分析→結果→履歴→バックアップを通し確認
 
 ## できていること
@@ -60,13 +81,14 @@
 ## 検証済み
 
 ```text
-npm test                 9 files / 85 tests passed（2026-10-08）
+npm test                 14 files / 126 tests passed（2026-10-08）
 npm run lint             errors 0 / warnings 0
 npm run build            success
 npm audit --omit=dev     vulnerabilities 0
 ```
 
 APIの403（プレビュー無効）、429（レート制限・Retry-Afterヘッダ付き）、プレビュー有効時の通過は、`next start`をポート3999で立ててcurlで実挙動を確認済み（2026-07-28）。
+2026-10-08: `VERCEL_ENV=production`かつRedis未設定で`/api/analyze`・`/api/chat`が503、開発時（`VERCEL_ENV`未設定）でレート制限の429（Retry-After付き）が従来どおり返ることをcurlで確認済み。
 
 ## 2026-07-28セッションのまとめ
 

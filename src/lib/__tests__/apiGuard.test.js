@@ -1,91 +1,119 @@
 import { describe, it, expect } from "vitest";
 import { createRateLimiter, createDailyQuota, clientKeyFromHeaders } from "../apiGuard";
+import { createMemoryStore } from "../kiriStore";
 
-const T0 = Date.UTC(2026, 6, 28, 3, 0, 0); // 2026-07-28 12:00 JST
+const T0 = Date.UTC(2026, 6, 28, 3, 0, 0); // 2026-07-28 12:00 JST（分の境界ちょうど）
+const fakeHash = (ip) => `h(${ip})`;
+
+// incr の呼び出しを記録する偽ストア。中身はメモリ実装に任せる。
+function recordingStore(now = () => T0) {
+  const inner = createMemoryStore({ now });
+  const calls = [];
+  return {
+    calls,
+    incr: (key, ttl) => {
+      calls.push([key, ttl]);
+      return inner.incr(key, ttl);
+    },
+  };
+}
+
+function limiterWith(max, store = recordingStore()) {
+  return createRateLimiter({ route: "analyze", windowMs: 60_000, max, store, hashKey: fakeHash });
+}
 
 describe("createRateLimiter", () => {
-  it("上限までは許可し、超えたら拒否する", () => {
-    const limiter = createRateLimiter({ windowMs: 60_000, max: 3 });
-    expect(limiter.check("ip-a", T0).allowed).toBe(true);
-    expect(limiter.check("ip-a", T0).allowed).toBe(true);
-    expect(limiter.check("ip-a", T0).allowed).toBe(true);
-    expect(limiter.check("ip-a", T0).allowed).toBe(false);
+  it("上限までは許可し、超えたら拒否する", async () => {
+    const limiter = limiterWith(3);
+    expect((await limiter.check("ip-a", T0)).allowed).toBe(true);
+    expect((await limiter.check("ip-a", T0)).allowed).toBe(true);
+    expect((await limiter.check("ip-a", T0)).allowed).toBe(true);
+    expect((await limiter.check("ip-a", T0)).allowed).toBe(false);
   });
 
-  it("拒否時にretryAfterSecondsを返す", () => {
-    const limiter = createRateLimiter({ windowMs: 60_000, max: 1 });
-    limiter.check("ip-a", T0);
-    const denied = limiter.check("ip-a", T0 + 10_000);
+  it("拒否時に窓の終わりまでのretryAfterSecondsを返す", async () => {
+    const limiter = limiterWith(1);
+    await limiter.check("ip-a", T0);
+    const denied = await limiter.check("ip-a", T0 + 10_000);
     expect(denied.allowed).toBe(false);
-    expect(denied.retryAfterSeconds).toBeGreaterThan(0);
-    expect(denied.retryAfterSeconds).toBeLessThanOrEqual(60);
+    expect(denied.retryAfterSeconds).toBe(50);
   });
 
-  it("ウィンドウが経過するとカウントが回復する", () => {
-    const limiter = createRateLimiter({ windowMs: 60_000, max: 1 });
-    expect(limiter.check("ip-a", T0).allowed).toBe(true);
-    expect(limiter.check("ip-a", T0 + 30_000).allowed).toBe(false);
-    expect(limiter.check("ip-a", T0 + 61_000).allowed).toBe(true);
+  it("窓が変わるとカウントが回復する", async () => {
+    const limiter = limiterWith(1);
+    expect((await limiter.check("ip-a", T0)).allowed).toBe(true);
+    expect((await limiter.check("ip-a", T0 + 30_000)).allowed).toBe(false);
+    expect((await limiter.check("ip-a", T0 + 61_000)).allowed).toBe(true);
   });
 
-  it("キーごとに独立してカウントする", () => {
-    const limiter = createRateLimiter({ windowMs: 60_000, max: 1 });
-    expect(limiter.check("ip-a", T0).allowed).toBe(true);
-    expect(limiter.check("ip-b", T0).allowed).toBe(true);
-    expect(limiter.check("ip-a", T0).allowed).toBe(false);
+  it("キーごとに独立してカウントする", async () => {
+    const limiter = limiterWith(1);
+    expect((await limiter.check("ip-a", T0)).allowed).toBe(true);
+    expect((await limiter.check("ip-b", T0)).allowed).toBe(true);
+    expect((await limiter.check("ip-a", T0)).allowed).toBe(false);
   });
 
-  it("キー数が上限を超えたら古いキーを破棄する", () => {
-    const limiter = createRateLimiter({ windowMs: 60_000, max: 1, maxKeys: 2 });
-    limiter.check("ip-a", T0);
-    limiter.check("ip-b", T0);
-    limiter.check("ip-c", T0); // ip-a が押し出される
-    expect(limiter.check("ip-a", T0).allowed).toBe(true);
+  it("ストアのキーはIPのハッシュと分窓番号で、IPの平文を含まない", async () => {
+    const store = recordingStore();
+    const limiter = createRateLimiter({ route: "chat", windowMs: 60_000, max: 5, store, hashKey: fakeHash });
+    await limiter.check("203.0.113.5", T0 + 5_000);
+    const [key, ttl] = store.calls[0];
+    expect(key).toBe(`kiri:rl:chat:h(203.0.113.5):${Math.floor(T0 / 60_000)}`);
+    expect(ttl).toBeGreaterThanOrEqual(60);
+    expect(ttl).toBeLessThanOrEqual(120);
+  });
+
+  it("既定のハッシュ関数ではIPの平文がキーに残らない", async () => {
+    const store = recordingStore();
+    const limiter = createRateLimiter({ route: "chat", windowMs: 60_000, max: 5, store });
+    await limiter.check("203.0.113.5", T0);
+    expect(store.calls[0][0]).not.toContain("203.0.113.5");
   });
 });
 
 describe("createDailyQuota", () => {
-  it("上限まで消費でき、超えたら拒否する", () => {
-    const quota = createDailyQuota({ limit: 2 });
-    expect(quota.consume(T0).allowed).toBe(true);
-    expect(quota.consume(T0).allowed).toBe(true);
-    const denied = quota.consume(T0);
+  it("上限まで消費でき、超えたら拒否する", async () => {
+    const quota = createDailyQuota({ route: "analyze", limit: 2, store: recordingStore() });
+    expect((await quota.consume(T0)).allowed).toBe(true);
+    expect((await quota.consume(T0)).allowed).toBe(true);
+    const denied = await quota.consume(T0);
     expect(denied.allowed).toBe(false);
     expect(denied.used).toBe(2);
     expect(denied.limit).toBe(2);
   });
 
-  it("JSTの日付が変わるとリセットされる", () => {
-    const quota = createDailyQuota({ limit: 1 });
-    expect(quota.consume(T0).allowed).toBe(true);
-    expect(quota.consume(T0).allowed).toBe(false);
-    // 2026-07-28 23:30 JST → まだ同日
-    const sameDay = Date.UTC(2026, 6, 28, 14, 30, 0);
-    expect(quota.consume(sameDay).allowed).toBe(false);
-    // 2026-07-29 00:30 JST → 翌日
-    const nextDay = Date.UTC(2026, 6, 28, 15, 30, 0);
-    expect(quota.consume(nextDay).allowed).toBe(true);
+  it("JSTの日付ごとのキーに2日のTTLで数える", async () => {
+    const store = recordingStore();
+    const quota = createDailyQuota({ route: "chat", limit: 5, store });
+    await quota.consume(T0);
+    expect(store.calls[0]).toEqual(["kiri:q:chat:2026-07-28", 172_800]);
   });
 
-  it("peekは消費せずに現在値を返す", () => {
-    const quota = createDailyQuota({ limit: 5 });
-    quota.consume(T0);
-    expect(quota.peek(T0).used).toBe(1);
-    expect(quota.peek(T0).used).toBe(1);
+  it("JSTの日付が変わるとリセットされる", async () => {
+    const quota = createDailyQuota({ route: "analyze", limit: 1, store: recordingStore() });
+    expect((await quota.consume(T0)).allowed).toBe(true);
+    expect((await quota.consume(T0)).allowed).toBe(false);
+    // 2026-07-28 23:30 JST → まだ同日
+    const sameDay = Date.UTC(2026, 6, 28, 14, 30, 0);
+    expect((await quota.consume(sameDay)).allowed).toBe(false);
+    // 2026-07-29 00:30 JST → 翌日
+    const nextDay = Date.UTC(2026, 6, 28, 15, 30, 0);
+    expect((await quota.consume(nextDay)).allowed).toBe(true);
   });
+
 });
 
 describe("clientKeyFromHeaders", () => {
   const headersOf = (obj) => new Headers(obj);
 
-  it("x-forwarded-forの先頭IPを使う", () => {
-    const headers = headersOf({ "x-forwarded-for": "203.0.113.5, 10.0.0.1" });
-    expect(clientKeyFromHeaders(headers)).toBe("203.0.113.5");
+  it("x-real-ipを優先する", () => {
+    const headers = headersOf({ "x-real-ip": "198.51.100.7", "x-forwarded-for": "203.0.113.5, 10.0.0.1" });
+    expect(clientKeyFromHeaders(headers)).toBe("198.51.100.7");
   });
 
-  it("x-forwarded-forがなければx-real-ipを使う", () => {
-    const headers = headersOf({ "x-real-ip": "198.51.100.7" });
-    expect(clientKeyFromHeaders(headers)).toBe("198.51.100.7");
+  it("x-real-ipがなければx-forwarded-forの先頭IPを使う", () => {
+    const headers = headersOf({ "x-forwarded-for": "203.0.113.5, 10.0.0.1" });
+    expect(clientKeyFromHeaders(headers)).toBe("203.0.113.5");
   });
 
   it("どちらもなければunknownを返す", () => {

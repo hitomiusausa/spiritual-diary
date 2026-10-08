@@ -6,47 +6,20 @@ import { CRISIS_FORTUNE_GUIDANCE, SAFETY_GUIDANCE, detectCrisis } from "@/lib/ki
 import { moodBonus as moodBonusFor, moodLabel } from "@/lib/moods";
 import { parseFortuneResponse, validateFortuneText } from "@/lib/fortuneResponse";
 import { createRateLimiter, createDailyQuota, clientKeyFromHeaders, positiveIntEnv } from "@/lib/apiGuard";
+import { storeReadiness } from "@/lib/kiriStore";
 
 const ANALYZE_EFFORT = process.env.KIRI_ANALYZE_EFFORT || "medium";
-const ANALYSIS_CACHE = new Map();
-const ANALYSIS_CACHE_LIMIT = 200;
 
+// 分析結果はサーバーに保存しない。同日同入力の文章の安定は端末側キャッシュが担う（D-16, D-18）。
 const RATE_LIMITER = createRateLimiter({
+  route: "analyze",
   windowMs: 60_000,
   max: positiveIntEnv("RATE_LIMIT_ANALYZE_PER_MIN", 10),
 });
 const DAILY_QUOTA = createDailyQuota({
+  route: "analyze",
   limit: positiveIntEnv("DAILY_LIMIT_ANALYZE", 300),
 });
-
-function jstDateKey(date) {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Tokyo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date);
-}
-
-function analysisCacheKey({ userProfile, biorhythm, entry, date, model }) {
-  return JSON.stringify({
-    date: jstDateKey(date),
-    model,
-    userProfile: {
-      birthDate: userProfile.birthDate,
-      birthTime: userProfile.birthTime || "",
-      gender: userProfile.gender || "",
-      nickname: userProfile.nickname || "",
-    },
-    biorhythm: { p: Number(biorhythm.p), e: Number(biorhythm.e), i: Number(biorhythm.i) },
-    entry: {
-      emoji: entry.emoji || "",
-      type: entry.type || "past",
-      event: entry.event,
-      intuition: entry.intuition || "",
-    },
-  });
-}
 
 const FORTUNE_MODE = `
 # 占い結果モード
@@ -273,15 +246,11 @@ const colorName = Array.isArray(variants)
   };
   let direction = directionMap[todayElement] || '東';
   
-  console.log('[方角計算]', { todayElement, baseDirection: direction, biorhythm });
-  
   // バイオリズムで微調整
   if (direction === '北' && biorhythm.e > 30) direction = '北東';
   if (direction === '東' && biorhythm.p > 30) direction = '南東';
   if (direction === '南' && biorhythm.i > 30) direction = '南西';
   if (direction === '西' && biorhythm.e < -30) direction = '北西';
-  
-  console.log('[方角計算] 最終:', direction);
 
 // 距離感の計算（語彙さらに拡張版）
 let distanceValue = '';
@@ -477,7 +446,12 @@ function jstHour() {
 
 export async function POST(request) {
   try {
-    const rate = RATE_LIMITER.check(clientKeyFromHeaders(request.headers));
+    if (!storeReadiness().ready) {
+      console.error("[kiri-store] store not configured");
+      return NextResponse.json({ success: false, error: "Service unavailable" }, { status: 503 });
+    }
+
+    const rate = await RATE_LIMITER.check(clientKeyFromHeaders(request.headers));
     if (!rate.allowed) {
       return NextResponse.json(
         { success: false, error: "Too many requests", code: "rate_limited" },
@@ -519,11 +493,8 @@ export async function POST(request) {
 
     const now = new Date();
     const model = process.env.CLAUDE_MODEL || "claude-sonnet-5-5";
-    const cacheKey = analysisCacheKey({ userProfile, biorhythm, entry, date: now, model });
-    const cached = ANALYSIS_CACHE.get(cacheKey);
-    if (cached) return NextResponse.json(cached);
 
-    const quota = DAILY_QUOTA.consume();
+    const quota = await DAILY_QUOTA.consume();
     if (!quota.allowed) {
       console.warn("[kiri-usage] analyze daily limit reached", quota.used, "/", quota.limit);
       return NextResponse.json(
@@ -767,10 +738,6 @@ ${crisis ? `${CRISIS_FORTUNE_GUIDANCE}\n※この寄り添いモードの指示�
         },
       },
     };
-    ANALYSIS_CACHE.set(cacheKey, payload);
-    if (ANALYSIS_CACHE.size > ANALYSIS_CACHE_LIMIT) {
-      ANALYSIS_CACHE.delete(ANALYSIS_CACHE.keys().next().value);
-    }
     return NextResponse.json(payload);
   } catch (error) {
     console.error("[kiri-analyze] request failed", error?.message ?? String(error));

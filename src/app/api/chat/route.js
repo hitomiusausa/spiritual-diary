@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { KIRI_PERSONA } from "@/lib/kiriPersonality";
 import { createRateLimiter, createDailyQuota, clientKeyFromHeaders, positiveIntEnv } from "@/lib/apiGuard";
+import { storeReadiness } from "@/lib/kiriStore";
 import { checkChatEntitlement } from "@/lib/entitlement";
 import { extractReplyText } from "@/lib/claudeResponse";
 import { CRISIS_CHAT_MESSAGE, SAFETY_GUIDANCE, detectCrisis } from "@/lib/kiriSafety";
@@ -10,10 +11,12 @@ const MAX_MESSAGE_CHARS = 1200;
 const CHAT_EFFORT = process.env.KIRI_CHAT_EFFORT || "low";
 
 const RATE_LIMITER = createRateLimiter({
+  route: "chat",
   windowMs: 60_000,
   max: positiveIntEnv("RATE_LIMIT_CHAT_PER_MIN", 20),
 });
 const DAILY_QUOTA = createDailyQuota({
+  route: "chat",
   limit: positiveIntEnv("DAILY_LIMIT_CHAT", 600),
 });
 
@@ -59,6 +62,11 @@ function compactContext(context) {
 
 export async function POST(request) {
   try {
+    if (!storeReadiness().ready) {
+      console.error("[kiri-store] store not configured");
+      return NextResponse.json({ success: false, error: "Service unavailable" }, { status: 503 });
+    }
+
     const entitlement = checkChatEntitlement();
     if (!entitlement.allowed) {
       return NextResponse.json(
@@ -67,7 +75,7 @@ export async function POST(request) {
       );
     }
 
-    const rate = RATE_LIMITER.check(clientKeyFromHeaders(request.headers));
+    const rate = await RATE_LIMITER.check(clientKeyFromHeaders(request.headers));
     if (!rate.allowed) {
       return NextResponse.json(
         { success: false, error: "Too many requests", code: "rate_limited" },
@@ -93,7 +101,7 @@ export async function POST(request) {
       return NextResponse.json({ success: false, error: "Chat is not configured" }, { status: 503 });
     }
 
-    const quota = DAILY_QUOTA.consume();
+    const quota = await DAILY_QUOTA.consume();
     if (!quota.allowed) {
       console.warn("[kiri-usage] chat daily limit reached", quota.used, "/", quota.limit);
       return NextResponse.json(

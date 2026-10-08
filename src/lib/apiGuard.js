@@ -1,73 +1,59 @@
-// プロセス内メモリのみで動くAPI保護ユーティリティ。
-// 複数インスタンス構成では共有されない(DECISIONS.md D-08)。
+// API保護ユーティリティ。カウンタは共有ストア（Upstash Redis／未設定時はメモリ）に置く。
+// IPは平文で保存せず、秘密鍵つきのハッシュにしてキーに使う（DECISIONS.md D-08, D-18）。
 
-const DEFAULT_MAX_KEYS = 1000;
+import { getKiriStore, getStoreSecret } from "@/lib/kiriStore";
+import { hashClientIp } from "@/lib/kiriCrypto";
 
-export function createRateLimiter({ windowMs, max, maxKeys = DEFAULT_MAX_KEYS }) {
-  const buckets = new Map(); // key -> { windowStart, count }
+const RATE_LIMIT_TTL_WINDOWS = 2; // 窓の長さの2倍で消える（最長2分）
+const DAILY_QUOTA_TTL_SECONDS = 2 * 24 * 60 * 60;
 
-  function check(key, now = Date.now()) {
-    const bucket = buckets.get(key);
-    if (!bucket || now - bucket.windowStart >= windowMs) {
-      buckets.delete(key);
-      buckets.set(key, { windowStart: now, count: 1 });
-      if (buckets.size > maxKeys) {
-        buckets.delete(buckets.keys().next().value);
-      }
-      return { allowed: true, retryAfterSeconds: 0 };
-    }
-    if (bucket.count < max) {
-      bucket.count += 1;
-      return { allowed: true, retryAfterSeconds: 0 };
-    }
-    const retryAfterSeconds = Math.max(1, Math.ceil((bucket.windowStart + windowMs - now) / 1000));
+const defaultStore = () => getKiriStore();
+const defaultHashKey = (ip) => hashClientIp(getStoreSecret(), ip);
+
+export function createRateLimiter({ route, windowMs, max, store = defaultStore, hashKey = defaultHashKey }) {
+  const resolveStore = typeof store === "function" ? store : () => store;
+  const ttlSeconds = Math.ceil((windowMs * RATE_LIMIT_TTL_WINDOWS) / 1000);
+
+  async function check(clientKey, now = Date.now()) {
+    const windowIndex = Math.floor(now / windowMs);
+    const key = `kiri:rl:${route}:${hashKey(clientKey)}:${windowIndex}`;
+    const count = await resolveStore().incr(key, ttlSeconds);
+    if (count <= max) return { allowed: true, retryAfterSeconds: 0 };
+    const retryAfterSeconds = Math.max(1, Math.ceil(((windowIndex + 1) * windowMs - now) / 1000));
     return { allowed: false, retryAfterSeconds };
   }
 
   return { check };
 }
 
-export function createDailyQuota({ limit, timeZone = "Asia/Tokyo" }) {
+export function createDailyQuota({ route, limit, timeZone = "Asia/Tokyo", store = defaultStore }) {
+  const resolveStore = typeof store === "function" ? store : () => store;
   const formatter = new Intl.DateTimeFormat("en-CA", {
     timeZone,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
   });
-  let dateKey = null;
-  let used = 0;
 
-  function roll(now) {
-    const key = formatter.format(now);
-    if (key !== dateKey) {
-      dateKey = key;
-      used = 0;
-    }
+  // 上限を超えた呼び出しもカウンタは進むが、usedは上限で頭打ちにして返す。
+  async function consume(now = Date.now()) {
+    const key = `kiri:q:${route}:${formatter.format(now)}`;
+    const count = await resolveStore().incr(key, DAILY_QUOTA_TTL_SECONDS);
+    if (count > limit) return { allowed: false, used: limit, limit };
+    return { allowed: true, used: count, limit };
   }
 
-  function consume(now = Date.now()) {
-    roll(now);
-    if (used >= limit) return { allowed: false, used, limit };
-    used += 1;
-    return { allowed: true, used, limit };
-  }
-
-  function peek(now = Date.now()) {
-    roll(now);
-    return { used, limit };
-  }
-
-  return { consume, peek };
+  return { consume };
 }
 
 export function clientKeyFromHeaders(headers) {
+  const realIp = headers.get("x-real-ip");
+  if (realIp && realIp.trim()) return realIp.trim();
   const forwarded = headers.get("x-forwarded-for");
   if (forwarded) {
     const first = forwarded.split(",")[0].trim();
     if (first) return first;
   }
-  const realIp = headers.get("x-real-ip");
-  if (realIp) return realIp.trim();
   return "unknown";
 }
 

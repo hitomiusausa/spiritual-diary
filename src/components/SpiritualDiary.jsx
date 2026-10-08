@@ -9,6 +9,7 @@ import { buildBackup, backupFileName, parseBackup, applyBackup } from '@/lib/bac
 import KiriChatPanel from '@/components/KiriChatPanel';
 import SupportCard from '@/components/SupportCard';
 import { DEFAULT_MOOD, MOODS, findMood } from '@/lib/moods';
+import { analysisCacheKey, clearCachedAnalyses, loadCachedAnalysis, saveCachedAnalysis } from '@/lib/analysisCache';
 
 export default function SpiritualDiary() {
   const [step, setStep] = useState('start');
@@ -180,18 +181,39 @@ export default function SpiritualDiary() {
       const bio = calcBio(birthDate);
       const now = new Date();
 
-      const response = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userProfile: { birthDate, birthTime, gender, nickname },
-          biorhythm: bio,
-          entry: entry,
-          timestamp: now.toISOString()
-        })
-      });
+      const userProfile = { birthDate, birthTime, gender, nickname };
 
-      const data = await response.json();
+      // 同じJST日・同じ入力なら端末内の前回結果を使い、APIを呼ばない（D-16, D-18）。
+      // 成功した結果だけを保存する（寄り添いモードの結果も同日同入力なら同じ文を返す）。
+      const cacheKey = await analysisCacheKey({ userProfile, biorhythm: bio, entry }, now);
+      // localStorageへのアクセス自体が例外になる環境では、キャッシュなしで続ける。
+      let cacheStorage = null;
+      try {
+        cacheStorage = window.localStorage;
+      } catch {
+        cacheStorage = null;
+      }
+      const cached = loadCachedAnalysis(cacheStorage, cacheKey, now);
+      let data;
+      if (cached) {
+        data = { success: true, data: cached };
+      } else {
+        const response = await fetch('/api/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userProfile,
+            biorhythm: bio,
+            entry: entry,
+            timestamp: now.toISOString()
+          })
+        });
+
+        data = await response.json();
+        if (data.success && data.data) {
+          saveCachedAnalysis(cacheStorage, cacheKey, data.data, now);
+        }
+      }
 
       if (data.success) {
         const avg = (bio.p + bio.e + bio.i) / 3;
@@ -212,7 +234,7 @@ export default function SpiritualDiary() {
         const record = toHistoryRecord({
           result: nextResult,
           entry,
-          userProfile: { birthDate, birthTime, gender, nickname },
+          userProfile,
         });
         setHistory(saveHistory(window.localStorage, record));
         
@@ -608,6 +630,8 @@ export default function SpiritualDiary() {
                 } else {
                   setHistory(deleteHistoryItem(window.localStorage, confirmDelete.id));
                 }
+                // 端末に一時保存した当日の読み解きも一緒に消す（D-18）
+                clearCachedAnalyses(window.localStorage);
                 setConfirmDelete(null);
                 setDeleteNotice(isAll ? 'すべての記録を削除しました' : '記録を削除しました');
               }}
