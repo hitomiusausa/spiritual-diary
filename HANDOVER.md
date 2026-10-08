@@ -23,7 +23,7 @@
 - 注意: ローカルの workerd プレビューも`KIRI_DEPLOY_ENV=production`（wrangler.jsonc）で動く本番扱い。`.dev.vars`に本番のUpstashを入れていると、**本番と同じ日次クォータ・レート制限カウンタに加算される**（2026-10-08の検証で analyze の当日カウンタを2回分使った）
 - ログ: wrangler.jsonc で呼び出しログ（invocation logs）とtracesを無効、consoleの運用ログだけ残す
 
-Cloudflareに設定するもの: Secrets＝`CLAUDE_API_KEY`・`UPSTASH_REDIS_REST_URL`・`UPSTASH_REDIS_REST_TOKEN`・`KIRI_STORE_SECRET`。Vars（任意）＝`DAILY_LIMIT_ANALYZE=30`など。`KIRI_DEPLOY_ENV`はwrangler.jsoncにあるので不要。`KIRI_CHAT_PREVIEW`は入れない。Workers Builds ならビルド時変数は不要（実行時のSecretsのみ）
+Cloudflareに設定するもの: Secrets＝`CLAUDE_API_KEY`・`UPSTASH_REDIS_REST_URL`・`UPSTASH_REDIS_REST_TOKEN`・`KIRI_STORE_SECRET`。`KIRI_DEPLOY_ENV`と`DAILY_LIMIT_ANALYZE=30`はwrangler.jsoncの`vars`に固定済み（ダッシュボードの平文変数はデプロイで上書きされるため、平文の設定はwrangler.jsoncで変える）。`KIRI_CHAT_PREVIEW`は入れない。Workers Builds ならビルド時変数は不要（実行時のSecretsのみ）
 
 ローカル検証（2026-10-08）: test 138件・lint・build・audit(--omit=dev 0件)・OpenNext build OK。workerdプレビューでトップ等200、空入力 analyze 400／chat 403、Upstash未設定で両方503、実入力の analyze 200（Claude 2回）、Upstashにレート制限キー（IPハッシュ）と日次クォータ加算、ログに日記本文・IPなし。Worker gzip 1.4MB。Playwright 375/1280でトップ表示・画像OK
 
