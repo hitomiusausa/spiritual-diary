@@ -19,6 +19,11 @@ export function nextConfigFor(env = process.env) {
     },
     // API ルートは route.api.js。iOS では拡張子 api.js を外してルートごと除外する。
     pageExtensions: ios ? ["js", "jsx"] : ["api.js", "js", "jsx"],
+    // 未設定の NEXT_PUBLIC_* は静的置換されず、プレビュー用の文言がバンドルに残る。
+    // 必ず '0' か '1' を埋め込み、未使用の分岐ごと消す（課金開始まで チャットは画面に出さない。Q4）。
+    env: {
+      NEXT_PUBLIC_KIRI_CHAT_PREVIEW: env.NEXT_PUBLIC_KIRI_CHAT_PREVIEW === "1" ? "1" : "0",
+    },
   };
   if (ios) {
     config.output = "export";

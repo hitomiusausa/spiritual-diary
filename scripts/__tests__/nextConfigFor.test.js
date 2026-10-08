@@ -27,4 +27,14 @@ describe("nextConfigFor", () => {
     expect(config.agentRules).toBe(false);
     expect(config.images).toEqual({ unoptimized: true });
   });
+
+  it("チャットのプレビュー表示は、未設定なら '0' で埋め込む（未使用コードをバンドルから消すため）", () => {
+    expect(nextConfigFor({}).env).toEqual({ NEXT_PUBLIC_KIRI_CHAT_PREVIEW: "0" });
+    expect(nextConfigFor({ KIRI_BUILD_TARGET: "ios" }).env).toEqual({ NEXT_PUBLIC_KIRI_CHAT_PREVIEW: "0" });
+  });
+
+  it("チャットのプレビュー表示は、'1' のときだけ '1' を埋め込む", () => {
+    expect(nextConfigFor({ NEXT_PUBLIC_KIRI_CHAT_PREVIEW: "1" }).env).toEqual({ NEXT_PUBLIC_KIRI_CHAT_PREVIEW: "1" });
+    expect(nextConfigFor({ NEXT_PUBLIC_KIRI_CHAT_PREVIEW: "true" }).env).toEqual({ NEXT_PUBLIC_KIRI_CHAT_PREVIEW: "0" });
+  });
 });
