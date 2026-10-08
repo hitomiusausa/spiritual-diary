@@ -4,7 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useState, useEffect, useRef } from 'react';
 import { Sparkles, Lock, AlertCircle, X, ChevronDown, ChevronUp, HelpCircle, Heart, Smile, Frown, Meh, Angry, Star, Sun, Moon, Cloud, Zap, CircleHelp, Download, Upload, Settings, History, Laugh, Leaf, CloudRain, Droplet, ShieldOff } from 'lucide-react';
-import { clearHistory, deleteHistoryItem, loadHistory, saveHistory, toHistoryRecord, loadProfile, saveProfile, initialStepFor, formatBirthDateJa } from '@/lib/history';
+import { clearHistory, deleteHistoryItem, loadHistory, saveHistory, toHistoryRecord, loadProfile, saveProfile, initialStepFor, formatBirthDateJa, isSameReading } from '@/lib/history';
 import { buildBackup, backupFileName, parseBackup, applyBackup } from '@/lib/backup';
 import KiriChatPanel from '@/components/KiriChatPanel';
 import SupportCard from '@/components/SupportCard';
@@ -340,7 +340,11 @@ export default function SpiritualDiary() {
           entry,
           userProfile,
         });
-        setHistory(saveHistory(getStorage(), record));
+        // 端末キャッシュの結果を見直しただけなら、同じ記録を履歴へ重ねない。
+        const latest = loadHistory(getStorage())[0];
+        if (!(cached && isSameReading(latest, record))) {
+          setHistory(saveHistory(getStorage(), record));
+        }
         
         // ホワイトアウト遷移
         setIsTransitioning(true);

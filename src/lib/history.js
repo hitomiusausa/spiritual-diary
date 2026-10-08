@@ -30,6 +30,25 @@ export function toHistoryRecord({ result, entry, userProfile }) {
   };
 }
 
+const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
+
+function jstDay(iso) {
+  const time = Date.parse(iso);
+  return Number.isFinite(time) ? new Date(time + JST_OFFSET_MS).toISOString().slice(0, 10) : "";
+}
+
+// 同じJST日に、同じ基本情報・同じ記録で、Kiriの言葉も同じ（＝端末キャッシュの結果を見直しただけ）か。
+// 「読み解く」を押し直すたびに同じ記録が履歴へ増えないよう、保存前の判定に使う（T13）。
+export function isSameReading(a, b) {
+  if (!a || !b) return false;
+  const fields = (record) => JSON.stringify([
+    record.userProfile?.birthDate, record.userProfile?.birthTime, record.userProfile?.gender, record.userProfile?.nickname,
+    record.entry?.emoji, record.entry?.mood, record.entry?.type, record.entry?.event, record.entry?.intuition,
+    record.result?.deepMessage, record.result?.innerMessage, record.result?.actionAdvice,
+  ]);
+  return jstDay(a.createdAt) !== "" && jstDay(a.createdAt) === jstDay(b.createdAt) && fields(a) === fields(b);
+}
+
 export function loadHistory(storage) {
   try {
     const parsed = JSON.parse(storage?.getItem(HISTORY_STORAGE_KEY) ?? "[]");
