@@ -57,7 +57,7 @@ export default function PrivacyPage() {
         </ul>
         <p className="mt-2">
           このほか、障害調査・利用量把握のための最小限のログを記録しますが、入力内容は含めません。
-          なお、Vercel・Anthropicなど本サービスが利用する基盤事業者の側でも、
+          なお、Cloudflare・Anthropicなど本サービスが利用する基盤事業者の側でも、
           各社の方針に従い通信記録等が一定期間保持される場合があります。
         </p>
       </section>

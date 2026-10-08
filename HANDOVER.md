@@ -24,6 +24,7 @@
 - ログ: wrangler.jsonc で呼び出しログ（invocation logs）とtracesを無効、consoleの運用ログだけ残す
 
 Cloudflare（2026-10-08 ユーザーが Workers Paid 契約・Workers Builds で GitHub 連携済み。Worker名`kiri`、ビルド`npm run cf:build`、デプロイ`npm run cf:deploy`、Secrets 4つ設定済み）: 公開URLは`wrangler.jsonc`の`routes`（`kiri.kugainc.com`・custom_domain）で付ける。ダッシュボードの「ドメインを接続」は kugainc.com が同じアカウントにあるのに「一致するゾーンがありません」と出て使えなかった。`workers_dev`・`preview_urls`は false。
+**本番切り替え完了（2026-10-08 21:43）**: `main`=`a6c2789`のWorkers Buildsで`kiri.kugainc.com`に公開（custom_domainは設定ファイルから自動作成された）。確認済み: トップ・/privacy・/terms・/support が200、空入力で`/api/analyze` 400・`/api/chat` 403、`workers.dev`は404、応答はNRT（東京）のCloudflare、Upstashにカウンタが加算される。Playwright 375pxで基本情報→日記→読み解き（実AI 1回）→結果、端末キャッシュ1件・履歴1件。1280pxで日記入力と設定モーダル、バックアップ書き出し（profile/history/chat のみ・端末キャッシュは含まない）、コンソールのエラー・警告0。プライバシーポリシーの基盤事業者の例示をVercel→Cloudflareに修正
 Cloudflareに設定するもの: Secrets＝`CLAUDE_API_KEY`・`UPSTASH_REDIS_REST_URL`・`UPSTASH_REDIS_REST_TOKEN`・`KIRI_STORE_SECRET`。`KIRI_DEPLOY_ENV`と`DAILY_LIMIT_ANALYZE=30`はwrangler.jsoncの`vars`に固定済み（ダッシュボードの平文変数はデプロイで上書きされるため、平文の設定はwrangler.jsoncで変える）。`KIRI_CHAT_PREVIEW`は入れない。Workers Builds ならビルド時変数は不要（実行時のSecretsのみ）
 
 ローカル検証（2026-10-08）: test 138件・lint・build・audit(--omit=dev 0件)・OpenNext build OK。workerdプレビューでトップ等200、空入力 analyze 400／chat 403、Upstash未設定で両方503、実入力の analyze 200（Claude 2回）、Upstashにレート制限キー（IPハッシュ）と日次クォータ加算、ログに日記本文・IPなし。Worker gzip 1.4MB。Playwright 375/1280でトップ表示・画像OK
