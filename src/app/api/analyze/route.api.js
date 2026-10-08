@@ -3,7 +3,7 @@ import { preflightResponse, withCors } from "@/lib/cors";
 import { calculateSaju } from "@/lib/saju";
 import { KIRI_PERSONA } from "@/lib/kiriPersonality";
 import { extractReplyText } from "@/lib/claudeResponse";
-import { CRISIS_FORTUNE_GUIDANCE, SAFETY_GUIDANCE, detectCrisis } from "@/lib/kiriSafety";
+import { CRISIS_FORTUNE_GUIDANCE, SAFETY_GUIDANCE, entryNeedsSupport } from "@/lib/kiriSafety";
 import { moodBonus as moodBonusFor, moodLabel } from "@/lib/moods";
 import { parseFortuneResponse, validateFortuneText } from "@/lib/fortuneResponse";
 import { createRateLimiter, createDailyQuota, clientKeyFromHeaders, positiveIntEnv } from "@/lib/apiGuard";
@@ -505,7 +505,7 @@ async function handlePost(request) {
     }
     console.log("[kiri-usage] analyze", quota.used, "/", quota.limit);
 
-    const crisis = detectCrisis(entry.event, entry.intuition);
+    const crisis = entryNeedsSupport(entry);
     if (crisis) console.warn("[kiri-safety] crisis detected in analyze");
 
     const saju = calculateSaju({ birthDate, birthTime, gender, now });

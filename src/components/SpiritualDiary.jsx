@@ -8,6 +8,7 @@ import { clearHistory, deleteHistoryItem, loadHistory, saveHistory, toHistoryRec
 import { buildBackup, backupFileName, parseBackup, applyBackup } from '@/lib/backup';
 import KiriChatPanel from '@/components/KiriChatPanel';
 import SupportCard from '@/components/SupportCard';
+import { entryNeedsSupport } from '@/lib/kiriSafety';
 import { apiUrl } from '@/lib/apiUrl';
 import { getStorage, initStorage } from '@/lib/storage';
 import { hasConsent, recordConsent, revokeConsent } from '@/lib/consent';
@@ -67,6 +68,9 @@ export default function SpiritualDiary() {
   const [showChat, setShowChat] = useState(false);
   const [showConsent, setShowConsent] = useState(false);
   const [aiConsent, setAiConsent] = useState(false);
+  // 同意せずに閉じたとき、記録に危機の言葉があれば送信せずに相談窓口カードを出す（D-15）。
+  const [declinedSupport, setDeclinedSupport] = useState(false);
+  const declinedSupportRef = useRef(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
   // 復元が反映されるまで保存しない（復元前の空の値で端末のプロフィールを上書きしないため）。
   const [profileHydrated, setProfileHydrated] = useState(false);
@@ -157,6 +161,10 @@ export default function SpiritualDiary() {
   }, [profileHydrated, nickname, birthDate, birthTime, gender]);
 
   useEffect(() => {
+    if (declinedSupport) declinedSupportRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [declinedSupport]);
+
+  useEffect(() => {
     if (!deleteNotice) return undefined;
     const timer = setTimeout(() => setDeleteNotice(null), 3000);
     return () => clearTimeout(timer);
@@ -207,7 +215,14 @@ export default function SpiritualDiary() {
     recordConsent(getStorage());
     setAiConsent(true);
     setShowConsent(false);
+    setDeclinedSupport(false);
     analyze();
+  };
+
+  // 同意しない（今はやめる・×・背景タップ）。何も送らない。判定は端末内だけで行い、ログにも残さない。
+  const declineConsent = () => {
+    setShowConsent(false);
+    setDeclinedSupport(entryNeedsSupport(entry));
   };
 
   const withdrawConsent = () => {
@@ -913,7 +928,7 @@ export default function SpiritualDiary() {
         <WhiteoutTransition />
         <ErrorBanner />
         <SettingsModal />
-        <ConsentModal show={showConsent} onAccept={acceptConsent} onDecline={() => setShowConsent(false)} />
+        <ConsentModal show={showConsent} onAccept={acceptConsent} onDecline={declineConsent} />
         <div className="min-h-screen kiri-shell p-4 pb-20">
           <div className="max-w-2xl mx-auto">
             <div className="text-center mb-4 pt-2 relative">
@@ -1007,6 +1022,12 @@ export default function SpiritualDiary() {
 
                 </div>
               </div>
+
+              {declinedSupport && (
+                <div ref={declinedSupportRef}>
+                  <SupportCard />
+                </div>
+              )}
             </div>
           </div>
         </div>

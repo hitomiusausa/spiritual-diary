@@ -44,6 +44,13 @@ export function detectCrisis(...texts) {
   return CRISIS_PATTERNS.some((pattern) => pattern.test(joined));
 }
 
+// 日記の入力（出来事・直感）を判定する。分析API と、同意前で送信しない画面側の両方がこれを使う。
+// 判定の対象欄はここだけで決める（画面側に欄やキーワードを重複させない）。
+export function entryNeedsSupport(entry) {
+  if (!entry) return false;
+  return detectCrisis(entry.event, entry.intuition);
+}
+
 // 危機を検出したときにチャットがAIを呼ばずに返す文。Kiriの声のまま、窓口へつなぐ。
 // 番号と119の案内は、画面側の相談窓口カード(SupportCard)が出す。
 export const CRISIS_CHAT_MESSAGE = `とても苦しいところにいるんだね。話してくれて、ありがとう。

@@ -4,6 +4,7 @@ import {
   SUPPORT_LINES,
   SUPPORT_LINES_CHECKED_AT,
   detectCrisis,
+  entryNeedsSupport,
   normalizeForSafety,
 } from "../kiriSafety";
 
@@ -54,6 +55,24 @@ describe("detectCrisis", () => {
   it("複数の入力欄をまとめて判定できる", () => {
     expect(detectCrisis("仕事だった", "", "消えたい")).toBe(true);
     expect(detectCrisis("仕事だった", undefined, "眠い")).toBe(false);
+  });
+});
+
+describe("entryNeedsSupport（日記の入力を送る前・送らないときにも使う）", () => {
+  it("出来事か直感のどちらかに危機の言葉があれば true", () => {
+    expect(entryNeedsSupport({ event: "もう消えたい", intuition: "" })).toBe(true);
+    expect(entryNeedsSupport({ event: "仕事だった", intuition: "死にたい" })).toBe(true);
+  });
+
+  it("ふつうの記録・空・null は false", () => {
+    expect(entryNeedsSupport({ event: "死ぬほど美味しかった", intuition: "眠い" })).toBe(false);
+    expect(entryNeedsSupport({ event: "", intuition: "" })).toBe(false);
+    expect(entryNeedsSupport(null)).toBe(false);
+    expect(entryNeedsSupport(undefined)).toBe(false);
+  });
+
+  it("気分などほかの欄は見ない（サーバーの判定と同じ欄だけ）", () => {
+    expect(entryNeedsSupport({ mood: "死にたい", event: "散歩した" })).toBe(false);
   });
 });
 
