@@ -1,11 +1,13 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { useState, useEffect, useRef } from 'react';
 import { Sparkles, Lock, AlertCircle, X, ChevronDown, ChevronUp, HelpCircle, Heart, Smile, Frown, Meh, Angry, Star, Sun, Moon, Cloud, Zap, CircleHelp, Download, Upload, Settings, History } from 'lucide-react';
 import { clearHistory, deleteHistoryItem, loadHistory, saveHistory, toHistoryRecord, loadProfile, saveProfile } from '@/lib/history';
 import { buildBackup, backupFileName, parseBackup, applyBackup } from '@/lib/backup';
 import KiriChatPanel from '@/components/KiriChatPanel';
+import SupportCard from '@/components/SupportCard';
 
 export default function SpiritualDiary() {
   const [step, setStep] = useState('start');
@@ -224,6 +226,8 @@ export default function SpiritualDiary() {
           ...data.data
         };
         setResult(nextResult);
+        // 寄り添いモードでは点数を最初から開かない（D-15）
+        setExpandedSections((sections) => ({ ...sections, themes: !nextResult.support }));
         const record = toHistoryRecord({
           result: nextResult,
           entry,
@@ -667,6 +671,7 @@ export default function SpiritualDiary() {
                 <p className="text-sm text-white leading-relaxed">{record.entry.intuition}</p>
               </div>
             )}
+            {record.result?.support && <SupportCard compact />}
             {record.result?.deepMessage && (
               <div className="bg-black/15 rounded-lg p-3">
                 <p className="text-xs font-bold text-kiri-gold mb-2">Kiriが映したエネルギー</p>
@@ -723,9 +728,11 @@ export default function SpiritualDiary() {
             {/* Kiriの紹介 */}
             <div className="kiri-card-strong rounded-xl p-4 mb-6">
               <div className="flex items-center gap-3 mb-2">
-                <img 
-                  src="/kiri.png" 
-                  alt="Kiri" 
+                <Image
+                  src="/kiri.png"
+                  alt="Kiri"
+                  width={48}
+                  height={48}
                   className="w-12 h-12 rounded-full object-cover"
                 />
                 <div>
@@ -1117,6 +1124,8 @@ export default function SpiritualDiary() {
             </div>
 
             <div className="space-y-3">
+
+              {result.support && <SupportCard />}
 
               {/* 1. バイオリズム */}
               {/* バイオリズムセクション */}

@@ -16,7 +16,11 @@ export function loadChatHistory(storage) {
 export function saveChatHistory(storage, messages) {
   const safeMessages = (Array.isArray(messages) ? messages : [])
     .filter((message) => message && (message.role === "user" || message.role === "assistant"))
-    .map((message) => ({ role: message.role, content: String(message.content || "").slice(0, 1800) }))
+    .map((message) => ({
+      role: message.role,
+      content: String(message.content || "").slice(0, 1800),
+      ...(message.support ? { support: true } : {}),
+    }))
     .slice(-MAX_CHAT_MESSAGES);
   storage?.setItem(CHAT_HISTORY_STORAGE_KEY, JSON.stringify(safeMessages));
   return safeMessages;

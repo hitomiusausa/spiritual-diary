@@ -2,9 +2,12 @@ import { NextResponse } from "next/server";
 import { KIRI_PERSONA } from "@/lib/kiriPersonality";
 import { createRateLimiter, createDailyQuota, clientKeyFromHeaders, positiveIntEnv } from "@/lib/apiGuard";
 import { checkChatEntitlement } from "@/lib/entitlement";
+import { extractReplyText } from "@/lib/claudeResponse";
+import { CRISIS_CHAT_MESSAGE, SAFETY_GUIDANCE, detectCrisis } from "@/lib/kiriSafety";
 
 const MAX_MESSAGES = 12;
 const MAX_MESSAGE_CHARS = 1200;
+const CHAT_EFFORT = process.env.KIRI_CHAT_EFFORT || "low";
 
 const RATE_LIMITER = createRateLimiter({
   windowMs: 60_000,
@@ -78,6 +81,13 @@ export async function POST(request) {
       return NextResponse.json({ success: false, error: "Chat message is required" }, { status: 400 });
     }
 
+    const lastUserMessage = [...messages].reverse().find((message) => message.role === "user");
+    if (lastUserMessage && detectCrisis(lastUserMessage.content)) {
+      // 危機の言葉にはAIを呼ばず、固定文で窓口へつなぐ。クォータも消費しない。
+      console.warn("[kiri-safety] crisis detected in chat");
+      return NextResponse.json({ success: true, reply: CRISIS_CHAT_MESSAGE, support: true });
+    }
+
     const apiKey = process.env.CLAUDE_API_KEY;
     if (!apiKey) {
       return NextResponse.json({ success: false, error: "Chat is not configured" }, { status: 503 });
@@ -103,10 +113,12 @@ export async function POST(request) {
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: process.env.KIRI_CLAUDE_MODEL || process.env.CLAUDE_MODEL || "claude-haiku-4-5",
-        max_tokens: 420,
-        temperature: 0.7,
-        system: KIRI_PERSONA + CHAT_MODE + dynamicContext,
+        model: process.env.KIRI_CLAUDE_MODEL || process.env.CLAUDE_MODEL || "claude-haiku-5-5",
+        // 5.5世代はtemperature指定不可・思考が常時オン（思考もmax_tokensに含まれる）。
+        // 返答の短さはCHAT_MODEの指示で保つ。Haikuはサーバー側fallback非対応のため付けない。
+        max_tokens: 2000,
+        output_config: { effort: CHAT_EFFORT },
+        system: KIRI_PERSONA + SAFETY_GUIDANCE + CHAT_MODE + dynamicContext,
         messages,
       }),
     });
@@ -118,7 +130,10 @@ export async function POST(request) {
     }
 
     const data = await response.json();
-    const reply = String(data?.content?.[0]?.text || "……").trim().slice(0, 1800);
+    if (data?.stop_reason === "refusal" || data?.stop_reason === "max_tokens") {
+      console.error("[kiri-chat] no usable text", data.stop_reason);
+    }
+    const reply = extractReplyText(data).slice(0, 1800);
     return NextResponse.json({ success: true, reply: reply || "……" });
   } catch (error) {
     console.error("[kiri-chat] request failed", error?.message ?? String(error));

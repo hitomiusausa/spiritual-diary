@@ -7,7 +7,7 @@ export const metadata = {
 
 export default function PrivacyPage() {
   return (
-    <DocPage title="プライバシーポリシー" updatedAt="2026-07-28">
+    <DocPage title="プライバシーポリシー" updatedAt="2026-10-08">
       <p>
         Kiri（Mind & Energy Note、以下「本サービス」）は、利用者のプライバシーを尊重し、
         個人情報を次のとおり取り扱います。
@@ -68,8 +68,8 @@ export default function PrivacyPage() {
       <section>
         <h2>6. 運営者・連絡先</h2>
         <p>
-          運営者: （公開前に確定します）<br />
-          お問い合わせはサポートページをご覧ください。
+          運営者: くうが株式会社（KUGA K.K.）<br />
+          お問い合わせ: <a href="mailto:info@kugainc.com" className="underline">info@kugainc.com</a>
         </p>
       </section>
     </DocPage>

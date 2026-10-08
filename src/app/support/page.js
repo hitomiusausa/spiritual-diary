@@ -1,4 +1,5 @@
 import DocPage from "@/components/DocPage";
+import SupportCard from "@/components/SupportCard";
 
 export const metadata = {
   title: "サポート | Kiri",
@@ -7,7 +8,7 @@ export const metadata = {
 
 export default function SupportPage() {
   return (
-    <DocPage title="サポート" updatedAt="2026-07-28">
+    <DocPage title="サポート" updatedAt="2026-10-08">
       <section>
         <h2>よくある質問</h2>
         <div className="space-y-4 mt-2">
@@ -50,6 +51,9 @@ export default function SupportPage() {
               「まもろうよ こころ」（https://www.mhlw.go.jp/mamorouyokokoro/）に、
               電話・SNSで相談できる窓口がまとまっています。
             </p>
+            <div className="mt-3">
+              <SupportCard compact />
+            </div>
           </div>
         </div>
       </section>
@@ -57,7 +61,7 @@ export default function SupportPage() {
       <section>
         <h2>お問い合わせ</h2>
         <p>
-          お問い合わせ窓口: （公開前に確定します）<br />
+          お問い合わせ窓口: <a href="mailto:info@kugainc.com" className="underline">info@kugainc.com</a>（くうが株式会社（KUGA K.K.））<br />
           不具合の報告の際は、お使いの端末・ブラウザと、起きたことをできる範囲でお知らせください。
         </p>
       </section>

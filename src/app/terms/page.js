@@ -7,7 +7,7 @@ export const metadata = {
 
 export default function TermsPage() {
   return (
-    <DocPage title="利用規約" updatedAt="2026-07-28">
+    <DocPage title="利用規約" updatedAt="2026-10-08">
       <p>
         本規約は、Kiri（Mind & Energy Note、以下「本サービス」）の利用条件を定めるものです。
         本サービスを利用することで、本規約に同意したものとみなします。
@@ -70,7 +70,10 @@ export default function TermsPage() {
 
       <section>
         <h2>7. 運営者</h2>
-        <p>運営者: （公開前に確定します）</p>
+        <p>
+          運営者: くうが株式会社（KUGA K.K.）<br />
+          お問い合わせ: <a href="mailto:info@kugainc.com" className="underline">info@kugainc.com</a>
+        </p>
       </section>
     </DocPage>
   );

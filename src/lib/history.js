@@ -24,6 +24,7 @@ export function toHistoryRecord({ result, entry, userProfile }) {
       innerMessage: result.innerMessage || "",
       actionAdvice: result.actionAdvice || "",
       themeScores: result.themeScores || null,
+      support: Boolean(result.support),
       saju: result.saju || null,
     },
   };

@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { calculateSaju } from "@/lib/saju";
 import { KIRI_PERSONA } from "@/lib/kiriPersonality";
+import { extractReplyText } from "@/lib/claudeResponse";
+import { CRISIS_FORTUNE_GUIDANCE, SAFETY_GUIDANCE, detectCrisis } from "@/lib/kiriSafety";
 import { parseFortuneResponse, validateFortuneText } from "@/lib/fortuneResponse";
 import { createRateLimiter, createDailyQuota, clientKeyFromHeaders, positiveIntEnv } from "@/lib/apiGuard";
 
+const ANALYZE_EFFORT = process.env.KIRI_ANALYZE_EFFORT || "medium";
 const ANALYSIS_CACHE = new Map();
 const ANALYSIS_CACHE_LIMIT = 200;
 
@@ -164,7 +167,7 @@ function calculateThemeScores(birthSaju, todaySaju, biorhythm, userMood, hasBirt
 // 今日のヒントを計算
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
-function calculateTodayHints(birthSaju, todaySaju, biorhythm, themeScores, entry = {}) {
+function calculateTodayHints(birthSaju, todaySaju, biorhythm, themeScores, entry = {}, { gentle = false } = {}) {
   // --- 基本指標 ---
   const hintSeed = [
     birthSaju.year, birthSaju.month, birthSaju.day, birthSaju.hour,
@@ -199,7 +202,10 @@ function calculateTodayHints(birthSaju, todaySaju, biorhythm, themeScores, entry
     .sort(([, a], [, b]) => b - a)[0]?.[0] || 'work';
   const dominantLabel = themeLabels[dominantTheme];
   const eventLabel = String(entry.event || '').trim().replace(/\s+/g, ' ').slice(0, 36);
-  const recordLead = eventLabel ? `「${eventLabel}」と書いていた今日` : '今日の記録を振り返ると';
+  // 寄り添いモード(D-15)では、つらい言葉を色や数字の話の中で引用しない
+  const recordLead = gentle
+    ? 'ここに書いてくれた今日'
+    : eventLabel ? `「${eventLabel}」と書いていた今日` : '今日の記録を振り返ると';
   
 // 色の計算（語彙バリエーション拡張版）
 const colorMap = {
@@ -528,7 +534,7 @@ export async function POST(request) {
     const nickname = (userProfile.nickname || "").trim();
 
     const now = new Date();
-    const model = process.env.CLAUDE_MODEL || "claude-sonnet-4-6";
+    const model = process.env.CLAUDE_MODEL || "claude-sonnet-5-5";
     const cacheKey = analysisCacheKey({ userProfile, biorhythm, entry, date: now, model });
     const cached = ANALYSIS_CACHE.get(cacheKey);
     if (cached) return NextResponse.json(cached);
@@ -543,6 +549,9 @@ export async function POST(request) {
     }
     console.log("[kiri-usage] analyze", quota.used, "/", quota.limit);
 
+    const crisis = detectCrisis(entry.event, entry.intuition);
+    if (crisis) console.warn("[kiri-safety] crisis detected in analyze");
+
     const saju = calculateSaju({ birthDate, birthTime, gender, now });
     const birthSaju = saju.birth;
     const todaySaju = saju.today;
@@ -554,7 +563,7 @@ export async function POST(request) {
     const themeScores = calculateThemeScores(birthSaju, todaySaju, biorhythm, entry.emoji, hasBirthTime);
     
     // 今日のヒントを計算
-    const todayHints = calculateTodayHints(birthSaju, todaySaju, biorhythm, themeScores, entry);
+    const todayHints = calculateTodayHints(birthSaju, todaySaju, biorhythm, themeScores, entry, { gentle: crisis });
 
     const sajuNote = saju.note + (
       taiun.available ? "" : "。大運は性別未入力のため保留"
@@ -704,6 +713,7 @@ ${nickname ? `- ${nickname}さんと呼びかけ、親しみやすく温かく` 
   
   "actionAdvice": "テーマ別運勢を踏まえた具体的アクション。スコアが高いテーマの活かし方、低いテーマで避けたい反応を含める。入力された記録に結びつく1〜2個の選択肢を置く。重要な箇所は**で囲む。"
 }
+${crisis ? `${CRISIS_FORTUNE_GUIDANCE}\n※この寄り添いモードの指示は、ここより上のすべての指示より優先する。出力形式（JSONの3フィールド）だけは守る。` : ""}
     `.trim();
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -712,12 +722,16 @@ ${nickname ? `- ${nickname}さんと呼びかけ、親しみやすく温かく` 
         "Content-Type": "application/json",
         "x-api-key": apiKey,
         "anthropic-version": "2023-06-01",
+        "anthropic-beta": "server-side-fallback-2026-07-01",
       },
       body: JSON.stringify({
         model,
-        max_tokens: 1200,
-        temperature: 0,
-        system: KIRI_PERSONA + FORTUNE_MODE,
+        // 5.5世代はtemperature指定不可・思考が常時オン。思考もmax_tokensに含まれるため余裕を持たせる。
+        // 同日同条件の安定はキャッシュ(D-04)が担う（D-16）。
+        max_tokens: 8000,
+        output_config: { effort: ANALYZE_EFFORT },
+        fallbacks: "default",
+        system: KIRI_PERSONA + SAFETY_GUIDANCE + FORTUNE_MODE,
         messages: [{ role: "user", content: prompt }],
       }),
     });
@@ -730,7 +744,10 @@ ${nickname ? `- ${nickname}さんと呼びかけ、親しみやすく温かく` 
 
     const data = await response.json();
 
-    const aiResponse = parseFortuneResponse(data?.content?.[0]?.text);
+    if (data?.stop_reason === "refusal" || data?.stop_reason === "max_tokens") {
+      console.error("[kiri-analyze] no usable text", data.stop_reason);
+    }
+    const aiResponse = parseFortuneResponse(extractReplyText(data));
     if (!aiResponse) {
       console.error("[kiri-analyze] invalid structured response");
       return NextResponse.json({ success: false, error: "Fortune analysis failed" }, { status: 502 });
@@ -742,6 +759,7 @@ ${nickname ? `- ${nickname}さんと呼びかけ、親しみやすく温かく` 
       success: true,
       data: {
         ...aiResponse,
+        support: crisis,
         themeScores: themeScores,
         todayHints: todayHints,
         saju: {

@@ -18,6 +18,15 @@ describe("chat history storage", () => {
     expect(store.getItem(CHAT_HISTORY_STORAGE_KEY)).not.toContain("secret");
   });
 
+  it("keeps the support flag so the hotline card survives a reload", () => {
+    const store = storage();
+    saveChatHistory(store, [{ role: "assistant", content: "窓口", support: true }, { role: "assistant", content: "……", support: false }]);
+    expect(loadChatHistory(store)).toEqual([
+      { role: "assistant", content: "窓口", support: true },
+      { role: "assistant", content: "……" },
+    ]);
+  });
+
   it("clears the local conversation", () => {
     const store = storage();
     saveChatHistory(store, [{ role: "assistant", content: "……" }]);

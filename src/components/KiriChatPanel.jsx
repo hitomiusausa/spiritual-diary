@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { MessageCircle, Send, X, Trash2 } from 'lucide-react';
 import { clearChatHistory, loadChatHistory, saveChatHistory } from '@/lib/chatHistory';
+import SupportCard from '@/components/SupportCard';
 
 export default function KiriChatPanel({ userProfile, entry, result, onClose }) {
   const [messages, setMessages] = useState([]);
@@ -43,7 +44,7 @@ export default function KiriChatPanel({ userProfile, entry, result, onClose }) {
         error.code = data.code;
         throw error;
       }
-      setMessages([...nextMessages, { role: 'assistant', content: data.reply }]);
+      setMessages([...nextMessages, { role: 'assistant', content: data.reply, ...(data.support ? { support: true } : {}) }]);
     } catch (error) {
       const fallback = {
         chat_disabled: '……この対話は、いまは準備中みたい。開発プレビューが有効になるまで待っていて。',
@@ -70,8 +71,11 @@ export default function KiriChatPanel({ userProfile, entry, result, onClose }) {
         <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-48">
           {messages.length === 0 && <p className="text-sm text-kiri-fog/80 leading-relaxed">今日のメッセージで、もう少し聞きたいところがあれば話して。ここでは答えを急がなくていいよ。</p>}
           {messages.map((message, index) => (
-            <div key={`${message.role}-${index}`} className={`rounded-xl p-3 text-sm whitespace-pre-line ${message.role === 'user' ? 'bg-kiri-lilac/20 ml-8 text-white leading-relaxed' : 'kiri-voice bg-white/10 mr-8 text-kiri-fog'}`}>
-              {message.content}
+            <div key={`${message.role}-${index}`} className="space-y-2">
+              <div className={`rounded-xl p-3 text-sm whitespace-pre-line ${message.role === 'user' ? 'bg-kiri-lilac/20 ml-8 text-white leading-relaxed' : 'kiri-voice bg-white/10 mr-8 text-kiri-fog'}`}>
+                {message.content}
+              </div>
+              {message.support && <div className="mr-8"><SupportCard compact /></div>}
             </div>
           ))}
           {loading && <p className="text-xs text-kiri-lilac">Kiriが言葉を探しています…</p>}
