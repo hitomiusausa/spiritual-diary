@@ -4,7 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useState, useEffect, useRef } from 'react';
 import { Sparkles, Lock, AlertCircle, X, ChevronDown, ChevronUp, HelpCircle, Heart, Smile, Frown, Meh, Angry, Star, Sun, Moon, Cloud, Zap, CircleHelp, Download, Upload, Settings, History, Laugh, Leaf, CloudRain, Droplet } from 'lucide-react';
-import { clearHistory, deleteHistoryItem, loadHistory, saveHistory, toHistoryRecord, loadProfile, saveProfile } from '@/lib/history';
+import { clearHistory, deleteHistoryItem, loadHistory, saveHistory, toHistoryRecord, loadProfile, saveProfile, initialStepFor, formatBirthDateJa } from '@/lib/history';
 import { buildBackup, backupFileName, parseBackup, applyBackup } from '@/lib/backup';
 import KiriChatPanel from '@/components/KiriChatPanel';
 import SupportCard from '@/components/SupportCard';
@@ -12,7 +12,8 @@ import { DEFAULT_MOOD, MOODS, findMood } from '@/lib/moods';
 import { analysisCacheKey, clearCachedAnalyses, loadCachedAnalysis, saveCachedAnalysis } from '@/lib/analysisCache';
 
 export default function SpiritualDiary() {
-  const [step, setStep] = useState('start');
+  // 'boot' はプロフィール復元前。基本情報画面が一瞬見えないよう背景だけ描く。
+  const [step, setStep] = useState('boot');
   const [birthDate, setBirthDate] = useState('');
   const [birthTime, setBirthTime] = useState('');
   const [gender, setGender] = useState('');
@@ -58,7 +59,8 @@ export default function SpiritualDiary() {
   const [showPremiumInfo, setShowPremiumInfo] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const profileHydrated = useRef(false);
+  // 復元が反映されるまで保存しない（復元前の空の値で端末のプロフィールを上書きしないため）。
+  const [profileHydrated, setProfileHydrated] = useState(false);
   const importInputRef = useRef(null);
 
   const exportBackup = () => {
@@ -125,14 +127,15 @@ export default function SpiritualDiary() {
       setGender(storedProfile.gender || '');
     }
     setHistory(loadHistory(window.localStorage));
-    profileHydrated.current = true;
+    setStep(initialStepFor(storedProfile));
+    setProfileHydrated(true);
   }, []);
 
   useEffect(() => {
-    if (profileHydrated.current) {
+    if (profileHydrated) {
       saveProfile(window.localStorage, { nickname, birthDate, birthTime, gender });
     }
-  }, [nickname, birthDate, birthTime, gender]);
+  }, [profileHydrated, nickname, birthDate, birthTime, gender]);
 
   useEffect(() => {
     if (!deleteNotice) return undefined;
@@ -267,7 +270,7 @@ export default function SpiritualDiary() {
   };
 
   const clearAll = () => {
-    setStep('start');
+    setStep(initialStepFor({ birthDate }));
     setEntry({emoji: DEFAULT_MOOD, mood: '', type: 'past', event: '', intuition: ''});
     setResult(null);
   };
@@ -701,6 +704,10 @@ export default function SpiritualDiary() {
     );
   };
 
+  if (step === 'boot') {
+    return <div className="min-h-screen kiri-shell" aria-hidden="true" />;
+  }
+
   if (step === 'start') {
     return (
       <>
@@ -854,13 +861,33 @@ export default function SpiritualDiary() {
       <>
         <WhiteoutTransition />
         <ErrorBanner />
+        <SettingsModal />
         <div className="min-h-screen kiri-shell p-4 pb-20">
           <div className="max-w-2xl mx-auto">
-            <div className="text-center mb-4 pt-2">
+            <div className="text-center mb-4 pt-2 relative">
+              <button
+                type="button"
+                aria-label="設定"
+                onClick={() => setShowSettings(true)}
+                className="absolute top-0 right-0 text-kiri-lilac hover:text-white p-1.5 rounded-full hover:bg-white/10 transition-colors"
+              >
+                <Settings className="w-5 h-5" />
+              </button>
               <h1 className="font-display text-xl font-bold text-white mb-1">
                 今日の心のエネルギー
               </h1>
               {nickname && <p className="text-kiri-gold text-sm font-medium">{nickname}さん</p>}
+              <p className="text-kiri-lilac text-xs flex items-center justify-center">
+                <span>{formatBirthDateJa(birthDate)}生まれ</span>
+                <span className="mx-1.5" aria-hidden="true">・</span>
+                <button
+                  type="button"
+                  onClick={() => setStep('start')}
+                  className="min-h-[44px] px-2 -mx-2 inline-flex items-center text-kiri-gold underline underline-offset-2 hover:text-white transition-colors"
+                >
+                  変更する
+                </button>
+              </p>
               <p className="text-kiri-lilac text-xs">{new Date().toLocaleDateString('ja-JP')}</p>
             </div>
 
@@ -926,12 +953,6 @@ export default function SpiritualDiary() {
                     )}
                   </button>
 
-                  <button
-                    onClick={() => setStep('start')}
-                    className="w-full bg-white/10 hover:bg-white/20 text-white py-2.5 rounded-xl font-medium text-sm transition-all"
-                  >
-                    前の画面に戻る
-                  </button>
                 </div>
               </div>
             </div>

@@ -77,3 +77,16 @@ export function saveProfile(storage, profile) {
   storage?.setItem(PROFILE_STORAGE_KEY, JSON.stringify(safeProfile));
   return safeProfile;
 }
+
+const BIRTH_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+// 起動時の最初の画面。生年月日が保存済みなら基本情報を飛ばして日記入力から始める。
+export function initialStepFor(profile) {
+  return BIRTH_DATE_PATTERN.test(profile?.birthDate || "") ? "input" : "start";
+}
+
+export function formatBirthDateJa(birthDate) {
+  const match = BIRTH_DATE_PATTERN.exec(birthDate || "");
+  if (!match) return "";
+  return `${match[1]}年${Number(match[2])}月${Number(match[3])}日`;
+}
