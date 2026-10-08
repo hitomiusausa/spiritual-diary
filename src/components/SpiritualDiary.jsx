@@ -3,13 +3,15 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useState, useEffect, useRef } from 'react';
-import { Sparkles, Lock, AlertCircle, X, ChevronDown, ChevronUp, HelpCircle, Heart, Smile, Frown, Meh, Angry, Star, Sun, Moon, Cloud, Zap, CircleHelp, Download, Upload, Settings, History, Laugh, Leaf, CloudRain, Droplet } from 'lucide-react';
+import { Sparkles, Lock, AlertCircle, X, ChevronDown, ChevronUp, HelpCircle, Heart, Smile, Frown, Meh, Angry, Star, Sun, Moon, Cloud, Zap, CircleHelp, Download, Upload, Settings, History, Laugh, Leaf, CloudRain, Droplet, ShieldOff } from 'lucide-react';
 import { clearHistory, deleteHistoryItem, loadHistory, saveHistory, toHistoryRecord, loadProfile, saveProfile, initialStepFor, formatBirthDateJa } from '@/lib/history';
 import { buildBackup, backupFileName, parseBackup, applyBackup } from '@/lib/backup';
 import KiriChatPanel from '@/components/KiriChatPanel';
 import SupportCard from '@/components/SupportCard';
 import { apiUrl } from '@/lib/apiUrl';
 import { getStorage, initStorage } from '@/lib/storage';
+import { hasConsent, recordConsent, revokeConsent } from '@/lib/consent';
+import ConsentModal from '@/components/ConsentModal';
 import { DEFAULT_MOOD, MOODS, findMood } from '@/lib/moods';
 import { analysisCacheKey, clearCachedAnalyses, loadCachedAnalysis, saveCachedAnalysis } from '@/lib/analysisCache';
 
@@ -60,6 +62,8 @@ export default function SpiritualDiary() {
   });
   const [showPremiumInfo, setShowPremiumInfo] = useState(false);
   const [showChat, setShowChat] = useState(false);
+  const [showConsent, setShowConsent] = useState(false);
+  const [aiConsent, setAiConsent] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   // 復元が反映されるまで保存しない（復元前の空の値で端末のプロフィールを上書きしないため）。
   const [profileHydrated, setProfileHydrated] = useState(false);
@@ -134,6 +138,7 @@ export default function SpiritualDiary() {
         setGender(storedProfile.gender || '');
       }
       setHistory(loadHistory(storage));
+      setAiConsent(hasConsent(storage));
       setStep(initialStepFor(storedProfile));
       setProfileHydrated(true);
     })();
@@ -184,6 +189,27 @@ export default function SpiritualDiary() {
       e: Math.round(Math.sin(2 * Math.PI * d / 28) * 100),
       i: Math.round(Math.sin(2 * Math.PI * d / 33) * 100)
     };
+  };
+
+  // 初回の読み解き前に、第三者AIへの送信の同意を取る（5.1.2(i)）。
+  const requestAnalyze = () => {
+    if (!hasConsent(getStorage())) {
+      setShowConsent(true);
+      return;
+    }
+    analyze();
+  };
+
+  const acceptConsent = () => {
+    recordConsent(getStorage());
+    setAiConsent(true);
+    setShowConsent(false);
+    analyze();
+  };
+
+  const withdrawConsent = () => {
+    revokeConsent(getStorage());
+    setAiConsent(false);
   };
 
   const analyze = async () => {
@@ -543,6 +569,23 @@ export default function SpiritualDiary() {
               <p className={`text-xs mt-2 ${backupNotice.type === 'error' ? 'text-kiri-danger' : 'text-kiri-gold'}`}>{backupNotice.text}</p>
             )}
           </div>
+          <div className="bg-white/10 rounded-xl p-4 mt-3">
+            <h4 className="text-sm font-bold text-kiri-gold mb-1">AI送信の同意</h4>
+            <p className="text-xs text-kiri-lilac mb-3 leading-relaxed">
+              {aiConsent
+                ? '読み解きのため、入力内容をAnthropic社のAI（Claude）へ送ることに同意しています。取り消すと、次の読み解きで改めて確認します。'
+                : '現在は同意していません。次に「読み解く」を押したときに確認します。'}
+            </p>
+            {aiConsent && (
+              <button
+                type="button"
+                onClick={withdrawConsent}
+                className="w-full flex items-center justify-center gap-1.5 bg-white/10 hover:bg-white/20 text-white text-sm py-2.5 rounded-lg transition-colors"
+              >
+                <ShieldOff className="w-4 h-4" />AI送信の同意を取り消す
+              </button>
+            )}
+          </div>
           <p className="text-[11px] text-kiri-lilac/80 mt-3">記録はこの端末内にのみ保存されます。</p>
         </div>
       </div>
@@ -867,6 +910,7 @@ export default function SpiritualDiary() {
         <WhiteoutTransition />
         <ErrorBanner />
         <SettingsModal />
+        <ConsentModal show={showConsent} onAccept={acceptConsent} onDecline={() => setShowConsent(false)} />
         <div className="min-h-screen kiri-shell p-4 pb-20">
           <div className="max-w-2xl mx-auto">
             <div className="text-center mb-4 pt-2 relative">
@@ -941,7 +985,7 @@ export default function SpiritualDiary() {
                   </div>
 
                   <button
-                    onClick={analyze}
+                    onClick={requestAnalyze}
                     disabled={!entry.event || loading}
                     className="w-full kiri-button py-3 rounded-xl font-bold hover:scale-[1.01] active:scale-[0.98] transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
                   >
