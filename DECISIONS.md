@@ -171,9 +171,11 @@
 - **決定**:
   - `@opennextjs/cloudflare` 1.20.7 ＋ `wrangler` 4.143.1 で Next.js 16.4 を Workers に載せる。設定は`wrangler.jsonc`（`nodejs_compat`・`global_fetch_strictly_public`・compatibility_date 2026-09-21・R2/画像バインディングなし）と`open-next.config.ts`（インクリメンタルキャッシュなし。ISRを使わないため）
   - **本番判定**: `KIRI_DEPLOY_ENV`（production/preview）を正とし、`VERCEL_ENV`も後方互換で見る。**どちらか**が production/preview なら D-18 の503方針を適用する（片方で保護を外せない）。Cloudflare では`wrangler.jsonc`の`vars`に`KIRI_DEPLOY_ENV: "production"`をコミットして設定漏れを防ぐ
-  - **クライアントIP**: `cf-connecting-ip` → `x-real-ip` → `x-forwarded-for`の先頭の順（D-18の記述を更新）
+  - **クライアントIP**: プラットフォーム別（`src/lib/apiGuard.js`）。Vercel上（`VERCEL=1`か`VERCEL_ENV`あり）は`x-real-ip` → `x-forwarded-for`の先頭で、`cf-connecting-ip`は利用者が偽装できるので見ない。それ以外（Cloudflare）は`cf-connecting-ip` → `x-real-ip` → `x-forwarded-for`の先頭（D-18の記述を更新）
   - **画像**: `images.unoptimized: true`。Workers では Next.js の画像最適化サーバーが動かず、画像は`kiri.png`1枚のため
-  - **Next.js 16.4 の一時パッチ**: 16.4 で独立した`.next/server/preview-props.json`を OpenNext（1.20.9まで）が Worker に埋め込まず全ページ500になる。上流の未マージ修正（opennextjs-cloudflare#1356）と同じ1行を`scripts/patch-opennext.mjs`が build 前に当てる。上流で直れば何もしない・想定外の形なら止まる
-  - **秘密を Worker に混ぜない**: OpenNext は build 時に`.env`・`.env.local`・`.env.<mode>(.local)`の中身を Worker コードへ埋め込む。そのため`npm run deploy`/`upload`は`scripts/check-no-env-files.mjs`でこれらのファイルがあれば止まる。秘密は Cloudflare の Secrets、ローカルの workerd プレビューは`.dev.vars`（git管理外）に置く
+  - **Next.js 16.4 の一時パッチ**: 16.4 で独立した`.next/server/preview-props.json`を OpenNext（1.20.9まで）が Worker に埋め込まず全ページ500になる。上流の未マージ修正（opennextjs-cloudflare#1356）と同じ1行を`scripts/patch-opennext.mjs`が build 前に当てる。パッチ後（＝上流修正後）の行と完全一致すれば何もせず、どちらとも一致しなければ止まる
+  - **秘密を Worker に混ぜない**: OpenNext は build 時に`.env`・`.env.local`・`.env.<mode>(.local)`の中身を`.open-next/cloudflare/next-env.mjs`へ書き出し、Worker が起動時に process.env へ入れる（ダミー値で確認した埋め込み先はこのファイルだけ）。`scripts/check-embedded-env.mjs`が**ビルド成果物**のこのファイルの全モードが空であることを検査し（値は出さずキー名だけ報告）、`cf:deploy`/`cf:upload`は必ず検査してから上げる。秘密は Cloudflare の Secrets、ローカルの workerd プレビューは`.dev.vars`（git管理外）に置く
+  - **デプロイ経路**: Workers Builds はビルド`npm run cf:build`・デプロイ`npm run cf:deploy`。手元からは`npm run deploy`。**`npx opennextjs-cloudflare deploy`や`wrangler deploy`を直接実行しない**（検査を通らないため）
+  - **ログ**: `observability.logs.invocation_logs: false`（呼び出しログは接続元などリクエストのメタデータを含むため）、traces も無効。console の運用ログ（本文・IP・秘密を含まない）は残す。キーは wrangler の config-schema.json で確認
 - **バージョン選定の例外**: 方針は「リリースから2週間以上の安定版」だが、2週間を超える 1.20.6 は Next.js 16.3以降の実行時チャンクに未対応で、API ルートが`loadCustomCacheHandlers`内の`No such module "file:/.next/None"`で500になった（1.20.7 の #1403 で修正）。Next を 16.3 へ戻すのは本番の版を下げることになるため、1.20.7（2026-09-29）を採用した。wrangler も 4.143.0 以下に miniflare 経由の undici（high）が残るため、修正版の 4.143.1（2026-09-29）を採用した
 - **補足**: `esbuild`を開発依存に明示した（0.27.2）。OpenNext が宣言せずに import しており、vitest（vite の optional peer）と版が衝突して node_modules 直下に置かれず build が失敗したため。0.27.3〜0.28.0 は開発サーバーの脆弱性があるので避けた

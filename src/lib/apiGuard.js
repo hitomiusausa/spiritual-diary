@@ -46,12 +46,26 @@ export function createDailyQuota({ route, limit, timeZone = "Asia/Tokyo", store 
   return { consume };
 }
 
-// Cloudflare が付ける cf-connecting-ip を最優先し、次に x-real-ip（Vercel）、最後に x-forwarded-for の先頭。
-export function clientKeyFromHeaders(headers) {
-  const cfIp = headers.get("cf-connecting-ip");
-  if (cfIp && cfIp.trim()) return cfIp.trim();
-  const realIp = headers.get("x-real-ip");
-  if (realIp && realIp.trim()) return realIp.trim();
+// Vercel 上かどうか。Vercel は VERCEL=1 と VERCEL_ENV を必ず設定する。
+function isVercel(env) {
+  return env.VERCEL === "1" || Boolean(env.VERCEL_ENV);
+}
+
+function firstHeader(headers, name) {
+  const value = headers.get(name);
+  return value && value.trim() ? value.trim() : null;
+}
+
+// クライアントIPはプラットフォームが付けるヘッダーを信じる（DECISIONS.md D-19）。
+// - Vercel: x-real-ip → x-forwarded-for の先頭。cf-connecting-ip は利用者が偽装できるので見ない
+// - それ以外（Cloudflare Workers）: cf-connecting-ip → x-real-ip → x-forwarded-for の先頭
+export function clientKeyFromHeaders(headers, env = process.env) {
+  if (!isVercel(env)) {
+    const cfIp = firstHeader(headers, "cf-connecting-ip");
+    if (cfIp) return cfIp;
+  }
+  const realIp = firstHeader(headers, "x-real-ip");
+  if (realIp) return realIp;
   const forwarded = headers.get("x-forwarded-for");
   if (forwarded) {
     const first = forwarded.split(",")[0].trim();

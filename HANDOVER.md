@@ -17,8 +17,11 @@
 
 コマンド:
 - `npm run preview` … OpenNext build → ローカルworkerd（秘密は`.dev.vars`。`.env.local`があると値がWorkerに埋め込まれるので注意）
-- `npm run deploy` … `.env*`があると止まる（OpenNextが埋め込むため）。クリーンなチェックアウトか Workers Builds から
-- Workers Builds: ビルドコマンド`npm run cf:build`、デプロイコマンド`npx opennextjs-cloudflare deploy`
+- `npm run deploy` … build後、成果物（`.open-next/cloudflare/next-env.mjs`）に`.env*`の値が埋め込まれていれば止まる（`scripts/check-embedded-env.mjs`）
+- Workers Builds: ビルドコマンド`npm run cf:build`、デプロイコマンド`npm run cf:deploy`。**`npx opennextjs-cloudflare deploy`や`wrangler deploy`を直接実行しない**（埋め込み検査を飛ばすため）
+- Workers Builds は**本番ブランチ（main）以外のビルドを無効にする**のを推奨（作業ブランチのビルドも本番扱いのWorkerとして動き、本番のUpstash・Claudeキーを使うため）
+- 注意: ローカルの workerd プレビューも`KIRI_DEPLOY_ENV=production`（wrangler.jsonc）で動く本番扱い。`.dev.vars`に本番のUpstashを入れていると、**本番と同じ日次クォータ・レート制限カウンタに加算される**（2026-10-08の検証で analyze の当日カウンタを2回分使った）
+- ログ: wrangler.jsonc で呼び出しログ（invocation logs）とtracesを無効、consoleの運用ログだけ残す
 
 Cloudflareに設定するもの: Secrets＝`CLAUDE_API_KEY`・`UPSTASH_REDIS_REST_URL`・`UPSTASH_REDIS_REST_TOKEN`・`KIRI_STORE_SECRET`。Vars（任意）＝`DAILY_LIMIT_ANALYZE=30`など。`KIRI_DEPLOY_ENV`はwrangler.jsoncにあるので不要。`KIRI_CHAT_PREVIEW`は入れない。Workers Builds ならビルド時変数は不要（実行時のSecretsのみ）
 

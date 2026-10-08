@@ -22,7 +22,17 @@
 	"vars": {
 		"KIRI_DEPLOY_ENV": "production"
 	},
+	// 運用ログ（console.log/warn/error。日記本文・IP・秘密は出さない実装）だけを残す。
+	// 呼び出しログ（invocation logs）はリクエストのメタデータ（接続元など）を含むため無効にする。
+	// キーは node_modules/wrangler/config-schema.json の Observability 定義で確認済み。
 	"observability": {
-		"enabled": true
+		"enabled": true,
+		"logs": {
+			"enabled": true,
+			"invocation_logs": false
+		},
+		"traces": {
+			"enabled": false
+		}
 	}
 }

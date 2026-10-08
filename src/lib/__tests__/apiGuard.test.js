@@ -105,32 +105,45 @@ describe("createDailyQuota", () => {
 
 describe("clientKeyFromHeaders", () => {
   const headersOf = (obj) => new Headers(obj);
+  const CLOUDFLARE = {}; // Cloudflare Workers には VERCEL / VERCEL_ENV が無い
+  const allHeaders = {
+    "cf-connecting-ip": "192.0.2.44",
+    "x-real-ip": "198.51.100.7",
+    "x-forwarded-for": "203.0.113.5, 10.0.0.1",
+  };
 
-  it("cf-connecting-ipを最優先する", () => {
-    const headers = headersOf({
-      "cf-connecting-ip": "192.0.2.44",
-      "x-real-ip": "198.51.100.7",
-      "x-forwarded-for": "203.0.113.5, 10.0.0.1",
+  describe("Cloudflare（Vercel の環境変数なし）", () => {
+    it("cf-connecting-ipを最優先する", () => {
+      expect(clientKeyFromHeaders(headersOf(allHeaders), CLOUDFLARE)).toBe("192.0.2.44");
     });
-    expect(clientKeyFromHeaders(headers)).toBe("192.0.2.44");
+
+    it("cf-connecting-ipが空白だけなら次の候補を使う", () => {
+      const headers = headersOf({ "cf-connecting-ip": "  ", "x-real-ip": "198.51.100.7" });
+      expect(clientKeyFromHeaders(headers, CLOUDFLARE)).toBe("198.51.100.7");
+    });
+
+    it("cf-connecting-ipがなければx-real-ip、それもなければx-forwarded-forの先頭", () => {
+      expect(clientKeyFromHeaders(headersOf({ "x-real-ip": "198.51.100.7", "x-forwarded-for": "203.0.113.5" }), CLOUDFLARE)).toBe("198.51.100.7");
+      expect(clientKeyFromHeaders(headersOf({ "x-forwarded-for": "203.0.113.5, 10.0.0.1" }), CLOUDFLARE)).toBe("203.0.113.5");
+    });
+
+    it("どれもなければunknownを返す", () => {
+      expect(clientKeyFromHeaders(headersOf({}), CLOUDFLARE)).toBe("unknown");
+    });
   });
 
-  it("cf-connecting-ipが空白だけなら次の候補を使う", () => {
-    const headers = headersOf({ "cf-connecting-ip": "  ", "x-real-ip": "198.51.100.7" });
-    expect(clientKeyFromHeaders(headers)).toBe("198.51.100.7");
-  });
+  describe("Vercel（VERCEL=1 または VERCEL_ENV あり）", () => {
+    it.each([[{ VERCEL: "1" }], [{ VERCEL_ENV: "production" }], [{ VERCEL_ENV: "preview" }]])(
+      "%o ではx-real-ipを最優先し、偽装されたcf-connecting-ipを無視する",
+      (env) => {
+        expect(clientKeyFromHeaders(headersOf(allHeaders), env)).toBe("198.51.100.7");
+      },
+    );
 
-  it("cf-connecting-ipがなければx-real-ipを優先する", () => {
-    const headers = headersOf({ "x-real-ip": "198.51.100.7", "x-forwarded-for": "203.0.113.5, 10.0.0.1" });
-    expect(clientKeyFromHeaders(headers)).toBe("198.51.100.7");
-  });
-
-  it("x-real-ipがなければx-forwarded-forの先頭IPを使う", () => {
-    const headers = headersOf({ "x-forwarded-for": "203.0.113.5, 10.0.0.1" });
-    expect(clientKeyFromHeaders(headers)).toBe("203.0.113.5");
-  });
-
-  it("どちらもなければunknownを返す", () => {
-    expect(clientKeyFromHeaders(headersOf({}))).toBe("unknown");
+    it("x-real-ipがなければx-forwarded-forの先頭を使い、cf-connecting-ipは見ない", () => {
+      const headers = headersOf({ "cf-connecting-ip": "192.0.2.44", "x-forwarded-for": "203.0.113.5, 10.0.0.1" });
+      expect(clientKeyFromHeaders(headers, { VERCEL: "1" })).toBe("203.0.113.5");
+      expect(clientKeyFromHeaders(headersOf({ "cf-connecting-ip": "192.0.2.44" }), { VERCEL: "1" })).toBe("unknown");
+    });
   });
 });
