@@ -36,11 +36,15 @@ afterEach(() => {
 
 describe("共有ストア未設定の本番・プレビュー", () => {
   it.each([
-    ["analyze", analyzePOST],
-    ["chat", chatPOST],
-  ])("/api/%s は503を返し、詳細を出さない", async (_name, POST) => {
+    ["analyze", "KIRI_DEPLOY_ENV", analyzePOST],
+    ["chat", "KIRI_DEPLOY_ENV", chatPOST],
+    ["analyze", "VERCEL_ENV", analyzePOST],
+    ["chat", "VERCEL_ENV", chatPOST],
+  ])("/api/%s は503を返し、詳細を出さない（%s=production）", async (_name, envName, POST) => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
-    vi.stubEnv("VERCEL_ENV", "production");
+    vi.stubEnv("VERCEL_ENV", "");
+    vi.stubEnv("KIRI_DEPLOY_ENV", "");
+    vi.stubEnv(envName, "production");
     vi.stubEnv("UPSTASH_REDIS_REST_URL", "");
     vi.stubEnv("UPSTASH_REDIS_REST_TOKEN", "");
     vi.stubEnv("KV_REST_API_URL", "");
@@ -58,6 +62,7 @@ describe("共有ストア未設定の本番・プレビュー", () => {
 describe("チャットの日次クォータ", () => {
   function stubChatEnv() {
     vi.stubEnv("VERCEL_ENV", "");
+    vi.stubEnv("KIRI_DEPLOY_ENV", "");
     vi.stubEnv("KIRI_CHAT_PREVIEW", "1");
     vi.stubEnv("CLAUDE_API_KEY", "test-key");
   }

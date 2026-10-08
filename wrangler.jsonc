@@ -1,0 +1,28 @@
+// Cloudflare Workers 設定（OpenNext: @opennextjs/cloudflare）。DECISIONS.md D-19 参照。
+// 秘密（CLAUDE_API_KEY・UPSTASH_REDIS_REST_TOKEN・KIRI_STORE_SECRET など）はここに書かず、
+// ダッシュボードの Secrets か `wrangler secret put` で設定する。ローカルは .dev.vars（git管理外）。
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"main": ".open-next/worker.js",
+	"name": "kiri",
+	"compatibility_date": "2026-09-21",
+	"compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+	"assets": {
+		"directory": ".open-next/assets",
+		"binding": "ASSETS"
+	},
+	"services": [
+		{
+			"binding": "WORKER_SELF_REFERENCE",
+			"service": "kiri"
+		}
+	],
+	// 本番判定（src/lib/kiriStore.js の storeReadiness）。デプロイ時の設定漏れを防ぐためコミットで固定する。
+	// Redis か KIRI_STORE_SECRET が欠けていれば /api/analyze と /api/chat は503になる。
+	"vars": {
+		"KIRI_DEPLOY_ENV": "production"
+	},
+	"observability": {
+		"enabled": true
+	}
+}

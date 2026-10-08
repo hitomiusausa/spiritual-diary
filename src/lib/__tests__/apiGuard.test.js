@@ -106,7 +106,21 @@ describe("createDailyQuota", () => {
 describe("clientKeyFromHeaders", () => {
   const headersOf = (obj) => new Headers(obj);
 
-  it("x-real-ipを優先する", () => {
+  it("cf-connecting-ipを最優先する", () => {
+    const headers = headersOf({
+      "cf-connecting-ip": "192.0.2.44",
+      "x-real-ip": "198.51.100.7",
+      "x-forwarded-for": "203.0.113.5, 10.0.0.1",
+    });
+    expect(clientKeyFromHeaders(headers)).toBe("192.0.2.44");
+  });
+
+  it("cf-connecting-ipが空白だけなら次の候補を使う", () => {
+    const headers = headersOf({ "cf-connecting-ip": "  ", "x-real-ip": "198.51.100.7" });
+    expect(clientKeyFromHeaders(headers)).toBe("198.51.100.7");
+  });
+
+  it("cf-connecting-ipがなければx-real-ipを優先する", () => {
     const headers = headersOf({ "x-real-ip": "198.51.100.7", "x-forwarded-for": "203.0.113.5, 10.0.0.1" });
     expect(clientKeyFromHeaders(headers)).toBe("198.51.100.7");
   });

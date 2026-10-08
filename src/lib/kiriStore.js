@@ -12,7 +12,9 @@ const STORE_TIMEOUT_MS = 1000;
 const STORE_RETRY = false;
 const MIN_SECRET_LENGTH = 32;
 const DEV_SECRET_BYTES = 32;
-const GUARDED_VERCEL_ENVS = ["production", "preview"];
+// 公開環境の判定。KIRI_DEPLOY_ENV（Cloudflare では wrangler.jsonc の vars で production を固定）を正とし、
+// Vercel の VERCEL_ENV も後方互換で見る。どちらかが production/preview なら保護対象。
+const GUARDED_DEPLOY_ENVS = ["production", "preview"];
 
 // incr(key, ttlSec): キーを1増やして新しい値を返す。TTLは最初の書き込み時だけ付ける。
 export function createMemoryStore({ maxKeys = MEMORY_MAX_KEYS, now = Date.now } = {}) {
@@ -64,10 +66,14 @@ function hasValidSecret(env) {
   return typeof env.KIRI_STORE_SECRET === "string" && env.KIRI_STORE_SECRET.length >= MIN_SECRET_LENGTH;
 }
 
+export function isGuardedDeployEnv(env = process.env) {
+  return GUARDED_DEPLOY_ENVS.includes(env.KIRI_DEPLOY_ENV) || GUARDED_DEPLOY_ENVS.includes(env.VERCEL_ENV);
+}
+
 // 本番・プレビューで共有ストアか秘密鍵が欠けていれば not ready（保護なしの公開を防ぐ）。
 // 環境変数の変更を拾えるよう、リクエストごとに呼ぶ。
 export function storeReadiness(env = process.env) {
-  if (!GUARDED_VERCEL_ENVS.includes(env.VERCEL_ENV)) return { ready: true };
+  if (!isGuardedDeployEnv(env)) return { ready: true };
   return { ready: Boolean(redisConfigFromEnv(env)) && hasValidSecret(env) };
 }
 

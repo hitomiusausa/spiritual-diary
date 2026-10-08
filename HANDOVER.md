@@ -11,6 +11,21 @@
 - GitHub: `https://github.com/hitomiusausa/spiritual-diary`
 - 最新状態: 2026-07-28分まではGitHubへpush済み。2026-10-08のリリース準備 Phase 0（D-14〜D-16）もpush済み。
 
+## 2026-10-08 Cloudflare Workers 移行（ブランチ`agent/cloudflare-workers`・ローカル検証済み・未デプロイ）
+
+確定したこと（**D-19**）: OpenNext（`@opennextjs/cloudflare` 1.20.7）＋wrangler 4.143.1。本番判定は`KIRI_DEPLOY_ENV`（`wrangler.jsonc`の`vars`でproduction固定）＋`VERCEL_ENV`。IPは`cf-connecting-ip`優先。画像最適化は切った。Next.js 16.4用の一時パッチ`scripts/patch-opennext.mjs`（上流#1356がマージされたら外す）。
+
+コマンド:
+- `npm run preview` … OpenNext build → ローカルworkerd（秘密は`.dev.vars`。`.env.local`があると値がWorkerに埋め込まれるので注意）
+- `npm run deploy` … `.env*`があると止まる（OpenNextが埋め込むため）。クリーンなチェックアウトか Workers Builds から
+- Workers Builds: ビルドコマンド`npm run cf:build`、デプロイコマンド`npx opennextjs-cloudflare deploy`
+
+Cloudflareに設定するもの: Secrets＝`CLAUDE_API_KEY`・`UPSTASH_REDIS_REST_URL`・`UPSTASH_REDIS_REST_TOKEN`・`KIRI_STORE_SECRET`。Vars（任意）＝`DAILY_LIMIT_ANALYZE=30`など。`KIRI_DEPLOY_ENV`はwrangler.jsoncにあるので不要。`KIRI_CHAT_PREVIEW`は入れない。Workers Builds ならビルド時変数は不要（実行時のSecretsのみ）
+
+ローカル検証（2026-10-08）: test 138件・lint・build・audit(--omit=dev 0件)・OpenNext build OK。workerdプレビューでトップ等200、空入力 analyze 400／chat 403、Upstash未設定で両方503、実入力の analyze 200（Claude 2回）、Upstashにレート制限キー（IPハッシュ）と日次クォータ加算、ログに日記本文・IPなし。Worker gzip 1.4MB。Playwright 375/1280でトップ表示・画像OK
+
+残課題: 本番デプロイ・`kiri.kugainc.com`の割当（Workersのカスタムドメイン）・本番で`[kiri-store] incr fell back to memory`が出ないことの確認・1.20.7が2週間経つ10/13以降に版の再確認・`kiri.png`(512px/138KB)を48px表示しているので小さい版を作るか検討
+
 ## 2026-10-08 Phase 1-1 API保護の共有ストア化（コード側完了・push済み）
 
 確定したこと（**D-18**）:

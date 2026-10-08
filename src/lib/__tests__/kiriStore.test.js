@@ -165,6 +165,22 @@ describe("storeReadiness", () => {
     expect(storeReadiness({ ...configured, KIRI_STORE_SECRET: "s".repeat(31), VERCEL_ENV: vercelEnv }).ready).toBe(false);
   });
 
+  it.each(["production", "preview"])("KIRI_DEPLOY_ENV=%s（Cloudflare）でもRedisか秘密鍵が欠ければnot ready", (deployEnv) => {
+    expect(storeReadiness({ ...configured, KIRI_DEPLOY_ENV: deployEnv }).ready).toBe(true);
+    expect(storeReadiness({ KIRI_STORE_SECRET: LONG_SECRET, KIRI_DEPLOY_ENV: deployEnv }).ready).toBe(false);
+    const { KIRI_STORE_SECRET: _omit, ...withoutSecret } = configured;
+    expect(storeReadiness({ ...withoutSecret, KIRI_DEPLOY_ENV: deployEnv }).ready).toBe(false);
+    expect(storeReadiness({ ...configured, KIRI_STORE_SECRET: "s".repeat(31), KIRI_DEPLOY_ENV: deployEnv }).ready).toBe(false);
+  });
+
+  it("KIRI_DEPLOY_ENV が development でも VERCEL_ENV=production なら保護を外さない", () => {
+    expect(storeReadiness({ KIRI_DEPLOY_ENV: "development", VERCEL_ENV: "production" }).ready).toBe(false);
+  });
+
+  it("KIRI_DEPLOY_ENV=development や未設定では、何もなくてもready", () => {
+    expect(storeReadiness({ KIRI_DEPLOY_ENV: "development" }).ready).toBe(true);
+  });
+
   it("development や VERCEL_ENV 未設定では、何もなくてもready（メモリ実装）", () => {
     expect(storeReadiness({ VERCEL_ENV: "development" }).ready).toBe(true);
     expect(storeReadiness({}).ready).toBe(true);

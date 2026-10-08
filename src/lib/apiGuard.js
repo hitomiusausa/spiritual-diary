@@ -46,7 +46,10 @@ export function createDailyQuota({ route, limit, timeZone = "Asia/Tokyo", store 
   return { consume };
 }
 
+// Cloudflare が付ける cf-connecting-ip を最優先し、次に x-real-ip（Vercel）、最後に x-forwarded-for の先頭。
 export function clientKeyFromHeaders(headers) {
+  const cfIp = headers.get("cf-connecting-ip");
+  if (cfIp && cfIp.trim()) return cfIp.trim();
   const realIp = headers.get("x-real-ip");
   if (realIp && realIp.trim()) return realIp.trim();
   const forwarded = headers.get("x-forwarded-for");

@@ -155,12 +155,25 @@
 - **Status**: 確定（2026-10-08ユーザー決定）。D-08の「プロセス内メモリ方式」とD-04/D-16の「サーバー内キャッシュ」を置き換える
 - **決定**:
   - **共有ストア**: レート制限と日次クォータのカウンタだけを`src/lib/kiriStore.js`経由でUpstash Redis（東京リージョン）に置く。接続先は`UPSTASH_REDIS_REST_URL`/`_TOKEN`（Vercel連携の`KV_REST_API_URL`/`_TOKEN`でも可）。未設定ならプロセス内メモリで動く。`@upstash/redis`は`automaticDeserialization: false`・1秒タイムアウト・再試行なし（`retry: false`、障害時は降格するため）で初期化し、カウンタは`MULTI`で`INCR`と`EXPIRE NX`を同時に送る。
-  - **キー**: レート制限は`kiri:rl:{route}:{IPハッシュ}:{分窓番号}`（TTL 120秒）、クォータは`kiri:q:{route}:{JST日付}`（TTL 2日）。IPは運営者だけが持つ秘密鍵で`HMAC-SHA256(KIRI_STORE_SECRET, "kiri/v1/ip|" + IP)`の先頭22文字にして平文で保存しない（`src/lib/kiriCrypto.js`）。クライアントIPは`x-real-ip`を優先し、なければ`x-forwarded-for`の先頭。
+  - **キー**: レート制限は`kiri:rl:{route}:{IPハッシュ}:{分窓番号}`（TTL 120秒）、クォータは`kiri:q:{route}:{JST日付}`（TTL 2日）。IPは運営者だけが持つ秘密鍵で`HMAC-SHA256(KIRI_STORE_SECRET, "kiri/v1/ip|" + IP)`の先頭22文字にして平文で保存しない（`src/lib/kiriCrypto.js`）。クライアントIPは`x-real-ip`を優先し、なければ`x-forwarded-for`の先頭（D-19で`cf-connecting-ip`を最優先に変更）。
   - **サーバー保存ゼロ**: 日記・分析結果はサーバー（Redisを含む）に一切保存しない。分析APIのサーバー内キャッシュは撤去した。
   - **文章の安定（D-16）は端末側キャッシュが担う**: `src/lib/analysisCache.js`。キーは正規化入力（JST日付・プロフィール・バイオリズム・日記入力）のSHA-256（Web Crypto）で、日記本文を平文のキーに持たない。localStorage`kiri-analysis-cache-v1`に当日分だけ・最大10件を保存し、読み書き時に今日（JST）以外を捨てる。成功した結果だけを保存する（寄り添いモードの結果も含む）。記録の個別削除・すべて削除のときは丸ごと消去し、バックアップ読み込みでは触らない。履歴（`history.js`）とは別のキーで、既存データの形式は変えない。
   - **降格**: Redisの障害・タイムアウト時、カウンタはプロセス内メモリへ降格して制限を効かせ続ける（警告ログにキーや例外本文は出さない）。費用の最終防波堤はAnthropicコンソールの利用額上限。
-  - **503方針**: `VERCEL_ENV`が`production`または`preview`で、Redis設定か`KIRI_STORE_SECRET`（32文字以上）が欠けていれば、`/api/analyze`と`/api/chat`は503`{ success:false, error:"Service unavailable" }`を返す（ログは「store not configured」だけ）。判定はリクエストごと。開発時に秘密鍵が未設定ならプロセス起動ごとのランダム値を使う。
+  - **503方針**: `VERCEL_ENV`（D-19以降は`KIRI_DEPLOY_ENV`も）が`production`または`preview`で、Redis設定か`KIRI_STORE_SECRET`（32文字以上）が欠けていれば、`/api/analyze`と`/api/chat`は503`{ success:false, error:"Service unavailable" }`を返す（ログは「store not configured」だけ）。判定はリクエストごと。開発時に秘密鍵が未設定ならプロセス起動ごとのランダム値を使う。
 - **理由**: Vercelは複数インスタンスで動くため、プロセス内メモリのカウンタは実質効かない。一方で日記は最も私的な入力なので、プライバシーを最優先にして、サーバー側には「秘密鍵なしでは元のアドレスがわからないIP由来の値」と「回数」しか残さない。
 - **デメリット**: 端末キャッシュなので、別の端末・ブラウザや、サイトデータを消した後は同日同入力でも文章が変わり得る。
 - **検討して退けた案**: サーバー側の暗号化キャッシュ（入力内容から導く鍵でAES-256-GCM暗号化し、Redisに当日分だけ置く）。運営者も入力を知らない限り復号できない設計だったが、暗号化しても「日記由来のデータをサーバーに置く」こと自体を避けたいというユーザー判断で退けた。
 - **注意**: プライバシーポリシー2〜3節をこの内容に合わせて改訂した（2026-10-08）。チャットのAPI消費管理（購読と連動した上限など）は後日検討。
+
+## D-19 ホスティングを Cloudflare Workers（OpenNext）へ移す
+
+- **Status**: 実装・ローカル検証済み（2026-10-08、ブランチ`agent/cloudflare-workers`）。本番の切り替え（デプロイ・ドメイン）は未実施。Vercelは切り替え完了まで残す
+- **決定**:
+  - `@opennextjs/cloudflare` 1.20.7 ＋ `wrangler` 4.143.1 で Next.js 16.4 を Workers に載せる。設定は`wrangler.jsonc`（`nodejs_compat`・`global_fetch_strictly_public`・compatibility_date 2026-09-21・R2/画像バインディングなし）と`open-next.config.ts`（インクリメンタルキャッシュなし。ISRを使わないため）
+  - **本番判定**: `KIRI_DEPLOY_ENV`（production/preview）を正とし、`VERCEL_ENV`も後方互換で見る。**どちらか**が production/preview なら D-18 の503方針を適用する（片方で保護を外せない）。Cloudflare では`wrangler.jsonc`の`vars`に`KIRI_DEPLOY_ENV: "production"`をコミットして設定漏れを防ぐ
+  - **クライアントIP**: `cf-connecting-ip` → `x-real-ip` → `x-forwarded-for`の先頭の順（D-18の記述を更新）
+  - **画像**: `images.unoptimized: true`。Workers では Next.js の画像最適化サーバーが動かず、画像は`kiri.png`1枚のため
+  - **Next.js 16.4 の一時パッチ**: 16.4 で独立した`.next/server/preview-props.json`を OpenNext（1.20.9まで）が Worker に埋め込まず全ページ500になる。上流の未マージ修正（opennextjs-cloudflare#1356）と同じ1行を`scripts/patch-opennext.mjs`が build 前に当てる。上流で直れば何もしない・想定外の形なら止まる
+  - **秘密を Worker に混ぜない**: OpenNext は build 時に`.env`・`.env.local`・`.env.<mode>(.local)`の中身を Worker コードへ埋め込む。そのため`npm run deploy`/`upload`は`scripts/check-no-env-files.mjs`でこれらのファイルがあれば止まる。秘密は Cloudflare の Secrets、ローカルの workerd プレビューは`.dev.vars`（git管理外）に置く
+- **バージョン選定の例外**: 方針は「リリースから2週間以上の安定版」だが、2週間を超える 1.20.6 は Next.js 16.3以降の実行時チャンクに未対応で、API ルートが`loadCustomCacheHandlers`内の`No such module "file:/.next/None"`で500になった（1.20.7 の #1403 で修正）。Next を 16.3 へ戻すのは本番の版を下げることになるため、1.20.7（2026-09-29）を採用した。wrangler も 4.143.0 以下に miniflare 経由の undici（high）が残るため、修正版の 4.143.1（2026-09-29）を採用した
+- **補足**: `esbuild`を開発依存に明示した（0.27.2）。OpenNext が宣言せずに import しており、vitest（vite の optional peer）と版が衝突して node_modules 直下に置かれず build が失敗したため。0.27.3〜0.28.0 は開発サーバーの脆弱性があるので避けた
