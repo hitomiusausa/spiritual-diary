@@ -17,6 +17,7 @@ import { hasConsent, recordConsent, revokeConsent } from '@/lib/consent';
 import ConsentModal from '@/components/ConsentModal';
 import { browserSessionStorage, saveEntryDraft, takeEntryDraft } from '@/lib/entryDraft';
 import { DEFAULT_MOOD, MOODS, findMood } from '@/lib/moods';
+import { describeAnalyzeFailure } from '@/lib/analyzeError';
 import { analysisCacheKey, clearCachedAnalyses, loadCachedAnalysis, saveCachedAnalysis } from '@/lib/analysisCache';
 
 // ビルド時定数。未設定(本番)ならプレミアムカードとチャット入口を出さない。
@@ -301,7 +302,10 @@ export default function SpiritualDiary() {
           })
         });
 
-        data = await response.json();
+        // HTML のエラーページなど JSON でない応答は、ステータスだけで判定する。
+        data = await response.json().catch(() => null);
+        if (!data) data = { success: false, status: response.status };
+        else data.status = response.status;
         if (data.success && data.data) {
           saveCachedAnalysis(cacheStorage, cacheKey, data.data, now);
         }
@@ -341,19 +345,13 @@ export default function SpiritualDiary() {
         }, 1000);
       } else {
         setStep('input'); // エラー時は入力画面に戻る
-        setError({
-          title: '分析エラー',
-          message: data.error || '不明なエラーが発生しました',
-          details: data.detail
-        });
+        setError(describeAnalyzeFailure({ status: data.status, code: data.code }));
       }
     } catch (error) {
+      // fetch 自体の失敗（オフライン・CORS 拒否・DNS など）。例外の文言（"Load failed" 等）は出さない。
+      console.warn('[kiri-analyze] request failed', error?.name);
       setStep('input'); // エラー時は入力画面に戻る
-      setError({
-        title: '通信エラー',
-        message: 'サーバーとの通信に失敗しました',
-        details: error.message
-      });
+      setError(describeAnalyzeFailure({ network: true }));
     } finally {
       setLoading(false);
     }
