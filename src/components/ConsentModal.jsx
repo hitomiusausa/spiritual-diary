@@ -17,7 +17,7 @@ export default function ConsentModal({ show, onAccept, onDecline, onReadPolicy }
     >
       <div className="kiri-card-strong rounded-2xl w-full max-w-md p-6 kiri-rise max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
-          <h3 id="kiri-consent-title" className="font-display text-xl font-bold text-kiri-gold flex items-center gap-2">
+          <h3 id="kiri-consent-title" className="font-display text-xl font-bold text-kiri-gold flex items-center gap-2 text-balance">
             <ShieldCheck className="w-5 h-5" aria-hidden="true" />
             読み解きのための送信について
           </h3>

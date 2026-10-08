@@ -22,6 +22,8 @@ import { analysisCacheKey, clearCachedAnalyses, loadCachedAnalysis, saveCachedAn
 
 // ビルド時定数。未設定(本番)ならプレミアムカードとチャット入口を出さない。
 const CHAT_PREVIEW_ENABLED = process.env.NEXT_PUBLIC_KIRI_CHAT_PREVIEW === '1';
+// エラーの帯は画面上部（設定ボタン・見出しの上）に重なるので、読み終えたころに自動で閉じる。
+const ERROR_BANNER_AUTO_DISMISS_MS = 10000;
 
 export default function SpiritualDiary() {
   // 'boot' はプロフィール復元前。基本情報画面が一瞬見えないよう背景だけ描く。
@@ -201,6 +203,12 @@ export default function SpiritualDiary() {
   }, [profileHydrated, nickname, birthDate, birthTime, gender]);
 
   useEffect(() => {
+    if (!error) return undefined;
+    const timer = setTimeout(() => setError(null), ERROR_BANNER_AUTO_DISMISS_MS);
+    return () => clearTimeout(timer);
+  }, [error]);
+
+  useEffect(() => {
     if (declinedSupport) declinedSupportRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, [declinedSupport]);
 
@@ -367,7 +375,7 @@ export default function SpiritualDiary() {
     if (!error) return null;
 
     return (
-      <div className="fixed top-[calc(1rem+env(safe-area-inset-top))] left-4 right-4 z-50 max-w-md mx-auto">
+      <div role="alert" className="fixed top-[calc(1rem+env(safe-area-inset-top))] left-4 right-4 z-50 max-w-md mx-auto">
         <div className="bg-kiri-plum/95 backdrop-blur-md text-white p-4 rounded-xl shadow-2xl border border-kiri-danger/60">
           <div className="flex items-start gap-3">
             <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-kiri-danger" />
@@ -381,10 +389,12 @@ export default function SpiritualDiary() {
               )}
             </div>
             <button
+              type="button"
               onClick={() => setError(null)}
-              className="text-white hover:bg-white/20 rounded p-1 flex-shrink-0"
+              aria-label="お知らせを閉じる"
+              className="text-white hover:bg-white/20 rounded-full p-2 -m-1 flex-shrink-0"
             >
-              <X className="w-4 h-4" />
+              <X className="w-5 h-5" />
             </button>
           </div>
         </div>
