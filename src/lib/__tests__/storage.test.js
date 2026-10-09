@@ -12,6 +12,7 @@ import { HISTORY_STORAGE_KEY, PROFILE_STORAGE_KEY } from "@/lib/history";
 import { CHAT_HISTORY_STORAGE_KEY } from "@/lib/chatHistory";
 import { ANALYSIS_CACHE_STORAGE_KEY } from "@/lib/analysisCache";
 import { CONSENT_STORAGE_KEY } from "@/lib/consent";
+import { LOCK_STORAGE_KEY } from "@/lib/appLock";
 
 afterEach(() => {
   resetStorageForTests();
@@ -128,12 +129,14 @@ const ALL_KEYS = {
   [CHAT_HISTORY_STORAGE_KEY]: '[{"role":"user","content":"a"}]',
   [ANALYSIS_CACHE_STORAGE_KEY]: '{"k":{}}',
   [CONSENT_STORAGE_KEY]: '{"version":1,"acceptedAt":"2026-10-09T00:00:00.000Z"}',
+  [LOCK_STORAGE_KEY]: '{"version":1,"enabled":true,"autoLockMinutes":5,"hideInSwitcher":true,"enabledAt":null}',
 };
 
 describe("native storage keys", () => {
-  it("persists every key the app writes, including the AI consent (ledger L-2)", () => {
+  it("persists every key the app writes, including the AI consent (ledger L-2) and the app lock", () => {
     expect([...NATIVE_STORAGE_KEYS].sort()).toEqual(Object.keys(ALL_KEYS).sort());
     expect(NATIVE_STORAGE_KEYS).toContain("spiritual-diary.consent.v1");
+    expect(NATIVE_STORAGE_KEYS).toContain("spiritual-diary.lock.v1");
     expect(NATIVE_STORAGE_KEYS).not.toContain(MIGRATION_MARKER_KEY);
   });
 });

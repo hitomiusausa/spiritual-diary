@@ -13,18 +13,21 @@
 //   5. initStorage の完了前に getStorage() で書いた値は保留し、完了後に上から適用する（最も新しい操作が勝つ）。
 
 import { ANALYSIS_CACHE_STORAGE_KEY } from "./analysisCache";
+import { LOCK_STORAGE_KEY } from "./appLock";
 import { CHAT_HISTORY_STORAGE_KEY } from "./chatHistory";
 import { CONSENT_STORAGE_KEY } from "./consent";
 import { HISTORY_STORAGE_KEY, PROFILE_STORAGE_KEY } from "./history";
 import { isNativePlatform } from "./native";
 
 // iOS で Preferences に永続化し、移行対象にするキー。同意（consent）を外すと起動のたびに同意画面が出る（台帳 L-2）。
+// アプリのロック設定（lock）も端末ごとの設定。consent と同じくバックアップ JSON には含めない（backup.js は 3 キーだけを書き出す）。
 export const NATIVE_STORAGE_KEYS = Object.freeze([
   HISTORY_STORAGE_KEY,
   PROFILE_STORAGE_KEY,
   CHAT_HISTORY_STORAGE_KEY,
   ANALYSIS_CACHE_STORAGE_KEY,
   CONSENT_STORAGE_KEY,
+  LOCK_STORAGE_KEY,
 ]);
 export const MIGRATION_MARKER_KEY = "spiritual-diary.migrated.v1";
 const MIGRATION_VERSION = 1;
