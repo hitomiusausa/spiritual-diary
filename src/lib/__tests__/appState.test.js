@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { subscribeAppVisibility } from "@/lib/appState";
+import { HEARTBEAT_MS, subscribeAppVisibility } from "@/lib/appState";
 import { capacitorLikeProxy } from "./capacitorProxy";
 
 function appModule() {
@@ -110,6 +110,78 @@ describe("subscribeAppVisibility (native)", () => {
     const doc = fakeDocument();
     subscribeAppVisibility({ onHide: () => {}, onShow: () => {} }, { native: true, load: async () => mod, doc });
     expect(doc.addEventListener).not.toHaveBeenCalled();
+  });
+});
+
+// 監査 P1-2 補足: WKWebView の JS は背景で止められ、pause が復帰時にまとめて届くことがある。
+// そのまま「届いた時刻」を使うと背景にいた時間がほぼ 0 になり、1・5・15 分の判定がロックしない側に倒れる。
+// pause には時刻が付かない（@capacitor/app 8.1.1 は data: nil）ので、前景で回す心拍の最後の時刻を使う（安全側）。
+function fakeTimers() {
+  const timers = new Map();
+  let id = 0;
+  return {
+    setInterval: vi.fn((fn, ms) => {
+      id += 1;
+      timers.set(id, { fn, ms });
+      return id;
+    }),
+    clearInterval: vi.fn((handle) => timers.delete(handle)),
+    tick() {
+      for (const { fn } of [...timers.values()]) fn();
+    },
+    get count() {
+      return timers.size;
+    },
+  };
+}
+
+describe("subscribeAppVisibility (late pause, P1-2)", () => {
+  it("uses the last heartbeat as the hide time when pause arrives long after JS stopped", async () => {
+    const { mod, listeners } = appModule();
+    const timers = fakeTimers();
+    const onHide = vi.fn();
+    let t = 0;
+    subscribeAppVisibility({ onHide, onShow: () => {} }, { native: true, load: async () => mod, now: () => t, timers });
+    await vi.waitFor(() => expect(listeners.size).toBe(2));
+    expect(timers.setInterval).toHaveBeenCalledWith(expect.any(Function), HEARTBEAT_MS);
+    t = 10_000;
+    timers.tick(); // last sign of life before the web process was suspended
+    t = 10_000 + 6 * 60_000; // pause delivered on return, 6 minutes later
+    listeners.get("pause")();
+    expect(onHide).toHaveBeenCalledWith(10_000);
+  });
+
+  it("uses the delivery time when JS was alive (normal pause)", async () => {
+    const { mod, listeners } = appModule();
+    const timers = fakeTimers();
+    const onHide = vi.fn();
+    let t = 0;
+    subscribeAppVisibility({ onHide, onShow: () => {} }, { native: true, load: async () => mod, now: () => t, timers });
+    await vi.waitFor(() => expect(listeners.size).toBe(2));
+    t = 10_000;
+    timers.tick();
+    t = 10_000 + HEARTBEAT_MS + 100; // within two beats: JS was running
+    listeners.get("pause")();
+    expect(onHide).toHaveBeenCalledWith(10_000 + HEARTBEAT_MS + 100);
+  });
+
+  it("restarts the heartbeat clock on resume and stops it on unsubscribe", async () => {
+    const { mod, listeners } = appModule();
+    const timers = fakeTimers();
+    const onHide = vi.fn();
+    let t = 0;
+    const unsubscribe = subscribeAppVisibility(
+      { onHide, onShow: () => {} },
+      { native: true, load: async () => mod, now: () => t, timers },
+    );
+    await vi.waitFor(() => expect(listeners.size).toBe(2));
+    t = 600_000;
+    listeners.get("resume")();
+    t = 601_000;
+    listeners.get("pause")();
+    expect(onHide).toHaveBeenCalledWith(601_000);
+    unsubscribe();
+    expect(timers.count).toBe(0);
   });
 });
 

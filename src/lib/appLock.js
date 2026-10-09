@@ -3,7 +3,10 @@
 // - 設定はストレージの 1 キーだけ（端末ごとの設定なのでバックアップには含めない。consent と同じ扱い）。
 // - locked はメモリ（React state）だけ。ロックがオンなら起動のたびに locked=true から始める。
 // - 自動ロックは「背景に回っていた時間」だけで判定する（前景の無操作タイマーは置かない）。
-// - OS 認証の実行中（authenticating）は hide/show を無視する（認証画面そのもので誤ロックしない）。
+// - Face ID・パスコードの画面は resignActive しか起こさず、pause/resume（hide/show）は起きない。だから OS 認証の
+//   実行中に届いた hide は「認証画面のまま本当に背景へ回った」合図として記録し、show で判定する（監査 P1-1）。
+//   その認証がたとえ成功で返っても、背景をはさんだ成功ではロックを外さない（interrupted）。
+// - 「すぐに」は hide の時点でロックする（切り替え画面と復帰の最初のフレームをロック画面にするため。監査 P1-2）。
 
 export const LOCK_STORAGE_KEY = "spiritual-diary.lock.v1";
 export const LOCK_SETTINGS_VERSION = 1;
@@ -103,6 +106,8 @@ export const initialLockState = Object.freeze({
   locked: false,
   authenticating: false,
   hiddenAt: null,
+  // OS 認証の実行中に背景へ回ったか（その認証の成功ではロックを外さない）。
+  interrupted: false,
   message: null,
   failOpen: false,
 });
@@ -130,11 +135,17 @@ export function reduceLock(state, event) {
       if (!settings.enabled) return reduceLock(state, { type: "disable" });
       return { ...state, enabled: true, autoLockMinutes: settings.autoLockMinutes };
     }
-    case "hide":
-      if (!state.enabled || state.authenticating || state.locked) return state;
-      return { ...state, hiddenAt: Number(event.now) };
+    case "hide": {
+      if (!state.enabled) return state;
+      // ロック画面にいて認証もしていないなら、記録するものは無い。
+      if (state.locked && !state.authenticating) return state;
+      // 2 回目の hide（届き方の重複）では、早い方の時刻を残す（安全側）。
+      const hiddenAt = state.hiddenAt === null ? Number(event.now) : Math.min(state.hiddenAt, Number(event.now));
+      const next = { ...state, hiddenAt, interrupted: state.authenticating || state.interrupted };
+      if (state.autoLockMinutes === 0) return { ...next, locked: true, message: null, failOpen: false };
+      return next;
+    }
     case "show": {
-      if (state.authenticating) return state;
       if (state.hiddenAt === null) return state;
       const relock =
         state.enabled &&
@@ -144,13 +155,25 @@ export function reduceLock(state, event) {
         : { ...state, hiddenAt: null };
     }
     case "authStart":
-      return { ...state, authenticating: true, message: null };
+      return { ...state, authenticating: true, interrupted: false, message: null };
     case "authSuccess":
-      return { ...state, authenticating: false, locked: false, hiddenAt: null, message: null, failOpen: false };
+      // 背景をはさんだ成功では、ロックの状態を変えない（背景にいた時間の判定は show に任せる）。
+      if (state.interrupted) return { ...state, authenticating: false, interrupted: false, message: null };
+      return {
+        ...state,
+        authenticating: false,
+        interrupted: false,
+        locked: false,
+        hiddenAt: null,
+        message: null,
+        failOpen: false,
+      };
     case "authFail": {
       const { action, message } = describeAuthFailure(event.code);
-      if (action === "open") return { ...state, authenticating: false, locked: false, failOpen: true, message };
-      return { ...state, authenticating: false, message };
+      if (action === "open") {
+        return { ...state, authenticating: false, interrupted: false, locked: false, failOpen: true, message };
+      }
+      return { ...state, authenticating: false, interrupted: false, message };
     }
     case "disable":
       return {
@@ -158,6 +181,7 @@ export function reduceLock(state, event) {
         enabled: false,
         locked: false,
         authenticating: false,
+        interrupted: false,
         hiddenAt: null,
         message: null,
         failOpen: false,

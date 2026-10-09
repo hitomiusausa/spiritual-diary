@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useState, useEffect, useReducer, useRef } from 'react';
+import { flushSync } from 'react-dom';
 import { Sparkles, Lock, AlertCircle, X, ChevronDown, ChevronUp, HelpCircle, Heart, Smile, Frown, Meh, Angry, Star, Sun, Moon, Cloud, Zap, CircleHelp, Download, Upload, Settings, History, Laugh, Leaf, CloudRain, Droplet, ShieldOff, Timer, EyeOff } from 'lucide-react';
 import { clearHistory, deleteHistoryItem, loadHistory, saveHistory, toHistoryRecord, loadProfile, saveProfile, initialStepFor, formatBirthDateJa, isSameReading } from '@/lib/history';
 import { buildBackup, backupFileName, parseBackup, applyBackup } from '@/lib/backup';
@@ -19,6 +20,7 @@ import { browserSessionStorage, saveEntryDraft, takeEntryDraft } from '@/lib/ent
 import { DEFAULT_MOOD, MOODS, findMood } from '@/lib/moods';
 import { describeAnalyzeFailure } from '@/lib/analyzeError';
 import { DEFAULT_LOCK_SETTINGS, initialLockState, loadLockSettings, reduceLock, saveLockSettings } from '@/lib/appLock';
+import { createLockController } from '@/lib/lockController';
 import { authenticateForLock, checkLockAvailability } from '@/lib/lockAuth';
 import { setPrivacyScreen } from '@/lib/privacyScreen';
 import { subscribeAppVisibility } from '@/lib/appState';
@@ -27,14 +29,9 @@ import {
   AUTO_LOCK_OPTIONS,
   LOCK_AUTH_REASONS,
   LOCK_SETTINGS_NOTE,
-  REAUTH_SETTLE_MS,
-  autoAuthFailEvent,
-  enableOutcome,
   lockScreenView,
   lockToggleDescription,
-  needsReauth,
   privacyScreenWanted,
-  reauthOutcome,
   shouldOfferLockSettings,
 } from '@/lib/lockUi';
 import LockScreen from '@/components/LockScreen';
@@ -111,42 +108,22 @@ export default function SpiritualDiary() {
   const [lockBusy, setLockBusy] = useState(false);
   const [failOpenDismissed, setFailOpenDismissed] = useState(false);
 
-  // OS 認証を 1 回求める。認証中は背景/前景の通知を無視する（reduceLock の authStart）。
-  // 切り替え画面の目隠し（@capacitor/privacy-screen 2.0.1）は、Face ID の画面で起きる一瞬の非アクティブ→アクティブで
-  // 覆いの画面を出し入れしきれず、見えない覆いが残ることがある。残ると共有シートが開けず（"sharing is in progress"）、
-  // その状態で disable() を呼ぶとプラグインがメインスレッド外で閉じようとしてアプリが落ちる（T-L5 シミュレータで再現）。
-  // そこで OS 認証の間だけ目隠しを外す（覆いが無い状態での disable() は UIKit に触れない）。認証画面の後ろはロック画面か本人の操作中。
+  // OS 認証・再認証・オン/オフの結線は lockController.js（テスト済み）。状態は reduceLock に dispatch する。
+  // 切り替え画面の目隠しは、@capacitor/privacy-screen 2.0.1 の不具合（D-25）のため OS 認証の間だけ外す（shieldDuringAuth）。
+  // 認証中に背景へ回ったら、controller が目隠しをすぐ戻す。
   const lockSettingsRef = useRef(lockSettings);
   lockSettingsRef.current = lockSettings;
-  const runLockAuth = async (reason) => {
-    dispatchLock({ type: 'authStart' });
-    const shielded = privacyScreenWanted(lockSettingsRef.current);
-    if (shielded) await setPrivacyScreen(false);
-    try {
-      return await authenticateForLock({ reason });
-    } finally {
-      if (privacyScreenWanted(lockSettingsRef.current)) setPrivacyScreen(true);
-    }
-  };
-
-  const unlockApp = async ({ automatic = false } = {}) => {
-    const result = await runLockAuth(LOCK_AUTH_REASONS.unlock);
-    if (result.ok) dispatchLock({ type: 'authSuccess' });
-    else dispatchLock(automatic ? autoAuthFailEvent(result.code) : { type: 'authFail', code: result.code });
-  };
-
-  // 書き出し・ロックのオフの前の再認証（Ruling 11）。ロックがオフなら確認しない。
-  const confirmWithLock = async (reason) => {
-    if (!needsReauth(lockState)) return { proceed: true, notice: null };
-    const result = await runLockAuth(reason);
-    const outcome = reauthOutcome(result);
-    // 認証中フラグを戻す。パスコード未設定はフェイルオープン（理由の帯を出す）、それ以外は静かに戻す。
-    if (result.ok) dispatchLock({ type: 'authSuccess' });
-    else dispatchLock(outcome.failOpen ? { type: 'authFail', code: result.code } : { type: 'authFail', code: 'userCancel' });
-    // OS の認証画面が閉じきってから続ける（すぐに共有シートを出すと失敗して固まる）
-    if (outcome.proceed) await new Promise((resolve) => setTimeout(resolve, REAUTH_SETTLE_MS));
-    return outcome;
-  };
+  const lockStateRef = useRef(lockState);
+  lockStateRef.current = lockState;
+  const [lockController] = useState(() => createLockController({
+    dispatch: dispatchLock,
+    getLockState: () => lockStateRef.current,
+    getSettings: () => lockSettingsRef.current,
+    authenticate: authenticateForLock,
+    setPrivacyScreen,
+    shieldDuringAuth: true,
+  }));
+  const unlockApp = (options) => lockController.unlock(options);
 
   const updateLockSettings = (next) => {
     const saved = saveLockSettings(getStorage(), next);
@@ -160,20 +137,14 @@ export default function SpiritualDiary() {
     setLockBusy(true);
     setLockNotice(null);
     try {
-      if (!lockSettings.enabled) {
-        const result = await runLockAuth(LOCK_AUTH_REASONS.enable);
-        dispatchLock({ type: 'authFail', code: 'userCancel' });
-        const { enable, notice } = enableOutcome(result);
-        if (enable) {
-          updateLockSettings({ enabled: true });
-          setFailOpenDismissed(false);
-        }
-        setLockNotice(notice);
-      } else {
-        const { proceed, notice } = await confirmWithLock(LOCK_AUTH_REASONS.disable);
-        if (proceed) updateLockSettings({ enabled: false });
-        setLockNotice(notice);
+      const { change, notice } = await lockController.toggleLock(lockSettings.enabled);
+      if (change === 'enable') {
+        updateLockSettings({ enabled: true });
+        setFailOpenDismissed(false);
+      } else if (change === 'disable') {
+        updateLockSettings({ enabled: false });
       }
+      setLockNotice(notice);
     } finally {
       setLockBusy(false);
     }
@@ -181,7 +152,7 @@ export default function SpiritualDiary() {
 
   const exportBackup = async () => {
     // ロックがオンなら、端末の外へ記録を出す前に本人か確かめる（Ruling 11。Web ではロックが無いので素通し）。
-    const { proceed, notice } = await confirmWithLock(LOCK_AUTH_REASONS.export);
+    const { proceed, notice } = await lockController.confirmWithLock(LOCK_AUTH_REASONS.export);
     if (!proceed) {
       if (notice) setBackupNotice({ type: 'error', text: notice });
       return;
@@ -329,10 +300,14 @@ export default function SpiritualDiary() {
   useEffect(() => {
     if (!lockNative || !lockState.enabled) return undefined;
     return subscribeAppVisibility({
-      onHide: (now) => dispatchLock({ type: 'hide', now }),
+      onHide: (now) => {
+        lockController.notifyHide();
+        // 「すぐに」は背景へ回った時点でロック画面を描く（復帰の最初のフレームに本文を残さない。監査 P1-2）。
+        flushSync(() => dispatchLock({ type: 'hide', now }));
+      },
       onShow: (now) => dispatchLock({ type: 'show', now }),
     });
-  }, [lockNative, lockState.enabled]);
+  }, [lockNative, lockState.enabled, lockController]);
 
   // ロック画面が出たら、少し待ってから自動で 1 回だけ OS 認証を求める（キャンセルされたらボタン待ち）。
   useEffect(() => {

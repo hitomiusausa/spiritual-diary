@@ -258,14 +258,86 @@ describe("reduceLock", () => {
     expect(state.locked).toBe(true);
   });
 
-  it("ignores hide/show while the OS authentication is running", () => {
-    let state = reduceLock(boot({ enabled: true, autoLockMinutes: 0 }), { type: "authSuccess" });
+  // P1-1（監査 2026-10-09）: Face ID・パスコードの画面では pause/resume は起きない（resignActive だけ）。
+  // だから認証中に届いた hide は「認証画面のまま本当に背景へ回った」合図で、記録して show で判定する。
+  it("records hide during the OS authentication and relocks on show past the threshold", () => {
+    let state = reduceLock(boot(), { type: "authSuccess" }); // 5 分
     state = reduceLock(state, { type: "authStart" }); // e.g. re-auth before export
-    const afterHide = reduceLock(state, { type: "hide", now: T0 });
-    expect(afterHide).toBe(state);
-    const afterShow = reduceLock(afterHide, { type: "show", now: T0 + 20 * MINUTE });
-    expect(afterShow).toBe(state);
-    expect(afterShow.locked).toBe(false);
+    state = reduceLock(state, { type: "hide", now: T0 });
+    expect(state).toMatchObject({ hiddenAt: T0, interrupted: true, locked: false });
+    state = reduceLock(state, { type: "authFail", code: "systemCancel" }); // the OS cancels the sheet
+    expect(state.hiddenAt).toBe(T0);
+    const late = reduceLock(state, { type: "show", now: T0 + 20 * MINUTE });
+    expect(late.locked).toBe(true);
+    const early = reduceLock(state, { type: "show", now: T0 + MINUTE });
+    expect(early.locked).toBe(false);
+  });
+
+  it("judges show even while the OS authentication is still marked as running", () => {
+    let state = reduceLock(boot(), { type: "authSuccess" });
+    state = reduceLock(state, { type: "authStart" });
+    state = reduceLock(state, { type: "hide", now: T0 });
+    state = reduceLock(state, { type: "show", now: T0 + 20 * MINUTE });
+    expect(state).toMatchObject({ locked: true, authenticating: true, hiddenAt: null });
+    // the cancelled sheet reports back afterwards: still locked
+    state = reduceLock(state, { type: "authFail", code: "systemCancel" });
+    expect(state.locked).toBe(true);
+  });
+
+  it("does not let a success that was interrupted by going to the background undo the relock", () => {
+    let state = reduceLock(boot(), { type: "authSuccess" });
+    state = reduceLock(state, { type: "authStart" });
+    state = reduceLock(state, { type: "hide", now: T0 });
+    state = reduceLock(state, { type: "show", now: T0 + 20 * MINUTE });
+    state = reduceLock(state, { type: "authSuccess" });
+    expect(state).toMatchObject({ locked: true, authenticating: false, interrupted: false });
+  });
+
+  it("keeps the background time when an interrupted success arrives before show", () => {
+    let state = reduceLock(boot(), { type: "authSuccess" });
+    state = reduceLock(state, { type: "authStart" });
+    state = reduceLock(state, { type: "hide", now: T0 });
+    state = reduceLock(state, { type: "authSuccess" });
+    expect(state).toMatchObject({ hiddenAt: T0, authenticating: false });
+    expect(reduceLock(state, { type: "show", now: T0 + 20 * MINUTE }).locked).toBe(true);
+  });
+
+  it("keeps the earliest hide time when hide arrives twice", () => {
+    let state = reduceLock(boot(), { type: "authSuccess" });
+    state = reduceLock(state, { type: "hide", now: T0 });
+    state = reduceLock(state, { type: "hide", now: T0 + 4 * MINUTE });
+    expect(state.hiddenAt).toBe(T0);
+  });
+
+  // P1-2: 「すぐに」は背景へ回った時点でロックする（切り替え画面・復帰の最初のフレームをロック画面にするため）。
+  it("locks right at hide with 'すぐに'", () => {
+    let state = reduceLock(boot({ enabled: true, autoLockMinutes: 0 }), { type: "authSuccess" });
+    state = reduceLock(state, { type: "hide", now: T0 });
+    expect(state.locked).toBe(true);
+    state = reduceLock(state, { type: "show", now: T0 });
+    expect(state).toMatchObject({ locked: true, hiddenAt: null });
+  });
+
+  it("locks at hide with 'すぐに' even during the OS authentication, and a late success keeps it locked", () => {
+    let state = reduceLock(boot({ enabled: true, autoLockMinutes: 0 }), { type: "authSuccess" });
+    state = reduceLock(state, { type: "authStart" });
+    state = reduceLock(state, { type: "hide", now: T0 });
+    expect(state.locked).toBe(true);
+    state = reduceLock(state, { type: "authSuccess" });
+    expect(state.locked).toBe(true);
+  });
+
+  it("does not lock at hide for 1/5/15 minutes (decided on show)", () => {
+    for (const minutes of [1, 5, 15]) {
+      let state = reduceLock(boot({ enabled: true, autoLockMinutes: minutes }), { type: "authSuccess" });
+      state = reduceLock(state, { type: "hide", now: T0 });
+      expect(state.locked).toBe(false);
+    }
+  });
+
+  it("ignores hide on the lock screen itself unless the OS sheet is up", () => {
+    const locked = boot();
+    expect(reduceLock(locked, { type: "hide", now: T0 })).toBe(locked);
   });
 
   it("does nothing on hide/show when the lock is off", () => {
