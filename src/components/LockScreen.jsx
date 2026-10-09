@@ -58,7 +58,7 @@ export default function LockScreen({ view, onUnlock, onPasscode }) {
                 type="button"
                 onClick={() => setShowSupport(false)}
                 aria-label="相談先を閉じる"
-                className="text-kiri-lilac hover:text-white p-2 rounded-full hover:bg-white/10"
+                className="text-kiri-lilac hover:text-white p-2 rounded-full hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-kiri-fog/70"
               >
                 <X className="w-5 h-5" aria-hidden="true" />
               </button>
@@ -94,10 +94,12 @@ export default function LockScreen({ view, onUnlock, onPasscode }) {
               <button
                 ref={primaryRef}
                 type="button"
-                onClick={onUnlock}
-                disabled={view.busy}
+                onClick={() => {
+                  if (!view.busy) onUnlock();
+                }}
+                aria-disabled={view.busy || undefined}
                 aria-busy={view.busy || undefined}
-                className={`w-full h-[52px] rounded-full flex items-center justify-center gap-2.5 text-base tracking-[0.06em] border border-kiri-gold transition-opacity disabled:opacity-60 ${failed ? 'bg-kiri-gold text-kiri-night font-bold' : 'bg-kiri-gold/[0.08] text-kiri-gold font-medium'}`}
+                className={`w-full h-[52px] rounded-full flex items-center justify-center gap-2.5 text-base tracking-[0.06em] border border-kiri-gold transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-kiri-fog/70 aria-disabled:opacity-60 ${failed ? 'bg-kiri-gold text-kiri-night font-bold' : 'bg-kiri-gold/[0.08] text-kiri-gold font-medium'}`}
               >
                 <PrimaryIcon className="w-5 h-5" strokeWidth={1.6} aria-hidden="true" />
                 {view.busy ? '確認しています' : view.primaryLabel}
@@ -105,9 +107,11 @@ export default function LockScreen({ view, onUnlock, onPasscode }) {
               {view.showPasscode && (
                 <button
                   type="button"
-                  onClick={onPasscode}
-                  disabled={view.busy}
-                  className="w-full h-[52px] rounded-full flex items-center justify-center text-[15px] tracking-[0.06em] border border-kiri-gold/25 text-kiri-fog bg-transparent disabled:opacity-60"
+                  onClick={() => {
+                    if (!view.busy) onPasscode();
+                  }}
+                  aria-disabled={view.busy || undefined}
+                  className="w-full h-[52px] rounded-full flex items-center justify-center text-[15px] tracking-[0.06em] border border-kiri-gold/25 text-kiri-fog bg-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-kiri-fog/70 aria-disabled:opacity-60"
                 >
                   端末のパスコードでひらく
                 </button>
@@ -116,7 +120,7 @@ export default function LockScreen({ view, onUnlock, onPasscode }) {
             <button
               type="button"
               onClick={() => setShowSupport(true)}
-              className="mt-[22px] mb-3 min-h-[44px] flex items-center gap-2 px-3.5 text-[13px] text-kiri-lilac tracking-[0.04em] border-b border-kiri-gold/25"
+              className="mt-[22px] mb-3 min-h-[44px] flex items-center gap-2 px-3.5 text-[13px] text-kiri-lilac tracking-[0.04em] border-b border-kiri-gold/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-kiri-fog/70"
             >
               <LifeBuoy className="w-4 h-4 text-kiri-gold" strokeWidth={1.6} aria-hidden="true" />
               つらいときの相談先

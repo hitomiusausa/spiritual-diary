@@ -27,6 +27,7 @@ import {
   AUTO_LOCK_OPTIONS,
   LOCK_AUTH_REASONS,
   LOCK_SETTINGS_NOTE,
+  REAUTH_SETTLE_MS,
   autoAuthFailEvent,
   enableOutcome,
   lockScreenView,
@@ -111,9 +112,21 @@ export default function SpiritualDiary() {
   const [failOpenDismissed, setFailOpenDismissed] = useState(false);
 
   // OS 認証を 1 回求める。認証中は背景/前景の通知を無視する（reduceLock の authStart）。
+  // 切り替え画面の目隠し（@capacitor/privacy-screen 2.0.1）は、Face ID の画面で起きる一瞬の非アクティブ→アクティブで
+  // 覆いの画面を出し入れしきれず、見えない覆いが残ることがある。残ると共有シートが開けず（"sharing is in progress"）、
+  // その状態で disable() を呼ぶとプラグインがメインスレッド外で閉じようとしてアプリが落ちる（T-L5 シミュレータで再現）。
+  // そこで OS 認証の間だけ目隠しを外す（覆いが無い状態での disable() は UIKit に触れない）。認証画面の後ろはロック画面か本人の操作中。
+  const lockSettingsRef = useRef(lockSettings);
+  lockSettingsRef.current = lockSettings;
   const runLockAuth = async (reason) => {
     dispatchLock({ type: 'authStart' });
-    return authenticateForLock({ reason });
+    const shielded = privacyScreenWanted(lockSettingsRef.current);
+    if (shielded) await setPrivacyScreen(false);
+    try {
+      return await authenticateForLock({ reason });
+    } finally {
+      if (privacyScreenWanted(lockSettingsRef.current)) setPrivacyScreen(true);
+    }
   };
 
   const unlockApp = async ({ automatic = false } = {}) => {
@@ -130,6 +143,8 @@ export default function SpiritualDiary() {
     // 認証中フラグを戻す。パスコード未設定はフェイルオープン（理由の帯を出す）、それ以外は静かに戻す。
     if (result.ok) dispatchLock({ type: 'authSuccess' });
     else dispatchLock(outcome.failOpen ? { type: 'authFail', code: result.code } : { type: 'authFail', code: 'userCancel' });
+    // OS の認証画面が閉じきってから続ける（すぐに共有シートを出すと失敗して固まる）
+    if (outcome.proceed) await new Promise((resolve) => setTimeout(resolve, REAUTH_SETTLE_MS));
     return outcome;
   };
 
@@ -822,7 +837,8 @@ export default function SpiritualDiary() {
     if (!showSettings) return null;
     return (
       <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1rem+env(safe-area-inset-bottom))]" onClick={() => setShowSettings(false)} role="dialog" aria-modal="true" aria-label="設定">
-        <div className="kiri-card-strong rounded-2xl w-full max-w-md p-6 kiri-rise" onClick={(e) => e.stopPropagation()}>
+        {/* アプリのロックの項目が加わると縦に長くなるので、画面に収まらないときは中でスクロールする */}
+        <div className="kiri-card-strong rounded-2xl w-full max-w-md max-h-full overflow-y-auto p-6 kiri-rise" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-display text-xl font-bold text-kiri-gold">設定</h3>
             <button type="button" onClick={() => setShowSettings(false)} aria-label="閉じる" className="text-white hover:bg-white/20 rounded-full p-1">
@@ -1834,7 +1850,7 @@ export default function SpiritualDiary() {
     if (lockState.failOpen && lockState.message && !failOpenDismissed) {
       return (
         <div className="fixed top-0 inset-x-0 z-[85] p-3 pt-[calc(0.75rem+env(safe-area-inset-top))]" role="status">
-          <div className="max-w-md mx-auto kiri-card-strong rounded-xl p-3 flex items-start gap-2 text-sm text-white">
+          <div className="max-w-md mx-auto rounded-xl p-3 flex items-start gap-2 text-sm text-white border border-kiri-gold/30 shadow-lg" style={{ background: 'rgba(40, 35, 58, 0.98)' }}>
             <Lock className="w-4 h-4 mt-0.5 shrink-0 text-kiri-gold" strokeWidth={1.6} aria-hidden="true" />
             <p className="flex-1 leading-relaxed">{lockState.message}</p>
             <button type="button" onClick={() => setFailOpenDismissed(true)} aria-label="閉じる" className="text-kiri-lilac hover:text-white p-1 -m-1">

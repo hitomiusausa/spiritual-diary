@@ -53,6 +53,10 @@ export const AUTO_LOCK_OPTIONS = Object.freeze(
 // すぐ呼ぶと notInteractive で失敗するため）。
 export const AUTO_AUTH_DELAY_MS = 400;
 
+// 再認証に通ってから、次の画面（共有シート）を出すまでの待ち。OS の認証画面が閉じきる前に共有シートを出すと
+// 表示に失敗し、プラグインが「共有中」のまま固まる（T-L5 シミュレータで再現: Can't share while sharing is in progress）。
+export const REAUTH_SETTLE_MS = 700;
+
 export const LOCK_SETTINGS_NOTE = "他の人に記録を見られないようにする機能です。端末の中の保存データは、これまでどおりのままです。";
 
 // OS の認証画面（Touch ID・パスコード）に出る理由文。Face ID は Info.plist の NSFaceIDUsageDescription が出る。
