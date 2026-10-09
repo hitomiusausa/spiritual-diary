@@ -16,6 +16,14 @@ describe("moods", () => {
     expect(moodBonus("😆")).toBe(0.20);
   });
 
+  it("「るんるん」は音符のアイコンで、わくわくの次に並ぶ（2026-10-09）", () => {
+    const index = MOODS.findIndex((mood) => mood.label === "るんるん");
+    expect(MOODS[index - 1]?.label).toBe("わくわく");
+    expect(findMood("🎵")).toMatchObject({ label: "るんるん", icon: "Music" });
+    expect(moodBonus("🎵")).toBe(0.16);
+    expect(MOODS).toHaveLength(12);
+  });
+
   it("既定の気分は選択肢に含まれる", () => {
     expect(MOODS.some((mood) => mood.value === DEFAULT_MOOD)).toBe(true);
   });

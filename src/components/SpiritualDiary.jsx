@@ -4,7 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useState, useEffect, useReducer, useRef } from 'react';
 import { flushSync } from 'react-dom';
-import { Sparkles, Lock, AlertCircle, X, ChevronDown, ChevronUp, HelpCircle, Heart, Smile, Frown, Meh, Angry, Star, Sun, Moon, Cloud, Zap, CircleHelp, Download, Upload, Settings, History, Laugh, Leaf, CloudRain, Droplet, ShieldOff, Timer, EyeOff } from 'lucide-react';
+import { Sparkles, Lock, AlertCircle, X, ChevronDown, ChevronUp, HelpCircle, Heart, Smile, Frown, Meh, Angry, Star, Sun, Moon, Cloud, Zap, CircleHelp, Download, Upload, Settings, History, Laugh, Leaf, CloudRain, Droplet, Music, ShieldOff, Timer, EyeOff } from 'lucide-react';
 import { clearHistory, deleteHistoryItem, loadHistory, saveHistory, toHistoryRecord, loadProfile, saveProfile, initialStepFor, formatBirthDateJa, isSameReading } from '@/lib/history';
 import { buildBackup, backupFileName, parseBackup, applyBackup } from '@/lib/backup';
 import KiriChatPanel from '@/components/KiriChatPanel';
@@ -201,7 +201,7 @@ export default function SpiritualDiary() {
     }
   };
 
-  const moodIconMap = { Laugh, Heart, Leaf, Sparkles, Sun, Moon, CloudRain, Droplet, Angry, CircleHelp, Meh, Smile, Star, Frown, Cloud };
+  const moodIconMap = { Laugh, Heart, Leaf, Sparkles, Music, Sun, Moon, CloudRain, Droplet, Angry, CircleHelp, Meh, Smile, Star, Frown, Cloud };
 
   const MoodIcon = ({ value, className = 'w-7 h-7' }) => {
     const Icon = moodIconMap[findMood(value)?.icon] || Sparkles;

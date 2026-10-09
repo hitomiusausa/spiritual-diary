@@ -7,6 +7,7 @@ export const MOODS = [
   { value: "🥰", label: "愛おしい", icon: "Heart", bonus: 0.18 },
   { value: "😌", label: "おだやか", icon: "Leaf", bonus: 0.12 },
   { value: "✨", label: "わくわく", icon: "Sparkles", bonus: 0.15 },
+  { value: "🎵", label: "るんるん", icon: "Music", bonus: 0.16 },
   { value: "☀️", label: "元気", icon: "Sun", bonus: 0.08 },
   { value: "😴", label: "ねむい", icon: "Moon", bonus: -0.05 },
   { value: "😰", label: "不安", icon: "CloudRain", bonus: -0.12 },
