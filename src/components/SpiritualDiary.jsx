@@ -19,8 +19,9 @@ import ConsentModal from '@/components/ConsentModal';
 import { browserSessionStorage, saveEntryDraft, takeEntryDraft } from '@/lib/entryDraft';
 import { DEFAULT_MOOD, MOODS, findMood } from '@/lib/moods';
 import { describeAnalyzeFailure } from '@/lib/analyzeError';
-import { DEFAULT_LOCK_SETTINGS, initialLockState, loadLockSettings, reduceLock, saveLockSettings } from '@/lib/appLock';
+import { DEFAULT_LOCK_SETTINGS, initialLockState, reduceLock, saveLockSettings } from '@/lib/appLock';
 import { createLockController } from '@/lib/lockController';
+import { commitBoot, prepareLockBoot } from '@/lib/lockBoot';
 import { authenticateForLock, checkLockAvailability } from '@/lib/lockAuth';
 import { setPrivacyScreen } from '@/lib/privacyScreen';
 import { subscribeAppVisibility } from '@/lib/appState';
@@ -106,7 +107,8 @@ export default function SpiritualDiary() {
   const [lockAvailability, setLockAvailability] = useState(null);
   const [lockNotice, setLockNotice] = useState(null);
   const [lockBusy, setLockBusy] = useState(false);
-  const [failOpenDismissed, setFailOpenDismissed] = useState(false);
+  // 閉じたフェイルオープンの帯の回数。新しくフェイルオープンしたら（failOpenSeq が進んだら）もう一度出す（監査 P2-7）。
+  const [failOpenDismissedSeq, setFailOpenDismissedSeq] = useState(0);
 
   // OS 認証・再認証・オン/オフの結線は lockController.js（テスト済み）。状態は reduceLock に dispatch する。
   // 切り替え画面の目隠しは OS 認証の間も付けたまま（@capacitor/privacy-screen 2.0.1 の不具合はパッチで直した。D-25）。
@@ -139,7 +141,6 @@ export default function SpiritualDiary() {
       const { change, notice } = await lockController.toggleLock(lockSettings.enabled);
       if (change === 'enable') {
         updateLockSettings({ enabled: true });
-        setFailOpenDismissed(false);
       } else if (change === 'disable') {
         updateLockSettings({ enabled: false });
       }
@@ -236,6 +237,13 @@ export default function SpiritualDiary() {
         console.error('[kiri-storage]', storageError?.message);
       }
       if (cancelled) return;
+      // アプリのロック（iOS のみ）: 設定を読み、オンなら端末の認証方法も先に調べる（スプラッシュの裏。監査 P2-7）。
+      const lockPlan = await prepareLockBoot({
+        native: isNativePlatform(),
+        storage: getStorage(),
+        checkAvailability: checkLockAvailability,
+      });
+      if (cancelled) return;
       try {
         const storage = getStorage();
         const storedProfile = loadProfile(storage);
@@ -247,20 +255,17 @@ export default function SpiritualDiary() {
         }
         setHistory(loadHistory(storage));
         setAiConsent(hasConsent(storage));
-        // アプリのロック（iOS のみ）: 画面を決める前に判定し、オンなら必ずロックから始める（Ruling 6・8）。
-        // ロック画面と復元した画面は同じ描画で出るので、スプラッシュはロック画面が描かれてから隠れる。
-        if (isNativePlatform()) {
-          const storedLock = loadLockSettings(storage);
-          setLockNative(true);
-          setLockSettings(storedLock);
-          dispatchLock({ type: 'boot', settings: storedLock });
-        }
         const initialStep = initialStepFor(storedProfile);
         // 同意画面からポリシーを読みに行って戻ったときは、書きかけの記録を戻す。
         const draft = takeEntryDraft(browserSessionStorage());
         if (draft && initialStep === 'input') setEntry((current) => ({ ...current, ...draft }));
-        setStep(initialStep);
-        setProfileHydrated(true);
+        // ロックの判定を画面より先に、同じ同期処理の中で反映する（Ruling 6・8。ロック画面と復元した画面は同じ描画で出て、
+        // スプラッシュはその後に隠れる）。順序は lockBoot.test.js で固定。
+        commitBoot({
+          lock: lockPlan,
+          step: initialStep,
+          apply: { setLockNative, setLockSettings, setLockAvailability, dispatchLock, setStep, setProfileHydrated },
+        });
       } catch (hydrateError) {
         // 復元に失敗してもスプラッシュは残さない（通常は描画後の effect で隠す）。
         console.error('[kiri-storage]', hydrateError?.message);
@@ -279,7 +284,8 @@ export default function SpiritualDiary() {
 
   // 端末が Face ID・パスコードに対応しているか（設定に「アプリのロック」を出すかの判断）。
   useEffect(() => {
-    if (!lockNative) return undefined;
+    // 起動時に調べ済み（ロックがオンのとき）なら繰り返さない。
+    if (!lockNative || lockAvailability) return undefined;
     let cancelled = false;
     checkLockAvailability().then((availability) => {
       if (cancelled) return;
@@ -290,7 +296,7 @@ export default function SpiritualDiary() {
     return () => {
       cancelled = true;
     };
-  }, [lockNative]);
+  }, [lockNative, lockAvailability]);
 
   // 切り替え画面の目隠しは、ロックがオン かつ「記録を隠す」がオンのときだけ（Ruling 5）。
   useEffect(() => {
@@ -814,8 +820,8 @@ export default function SpiritualDiary() {
     if (!showSettings) return null;
     return (
       <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1rem+env(safe-area-inset-bottom))]" onClick={() => setShowSettings(false)} role="dialog" aria-modal="true" aria-label="設定">
-        {/* アプリのロックの項目が加わると縦に長くなるので、画面に収まらないときは中でスクロールする */}
-        <div className="kiri-card-strong rounded-2xl w-full max-w-md max-h-full overflow-y-auto p-6 kiri-rise" onClick={(e) => e.stopPropagation()}>
+        {/* iOS アプリではロックの項目で縦に長くなるので、画面に収まらないときは中でスクロールする（Web は従来どおり。監査 P2-5） */}
+        <div className={`kiri-card-strong rounded-2xl w-full max-w-md p-6 kiri-rise${lockNative ? ' max-h-full overflow-y-auto' : ''}`} onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-display text-xl font-bold text-kiri-gold">設定</h3>
             <button type="button" onClick={() => setShowSettings(false)} aria-label="閉じる" className="text-white hover:bg-white/20 rounded-full p-1">
@@ -1823,13 +1829,13 @@ export default function SpiritualDiary() {
         />
       );
     }
-    if (lockState.failOpen && lockState.message && !failOpenDismissed) {
+    if (lockState.failOpen && lockState.message && lockState.failOpenSeq !== failOpenDismissedSeq) {
       return (
         <div className="fixed top-0 inset-x-0 z-[85] p-3 pt-[calc(0.75rem+env(safe-area-inset-top))]" role="status">
           <div className="max-w-md mx-auto rounded-xl p-3 flex items-start gap-2 text-sm text-white border border-kiri-gold/30 shadow-lg" style={{ background: 'rgba(40, 35, 58, 0.98)' }}>
             <Lock className="w-4 h-4 mt-0.5 shrink-0 text-kiri-gold" strokeWidth={1.6} aria-hidden="true" />
             <p className="flex-1 leading-relaxed">{lockState.message}</p>
-            <button type="button" onClick={() => setFailOpenDismissed(true)} aria-label="閉じる" className="text-kiri-lilac hover:text-white p-1 -m-1">
+            <button type="button" onClick={() => setFailOpenDismissedSeq(lockState.failOpenSeq)} aria-label="閉じる" className="text-kiri-lilac hover:text-white p-1 -m-1">
               <X className="w-4 h-4" aria-hidden="true" />
             </button>
           </div>

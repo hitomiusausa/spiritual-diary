@@ -113,7 +113,21 @@ export const initialLockState = Object.freeze({
   interrupted: false,
   message: null,
   failOpen: false,
+  // フェイルオープンした回数（帯を閉じた後に新しくフェイルオープンしたら、もう一度出すため）。
+  failOpenSeq: 0,
 });
+
+function failOpen(state, message) {
+  return {
+    ...state,
+    authenticating: false,
+    interrupted: false,
+    locked: false,
+    failOpen: true,
+    message,
+    failOpenSeq: (state.failOpenSeq ?? 0) + 1,
+  };
+}
 
 // events:
 //   { type: "boot", settings }      起動時。enabled なら必ず locked=true から始める。
@@ -132,6 +146,7 @@ export function reduceLock(state, event) {
         enabled: settings.enabled,
         autoLockMinutes: settings.autoLockMinutes,
         locked: settings.enabled,
+        failOpenSeq: state?.failOpenSeq ?? 0,
       };
     }
     case "configure": {
@@ -175,7 +190,7 @@ export function reduceLock(state, event) {
     case "authFail": {
       const { action, message } = describeAuthFailure(event.code);
       if (action === "open") {
-        return { ...state, authenticating: false, interrupted: false, locked: false, failOpen: true, message };
+        return failOpen(state, message);
       }
       return { ...state, authenticating: false, interrupted: false, message };
     }
@@ -184,14 +199,7 @@ export function reduceLock(state, event) {
       if (!availability || availability.available !== false) return state;
       if (!state.enabled || !state.locked) return state;
       const code = availability.reason === "passcodeNotSet" ? "passcodeNotSet" : "pluginUnavailable";
-      return {
-        ...state,
-        authenticating: false,
-        interrupted: false,
-        locked: false,
-        failOpen: true,
-        message: describeAuthFailure(code).message,
-      };
+      return failOpen(state, describeAuthFailure(code).message);
     }
     case "disable":
       return {

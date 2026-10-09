@@ -401,6 +401,22 @@ describe("reduceLock", () => {
     expect(reduceLock(off, { type: "availability", availability: { available: false } })).toBe(off);
   });
 
+  // 監査 P2-7: 一度閉じたフェイルオープンの帯も、新しくフェイルオープンしたらもう一度出す（回数で見分ける）。
+  it("counts each new fail-open so the banner can show again", () => {
+    let state = boot();
+    expect(state.failOpenSeq).toBe(0);
+    state = reduceLock(reduceLock(state, { type: "authStart" }), { type: "authFail", code: "passcodeNotSet" });
+    expect(state.failOpenSeq).toBe(1);
+    state = reduceLock(state, { type: "hide", now: T0 });
+    state = reduceLock(state, { type: "show", now: T0 + 20 * MINUTE });
+    expect(state.locked).toBe(true);
+    state = reduceLock(state, { type: "availability", availability: { available: false, reason: "passcodeNotSet" } });
+    expect(state.failOpenSeq).toBe(2);
+    const cancelled = reduceLock(reduceLock(state, { type: "authStart" }), { type: "authFail", code: "userCancel" });
+    expect(cancelled.failOpenSeq).toBe(2);
+    expect(reduceLock(state, { type: "boot", settings: { enabled: true } }).failOpenSeq).toBe(2);
+  });
+
   it("disable turns everything off", () => {
     let state = reduceLock(boot(), { type: "hide", now: T0 });
     state = reduceLock(state, { type: "disable" });
