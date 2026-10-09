@@ -256,7 +256,7 @@
 
 ## D-26 iOSアプリは「文字を大きく」（Dynamic Type）に追従する（100%〜135%・Webは不変）
 
-- **Status**: 実装済み（2026-10-09、ブランチ`agent/ios-polish`。オーナーの目視確認待ち）。切るときは`src/lib/dynamicType.js`の`DYNAMIC_TYPE_ENABLED = false`の1か所
+- **Status**: 確定（2026-10-09 ひとみうさがシミュレータで確認・採用）。大きい文字のとき日記画面は入力欄 0.875rem・「記録する」欄 78px・余白を詰めて「読み解く」ボタンまで1画面に収める（D-29と合わせて調整）。切るときは`src/lib/dynamicType.js`の`DYNAMIC_TYPE_ENABLED = false`の1か所
 - **決定**:
   - `layout.js`の`<head>`の同期スクリプト（`DYNAMIC_TYPE_BOOT_SCRIPT`）が、iOSアプリ（`window.Capacitor.isNativePlatform()`）のときだけ`font: -apple-system-body`の大きさ（標準=17px）を測り、`html`のfont-sizeを`16px × (本文/17)`にする。倍率は**100%〜135%**に収める（小さい設定では縮めない・アクセシビリティサイズでも135%止まり）。最初の描画より前に反映するので文字が跳ねない
   - `html[data-kiri-dynamic-type]`のときだけTailwindの`--spacing`を`4px`に固定する（余白はそのまま、rem の文字だけが大きくなる。画面ごと拡大されない）。`text-[11px]`・`text-[13px]`は同じ大きさのremに置き換えた（テストでpx固定の文字を禁止）。iOSの入力欄は`max(16px, 1rem)`
