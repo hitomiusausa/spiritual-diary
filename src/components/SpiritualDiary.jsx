@@ -239,10 +239,14 @@ export default function SpiritualDiary() {
       }
       if (cancelled) return;
       // アプリのロック（iOS のみ）: 設定を読み、オンなら端末の認証方法も先に調べる（スプラッシュの裏。監査 P2-7）。
+      // 例外が出ても起動を止めない（ロックなしの計画で進み、後の effect が調べ直す。再監査 P2-B）。
       const lockPlan = await prepareLockBoot({
         native: isNativePlatform(),
         storage: getStorage(),
         checkAvailability: checkLockAvailability,
+      }).catch((lockError) => {
+        console.error('[kiri-lock] boot', lockError?.message);
+        return null;
       });
       if (cancelled) return;
       try {
