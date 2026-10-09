@@ -30,7 +30,7 @@ export default function SupportCard({ compact = false }) {
         ))}
       </ul>
       <p className="mt-3 text-xs text-kiri-fog">今すぐ危ないと感じるときは、迷わず119へ。</p>
-      <p className="mt-1 text-[11px] text-kiri-lilac/70">窓口情報は{SUPPORT_LINES_CHECKED_AT.replace(/-/g, '/')}に厚生労働省の案内で確認しました。</p>
+      <p className="mt-1 text-[0.6875rem] text-kiri-lilac/70">窓口情報は{SUPPORT_LINES_CHECKED_AT.replace(/-/g, '/')}に厚生労働省の案内で確認しました。</p>
     </section>
   );
 }

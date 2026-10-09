@@ -111,7 +111,7 @@ export default function LockScreen({ view, onUnlock }) {
             <button
               type="button"
               onClick={() => setShowSupport(true)}
-              className="mt-[22px] mb-3 min-h-[44px] flex items-center gap-2 px-3.5 text-[13px] text-kiri-lilac tracking-[0.04em] border-b border-kiri-gold/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-kiri-fog/70"
+              className="mt-[22px] mb-3 min-h-[44px] flex items-center gap-2 px-3.5 text-[0.8125rem] text-kiri-lilac tracking-[0.04em] border-b border-kiri-gold/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-kiri-fog/70"
             >
               <LifeBuoy className="w-4 h-4 text-kiri-gold" strokeWidth={1.6} aria-hidden="true" />
               つらいときの相談先

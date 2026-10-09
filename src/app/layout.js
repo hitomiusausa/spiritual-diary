@@ -1,5 +1,6 @@
 import { Shippori_Mincho, Zen_Kaku_Gothic_New } from "next/font/google";
 import "./globals.css";
+import { DYNAMIC_TYPE_BOOT_SCRIPT, DYNAMIC_TYPE_ENABLED } from "@/lib/dynamicType";
 
 // D-13: 見出しとKiriの言葉=しっぽり明朝、UI本文=Zen角ゴ新
 const shipporiMincho = Shippori_Mincho({
@@ -33,7 +34,14 @@ export const viewport = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="ja">
+    // suppressHydrationWarning: iOS アプリでは head のスクリプトが html に文字サイズと目印を付ける（Dynamic Type）。
+    <html lang="ja" suppressHydrationWarning>
+      {DYNAMIC_TYPE_ENABLED ? (
+        <head>
+          {/* iOS アプリでだけ「文字を大きく」に追従する（src/lib/dynamicType.js）。Web では何もしない */}
+          <script dangerouslySetInnerHTML={{ __html: DYNAMIC_TYPE_BOOT_SCRIPT }} />
+        </head>
+      ) : null}
       <body
         className={`${shipporiMincho.variable} ${zenKakuGothic.variable} antialiased`}
       >

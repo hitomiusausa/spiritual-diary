@@ -680,7 +680,7 @@ export default function SpiritualDiary() {
         onClick={onToggle}
         className="w-full p-4 flex items-center justify-between cursor-pointer active:bg-white/5 transition-colors"
       >
-        <div className="flex items-center gap-2">
+        <div className="kiri-dt-section-head flex items-center gap-2">
           <h2 className="font-display text-lg font-bold text-kiri-gold">{title}</h2>
           {badge && (
             <span className="text-xs bg-kiri-gold/20 text-kiri-gold px-2 py-0.5 rounded-full">
@@ -818,7 +818,7 @@ export default function SpiritualDiary() {
             </div>
           </>
         )}
-        <p className="text-[11px] text-kiri-lilac/80 mt-3 leading-relaxed">{LOCK_SETTINGS_NOTE}</p>
+        <p className="text-[0.6875rem] text-kiri-lilac/80 mt-3 leading-relaxed">{LOCK_SETTINGS_NOTE}</p>
         {lockNotice && <p className="text-xs mt-2 text-kiri-danger" role="status">{lockNotice}</p>}
       </div>
     );
@@ -885,7 +885,7 @@ export default function SpiritualDiary() {
               </button>
             )}
           </div>
-          <p className="text-[11px] text-kiri-lilac/80 mt-3">記録はこの端末内にのみ保存されます。</p>
+          <p className="text-[0.6875rem] text-kiri-lilac/80 mt-3">記録はこの端末内にのみ保存されます。</p>
         </div>
       </div>
     );
@@ -945,7 +945,7 @@ export default function SpiritualDiary() {
               </div>
             ))}
           </div>
-          <p className="px-4 pb-3 text-[11px] text-kiri-lilac/80">タップすると当時のKiriの読み解きを読み返せます。</p>
+          <p className="px-4 pb-3 text-[0.6875rem] text-kiri-lilac/80">タップすると当時のKiriの読み解きを読み返せます。</p>
         </div>
       </div>
     );
@@ -1011,7 +1011,7 @@ export default function SpiritualDiary() {
               <span className="text-kiri-fog"><MoodIcon value={record.entry?.emoji || '✨'} className="w-6 h-6" /></span>
               <div>
                 <h2 className="font-display font-bold text-kiri-gold">{dateLabel}</h2>
-                <p className="text-[11px] text-kiri-lilac">{entryLabel}の記録</p>
+                <p className="text-[0.6875rem] text-kiri-lilac">{entryLabel}の記録</p>
               </div>
             </div>
             <button type="button" onClick={onClose} aria-label="閉じる" className="text-kiri-lilac hover:text-white p-1"><X className="w-5 h-5" /></button>
@@ -1195,7 +1195,7 @@ export default function SpiritualDiary() {
                 </button>
               </div>
 
-              <div className="flex items-center justify-center gap-4 mt-5 text-[11px] text-kiri-lilac/80">
+              <div className="flex items-center justify-center gap-4 mt-5 text-[0.6875rem] text-kiri-lilac/80">
                 <Link href="/privacy" className="hover:text-white">プライバシー</Link>
                 <Link href="/terms" className="hover:text-white">利用規約</Link>
                 <Link href="/support" className="hover:text-white">サポート</Link>
@@ -1266,7 +1266,7 @@ export default function SpiritualDiary() {
                             className={`flex flex-col items-center gap-1 py-2 rounded-lg transition-all text-kiri-fog ${entry.emoji === mood.value ? 'bg-kiri-lilac/50 text-kiri-gold ring-1 ring-kiri-gold/70' : 'bg-white/10 hover:bg-white/20'} active:scale-95`}
                           >
                             <MoodIcon value={mood.value} />
-                            <span className="text-[11px] leading-none">{mood.label}</span>
+                            <span className="text-[0.6875rem] leading-none">{mood.label}</span>
                           </button>
                         ))}
                       </div>
@@ -1656,7 +1656,7 @@ export default function SpiritualDiary() {
                     isExpanded={expandedSections.hints}
                     onToggle={() => setExpandedSections({...expandedSections, hints: !expandedSections.hints})}
                   >
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="kiri-dt-hint-grid grid grid-cols-2 gap-2">
                       <HintItem
                         icon={<CircleHelp className="w-4 h-4" />}
                         title="色"
