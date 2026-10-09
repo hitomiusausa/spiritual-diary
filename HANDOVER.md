@@ -69,7 +69,7 @@
 4. Dynamic Typeに追従していない（WKWebView既定）。やるか決める
 5. L-4: `/terms`・`/support`のプレビュー文言とチャットパネル内文言はPhase 3で改稿
 6. L-5: 開発依存の`uuid`（<11.1.1、@capacitor/cli→xcode）moderate。ビルド道具のみ
-7. ~~L-6~~（解消・`ios:sync:dev`）／L-7: Info.plistの`UIRequiredDeviceCapabilities=armv7` → Phase 4のアップロード前に`arm64`へ／L-8: dev時の`capacitor://`→`http://localhost:3000`がATSで止まるか未確認
+7. ~~L-6~~（解消・`ios:sync:dev`）／~~L-7~~（解消: `UIRequiredDeviceCapabilities`を`arm64`に。iOS 15.5以上は64ビット端末のみ・arm64だけのバイナリでarmv7のままだとITMS-90502の恐れ。シミュレータビルド・起動OK。アップロード時に書き出したIPAのInfo.plistも確認）／L-8: dev時の`capacitor://`→`http://localhost:3000`がATSで止まるか未確認
 8. Workers Buildsの**mainより前のブランチ（非main）のビルドが無効か**確認
 9. 実機の検収（T13の後半）、Phase 3（RevenueCat・購読接続）の前に`npm pack @revenuecat/purchases-capacitor --dry-run | grep Package.swift`でSPM対応を確認
 10. アプリのロック（D-25）の実機検収（T-L9）。下の「アプリのロック」節を参照
