@@ -102,6 +102,14 @@ export function lockToggleDescription(biometryType) {
   return "端末のパスコードで、アプリを開くときに確認します。";
 }
 
+// ロック画面が出たときの自動の OS 認証（1 回）を求めてよいか。背景にいる間は求めない（「すぐに」は背景でロックするため、
+// そこで求めると空振りして、戻っても Face ID が出なかった。シミュレータ再検収 2026-10-09）。
+// 認証中かどうかは見ない（見ると、キャンセルで認証が終わるたびに自動の認証が繰り返される）。重なった呼び出しは
+// authenticateForLock が 1 つにまとめる。
+export function shouldAutoAuthenticate(lockState, { hydrated }) {
+  return Boolean(hydrated && lockState?.locked && lockState?.visible !== false);
+}
+
 export function autoAuthFailEvent(code) {
   return { type: "authFail", code: SILENT_AUTO_CODES.has(code) ? "userCancel" : code };
 }

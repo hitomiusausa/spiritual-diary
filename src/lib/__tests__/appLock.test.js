@@ -339,9 +339,22 @@ describe("reduceLock", () => {
     }
   });
 
-  it("ignores hide on the lock screen itself unless the OS sheet is up", () => {
-    const locked = boot();
-    expect(reduceLock(locked, { type: "hide", now: T0 })).toBe(locked);
+  it("records no background time on the lock screen itself unless the OS sheet is up", () => {
+    const hidden = reduceLock(boot(), { type: "hide", now: T0 });
+    expect(hidden).toMatchObject({ locked: true, hiddenAt: null, visible: false });
+  });
+
+  // シミュレータ再検収で判明: 「すぐに」は背景でロックするので、ロック画面の自動認証が背景で走って空振りし、
+  // 戻っても Face ID が出なかった。自動認証は前景に戻ってから（visible）。
+  it("tracks whether the app is in the foreground", () => {
+    let state = reduceLock(boot({ enabled: true, autoLockMinutes: 0 }), { type: "authSuccess" });
+    expect(state.visible).toBe(true);
+    state = reduceLock(state, { type: "hide", now: T0 });
+    expect(state).toMatchObject({ locked: true, visible: false });
+    state = reduceLock(state, { type: "show", now: T0 + 1000 });
+    expect(state).toMatchObject({ locked: true, visible: true });
+    const off = boot({ enabled: false, autoLockMinutes: 5 });
+    expect(reduceLock(off, { type: "hide", now: T0 })).toBe(off);
   });
 
   it("does nothing on hide/show when the lock is off", () => {

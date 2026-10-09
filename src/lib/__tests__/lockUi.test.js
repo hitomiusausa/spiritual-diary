@@ -7,6 +7,7 @@ import {
   LOCK_AUTH_REASONS,
   LOCK_SETTINGS_NOTE,
   autoAuthFailEvent,
+  shouldAutoAuthenticate,
   enableOutcome,
   lockScreenView,
   lockToggleDescription,
@@ -251,5 +252,26 @@ describe("wording rule on the pages that describe the lock", () => {
     for (const file of ["src/app/privacy/page.js", "src/app/support/page.js"]) {
       expect(readFileSync(join(process.cwd(), file), "utf8")).toContain("アプリのロック");
     }
+  });
+});
+
+describe("shouldAutoAuthenticate (the one automatic OS prompt on the lock screen)", () => {
+  const locked = reduceLock(initialLockState, { type: "boot", settings: { enabled: true, autoLockMinutes: 0 } });
+
+  it("asks once the lock screen is up in the foreground", () => {
+    expect(shouldAutoAuthenticate(locked, { hydrated: true })).toBe(true);
+  });
+
+  it("waits while in the background or before hydration, and stops once unlocked", () => {
+    expect(shouldAutoAuthenticate(reduceLock(locked, { type: "hide", now: 1 }), { hydrated: true })).toBe(false);
+    expect(shouldAutoAuthenticate(locked, { hydrated: false })).toBe(false);
+    expect(shouldAutoAuthenticate(reduceLock(locked, { type: "authSuccess" }), { hydrated: true })).toBe(false);
+  });
+
+  it("does not change across an attempt, so a cancel does not trigger another automatic prompt", () => {
+    let state = reduceLock(locked, { type: "authStart" });
+    expect(shouldAutoAuthenticate(state, { hydrated: true })).toBe(true);
+    state = reduceLock(state, { type: "authFail", code: "userCancel" });
+    expect(shouldAutoAuthenticate(state, { hydrated: true })).toBe(true);
   });
 });

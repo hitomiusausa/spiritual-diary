@@ -33,6 +33,7 @@ import {
   lockScreenView,
   lockToggleDescription,
   privacyScreenWanted,
+  shouldAutoAuthenticate,
   shouldOfferLockSettings,
 } from '@/lib/lockUi';
 import LockScreen from '@/components/LockScreen';
@@ -317,16 +318,17 @@ export default function SpiritualDiary() {
     });
   }, [lockNative, lockState.enabled, lockController]);
 
-  // ロック画面が出たら、少し待ってから自動で 1 回だけ OS 認証を求める（キャンセルされたらボタン待ち）。
+  // ロック画面が出たら（前景に戻っていれば）、少し待ってから自動で 1 回だけ OS 認証を求める（キャンセルされたらボタン待ち）。
+  const autoAuthWanted = shouldAutoAuthenticate(lockState, { hydrated: profileHydrated });
   useEffect(() => {
-    if (!lockState.locked || !profileHydrated) return undefined;
+    if (!autoAuthWanted) return undefined;
     const timer = setTimeout(() => {
       unlockApp({ automatic: true });
     }, AUTO_AUTH_DELAY_MS);
     return () => clearTimeout(timer);
-    // ロックされた瞬間にだけ走らせる（認証中・失敗の状態変化では再実行しない）
+    // ロックされて前景にある状態になった瞬間にだけ走らせる（認証中・失敗の表示では値が変わらないので再実行しない）
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lockState.locked, profileHydrated]);
+  }, [autoAuthWanted]);
 
   useEffect(() => {
     if (profileHydrated) {

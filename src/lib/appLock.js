@@ -109,6 +109,8 @@ export const initialLockState = Object.freeze({
   locked: false,
   authenticating: false,
   hiddenAt: null,
+  // 前景にいるか（ロック画面の自動の OS 認証は前景に戻ってから求める）。
+  visible: true,
   // OS 認証の実行中に背景へ回ったか（その認証の成功ではロックを外さない）。
   interrupted: false,
   message: null,
@@ -156,22 +158,22 @@ export function reduceLock(state, event) {
     }
     case "hide": {
       if (!state.enabled) return state;
-      // ロック画面にいて認証もしていないなら、記録するものは無い。
-      if (state.locked && !state.authenticating) return state;
+      // ロック画面にいて認証もしていないなら、背景の時刻は記録しない（前景かどうかだけ）。
+      if (state.locked && !state.authenticating) return state.visible ? { ...state, visible: false } : state;
       // 2 回目の hide（届き方の重複）では、早い方の時刻を残す（安全側）。
       const hiddenAt = state.hiddenAt === null ? Number(event.now) : Math.min(state.hiddenAt, Number(event.now));
-      const next = { ...state, hiddenAt, interrupted: state.authenticating || state.interrupted };
+      const next = { ...state, hiddenAt, visible: false, interrupted: state.authenticating || state.interrupted };
       if (state.autoLockMinutes === 0) return { ...next, locked: true, message: null, failOpen: false };
       return next;
     }
     case "show": {
-      if (state.hiddenAt === null) return state;
+      if (state.hiddenAt === null) return state.visible ? state : { ...state, visible: true };
       const relock =
         state.enabled &&
         shouldRelock({ hiddenAt: state.hiddenAt, now: event.now, autoLockMinutes: state.autoLockMinutes });
       return relock
-        ? { ...state, hiddenAt: null, locked: true, message: null, failOpen: false }
-        : { ...state, hiddenAt: null };
+        ? { ...state, hiddenAt: null, visible: true, locked: true, message: null, failOpen: false }
+        : { ...state, hiddenAt: null, visible: true };
     }
     case "authStart":
       return { ...state, authenticating: true, interrupted: false, message: null };
