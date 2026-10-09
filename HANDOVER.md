@@ -241,3 +241,7 @@ npm run dev
 ```
 
 ブラウザは`http://localhost:3000`。分析APIは`POST /api/analyze`、チャットAPIは`POST /api/chat`。
+
+### 2026-10-09 最終（ロック再監査の後）
+- 再監査（scratchpad rereview-lock.md）: P0/P1なし。P2-A（postinstall失敗でWeb本番ビルド停止）→ postinstallは警告のみ・`ios:build`は`--strict`で停止に変更。P2-B（prepareLockBootの例外で起動停止）→ ロックなしで続行。P2-C（ロックON時スプラッシュ最大+1.5秒）・P2-D（心拍の小さな穴、早めロック側）は記録のみ。
+- 次: 実機T-L9（ひとみうさのiPhone。Xcodeで Team=くうが株式会社 を選んで実機ビルド）→ 監査チェック項目（共有シートがロックの上に残る件・切り替え画面のぼかし・「すぐに」で中身が一瞬見えないか・注記どおりパスコードが出るか・コントロールセンター後のクラッシュ）→ main へのマージ判断（ユーザーが `git push origin agent/ios-lock:main`）→ 本番CORSを実呼び出し1〜2回で確認。
