@@ -188,12 +188,21 @@ describe("turning the lock on", () => {
     }
   });
 
+  it("fails open on re-auth when the OS authentication cannot be reached, and cannot be turned on then", () => {
+    expect(reauthOutcome({ ok: false, code: "pluginUnavailable" })).toEqual({ proceed: true, failOpen: true, notice: null });
+    expect(enableOutcome({ ok: false, code: "pluginUnavailable" })).toEqual({
+      enable: false,
+      notice: "いまはこの端末でアプリのロックを使えません。",
+    });
+  });
+
   it("keeps all settings copy free of the forbidden words", () => {
     const texts = [
       ...AUTO_LOCK_OPTIONS.map((option) => option.label),
       ...["faceId", "touchId", "none"].map(lockToggleDescription),
       LOCK_SETTINGS_NOTE,
       enableOutcome({ ok: false, code: "passcodeNotSet" }).notice,
+      enableOutcome({ ok: false, code: "pluginUnavailable" }).notice,
       reauthOutcome({ ok: false, code: "authenticationFailed" }).notice,
       ...Object.values(LOCK_AUTH_REASONS),
     ];

@@ -78,6 +78,7 @@ export function shouldRelock({ hiddenAt, now, autoLockMinutes }) {
 const MESSAGE_RETRY = "認証できませんでした。もう一度お試しください。";
 const MESSAGE_LOCKOUT = "Face ID が一時的に使えません。端末のパスコードで開けます。";
 const MESSAGE_FAIL_OPEN = "端末のパスコードが設定されていないため、アプリのロックは一時的に外れています。";
+const MESSAGE_PLUGIN_UNAVAILABLE = "端末の認証を呼び出せないため、アプリのロックは一時的に外れています。";
 const MESSAGE_GENERIC = "開けませんでした。もう一度お試しください。";
 
 // 認証失敗コード（@aparajita/capacitor-biometric-auth の BiometryErrorType）→ 挙動と文言（Ruling 9）。
@@ -93,6 +94,8 @@ const FAILURES = {
   biometryLockout: { action: "stay", message: MESSAGE_LOCKOUT },
   passcodeNotSet: { action: "open", message: MESSAGE_FAIL_OPEN },
   noDeviceCredential: { action: "open", message: MESSAGE_FAIL_OPEN },
+  // 認証プラグインが読み込めない・ネイティブ側に無い（監査 P1-3）。ロック画面から抜ける手段が無くなるので通す。
+  pluginUnavailable: { action: "open", message: MESSAGE_PLUGIN_UNAVAILABLE },
 };
 
 export function describeAuthFailure(code) {
@@ -118,6 +121,7 @@ export const initialLockState = Object.freeze({
 //   { type: "hide", now }           背景へ（iOS: pause）。
 //   { type: "show", now }           前景へ（iOS: resume）。経過時間でロック判定。
 //   { type: "authStart" } / { type: "authSuccess" } / { type: "authFail", code }
+//   { type: "availability", availability } checkLockAvailability() の結果。ロック中に使えないと分かったらフェイルオープン。
 //   { type: "disable" }             ロックをオフにした（再認証の後）。
 export function reduceLock(state, event) {
   switch (event?.type) {
@@ -174,6 +178,20 @@ export function reduceLock(state, event) {
         return { ...state, authenticating: false, interrupted: false, locked: false, failOpen: true, message };
       }
       return { ...state, authenticating: false, interrupted: false, message };
+    }
+    case "availability": {
+      const availability = event.availability;
+      if (!availability || availability.available !== false) return state;
+      if (!state.enabled || !state.locked) return state;
+      const code = availability.reason === "passcodeNotSet" ? "passcodeNotSet" : "pluginUnavailable";
+      return {
+        ...state,
+        authenticating: false,
+        interrupted: false,
+        locked: false,
+        failOpen: true,
+        message: describeAuthFailure(code).message,
+      };
     }
     case "disable":
       return {

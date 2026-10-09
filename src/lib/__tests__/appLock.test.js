@@ -198,6 +198,10 @@ describe("describeAuthFailure (Ruling 9)", () => {
     }
   });
 
+  it("fails open for pluginUnavailable (D-09: never lock people out of their own records)", () => {
+    expect(describeAuthFailure("pluginUnavailable").action).toBe("open");
+  });
+
   it("stays locked with a generic message for anything else", () => {
     for (const code of ["invalidContext", "notInteractive", "unknown", "", undefined, "somethingNew"]) {
       expect(describeAuthFailure(code)).toEqual({ action: "stay", message: "開けませんでした。もう一度お試しください。" });
@@ -365,6 +369,36 @@ describe("reduceLock", () => {
     state = reduceLock(state, { type: "authFail", code: "passcodeNotSet" });
     expect(state).toMatchObject({ locked: false, authenticating: false, failOpen: true, enabled: true });
     expect(state.message).toContain("一時的に外れています");
+  });
+
+  // 監査 P1-3: 端末の認証を呼び出せない（プラグインの登録漏れなど）と、自分の記録に入れなくなる（D-09）→ フェイルオープン。
+  it("fails open with its own notice when the OS authentication cannot be reached", () => {
+    let state = reduceLock(boot(), { type: "authStart" });
+    state = reduceLock(state, { type: "authFail", code: "pluginUnavailable" });
+    expect(state).toMatchObject({ locked: false, failOpen: true, enabled: true });
+    expect(state.message).toBe("端末の認証を呼び出せないため、アプリのロックは一時的に外れています。");
+  });
+
+  it("fails open when the availability check says the device cannot authenticate while locked", () => {
+    const locked = boot();
+    const noPlugin = reduceLock(locked, { type: "availability", availability: { available: false, reason: "pluginUnavailable" } });
+    expect(noPlugin).toMatchObject({ locked: false, failOpen: true });
+    expect(noPlugin.message).toContain("端末の認証を呼び出せない");
+    const noPasscode = reduceLock(locked, { type: "availability", availability: { available: false, reason: "passcodeNotSet" } });
+    expect(noPasscode).toMatchObject({ locked: false, failOpen: true });
+    expect(noPasscode.message).toContain("端末のパスコードが設定されていない");
+    const noReason = reduceLock(locked, { type: "availability", availability: { available: false } });
+    expect(noReason).toMatchObject({ locked: false, failOpen: true });
+  });
+
+  it("ignores an available result, an unlocked app, or a lock that is off", () => {
+    const locked = boot();
+    expect(reduceLock(locked, { type: "availability", availability: { available: true } })).toBe(locked);
+    expect(reduceLock(locked, { type: "availability", availability: null })).toBe(locked);
+    const open = reduceLock(locked, { type: "authSuccess" });
+    expect(reduceLock(open, { type: "availability", availability: { available: false } })).toBe(open);
+    const off = boot({ enabled: false, autoLockMinutes: 5 });
+    expect(reduceLock(off, { type: "availability", availability: { available: false } })).toBe(off);
   });
 
   it("disable turns everything off", () => {

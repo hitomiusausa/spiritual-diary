@@ -69,8 +69,11 @@ export const LOCK_AUTH_REASONS = Object.freeze({
 
 const RETRY_NOTICE = "確認できませんでした。もう一度お試しください。";
 const NEEDS_PASSCODE_NOTICE = "端末のパスコードを設定すると使えます。";
+const UNAVAILABLE_NOTICE = "いまはこの端末でアプリのロックを使えません。";
 const CANCEL_CODES = new Set(["userCancel", "appCancel", "systemCancel"]);
 const NO_PASSCODE_CODES = new Set(["passcodeNotSet", "noDeviceCredential"]);
+// 認証プラグインが読み込めない・ネイティブ側に無い（lockAuth.js。監査 P1-3）。
+const PLUGIN_UNAVAILABLE_CODE = "pluginUnavailable";
 // 自動の 1 回目は、キャンセルや「まだ前面でない」で失敗しても黙ってボタン待ちにする。
 const SILENT_AUTO_CODES = new Set([...CANCEL_CODES, "notInteractive"]);
 
@@ -106,7 +109,7 @@ export function needsReauth(lockState) {
 export function reauthOutcome(result) {
   if (result?.ok) return { proceed: true, failOpen: false, notice: null };
   const code = result?.code;
-  if (NO_PASSCODE_CODES.has(code)) return { proceed: true, failOpen: true, notice: null };
+  if (NO_PASSCODE_CODES.has(code) || code === PLUGIN_UNAVAILABLE_CODE) return { proceed: true, failOpen: true, notice: null };
   if (CANCEL_CODES.has(code)) return { proceed: false, failOpen: false, notice: null };
   return { proceed: false, failOpen: false, notice: RETRY_NOTICE };
 }
@@ -116,6 +119,7 @@ export function enableOutcome(result) {
   if (result?.ok) return { enable: true, notice: null };
   const code = result?.code;
   if (NO_PASSCODE_CODES.has(code)) return { enable: false, notice: NEEDS_PASSCODE_NOTICE };
+  if (code === PLUGIN_UNAVAILABLE_CODE) return { enable: false, notice: UNAVAILABLE_NOTICE };
   if (CANCEL_CODES.has(code)) return { enable: false, notice: null };
   return { enable: false, notice: RETRY_NOTICE };
 }

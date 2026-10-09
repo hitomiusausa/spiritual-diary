@@ -283,7 +283,10 @@ export default function SpiritualDiary() {
     if (!lockNative) return undefined;
     let cancelled = false;
     checkLockAvailability().then((availability) => {
-      if (!cancelled) setLockAvailability(availability);
+      if (cancelled) return;
+      setLockAvailability(availability);
+      // ロック中に端末の認証が使えないと分かったら、フェイルオープン（監査 P1-3・D-09）。
+      dispatchLock({ type: 'availability', availability });
     });
     return () => {
       cancelled = true;

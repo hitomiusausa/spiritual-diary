@@ -45,6 +45,7 @@ describe("checkLockAvailability", () => {
       biometryAvailable: false,
       deviceIsSecure: false,
       biometryType: "none",
+      reason: "notNative",
     });
     expect(load).not.toHaveBeenCalled();
   });
@@ -56,6 +57,7 @@ describe("checkLockAvailability", () => {
       biometryAvailable: true,
       deviceIsSecure: true,
       biometryType: "faceId",
+      reason: null,
     });
   });
 
@@ -68,6 +70,7 @@ describe("checkLockAvailability", () => {
       biometryAvailable: false,
       deviceIsSecure: true,
       biometryType: "none",
+      reason: null,
     });
   });
 
@@ -82,17 +85,34 @@ describe("checkLockAvailability", () => {
     expect((await checkLockAvailability({ native: true, load: async () => insecure })).available).toBe(false);
   });
 
-  it("reports unavailable when the plugin fails to load or throws", async () => {
+  it("reports unavailable when the plugin fails to load or throws, with the reason", async () => {
     const failingLoad = async () => {
       throw new Error("missing");
     };
-    expect((await checkLockAvailability({ native: true, load: failingLoad })).available).toBe(false);
+    expect(await checkLockAvailability({ native: true, load: failingLoad })).toMatchObject({
+      available: false,
+      reason: "pluginUnavailable",
+    });
     const throwing = biometricModule({
       check: async () => {
         throw new Error("boom");
       },
     });
-    expect((await checkLockAvailability({ native: true, load: async () => throwing })).available).toBe(false);
+    expect(await checkLockAvailability({ native: true, load: async () => throwing })).toMatchObject({
+      available: false,
+      reason: "pluginUnavailable",
+    });
+  });
+
+  it("names the missing device passcode as the reason", async () => {
+    const insecure = biometricModule({
+      check: async () => ({ isAvailable: false, deviceIsSecure: false, biometryType: 0 }),
+    });
+    expect(await checkLockAvailability({ native: true, load: async () => insecure })).toMatchObject({
+      available: false,
+      reason: "passcodeNotSet",
+    });
+    expect((await checkLockAvailability({ native: true, load: async () => biometricModule() })).reason).toBeNull();
   });
 });
 
@@ -133,16 +153,7 @@ describe("authenticateForLock", () => {
     },
   );
 
-  it("reports 'unknown' for unexpected errors and load failures", async () => {
-    const odd = biometricModule({
-      authenticate: async () => {
-        throw new FakeBiometryError("x", "UNIMPLEMENTED");
-      },
-    });
-    await expect(authenticateForLock({ native: true, load: async () => odd })).resolves.toEqual({
-      ok: false,
-      code: "unknown",
-    });
+  it("reports 'unknown' for unexpected errors", async () => {
     const plain = biometricModule({
       authenticate: async () => {
         throw new Error("plain");
@@ -152,6 +163,23 @@ describe("authenticateForLock", () => {
       ok: false,
       code: "unknown",
     });
+  });
+
+  // 監査 P1-3: プラグインが読み込めない・ネイティブ側に登録されていない（cap sync 漏れ）は、unknown と分ける。
+  it("reports 'pluginUnavailable' when the plugin cannot load or is not implemented natively", async () => {
+    for (const nativeCode of ["UNIMPLEMENTED", "UNAVAILABLE"]) {
+      const missing = biometricModule({
+        authenticate: async () => {
+          throw new FakeBiometryError("x", nativeCode);
+        },
+      });
+      resetLockAuthForTests();
+      await expect(authenticateForLock({ native: true, load: async () => missing })).resolves.toEqual({
+        ok: false,
+        code: "pluginUnavailable",
+      });
+    }
+    resetLockAuthForTests();
     await expect(
       authenticateForLock({
         native: true,
@@ -159,7 +187,7 @@ describe("authenticateForLock", () => {
           throw new Error("missing");
         },
       }),
-    ).resolves.toEqual({ ok: false, code: "unknown" });
+    ).resolves.toEqual({ ok: false, code: "pluginUnavailable" });
   });
 
   it("shares one OS prompt between overlapping calls", async () => {
