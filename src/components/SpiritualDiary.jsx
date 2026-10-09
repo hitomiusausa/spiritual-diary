@@ -674,11 +674,12 @@ export default function SpiritualDiary() {
   };
 
   // 見出し行はdiv+個別ボタン構成にする（button入れ子はHTML違反でhydrationエラーになる）
+  // 開いているときは見出し→中身を12px（カード見出し→中身の共通値。D-29）。行の高さは56px（閉じて60px）でタップ範囲は足りる
   const CollapsibleSection = ({ title, isExpanded, onToggle, children, badge, onInfoClick }) => (
     <div className="bg-white/10 backdrop-blur-md rounded-xl border border-kiri-lilac/30 overflow-hidden">
       <div
         onClick={onToggle}
-        className="w-full p-4 flex items-center justify-between cursor-pointer active:bg-white/5 transition-colors"
+        className={`w-full p-4 ${isExpanded ? 'pb-3' : ''} flex items-center justify-between cursor-pointer active:bg-white/5 transition-colors`}
       >
         <div className="kiri-dt-section-head flex items-center gap-2">
           <h2 className="font-display text-lg font-bold text-kiri-gold">{title}</h2>
@@ -1553,7 +1554,8 @@ export default function SpiritualDiary() {
                     onToggle={() => setExpandedSections({...expandedSections, saju: !expandedSections.saju})}
                     onInfoClick={() => setShowSajuInfo(true)}
                   >
-                    <div className="space-y-3">
+                    {/* グループ（本命／今日の運勢／月運・年運／大運）どうしは16px（大きい文字は14px）、見出し→格子は6px（D-29） */}
+                    <div className="space-y-4 kiri-dt-stack">
                       <div>
                         <h3 className="text-xs font-bold text-kiri-lilac mb-1">あなたの本命</h3>
                         <p className="text-xs text-kiri-lilac mb-2">自分自身（本質・性格・運勢の根幹）を表す最も重要な要素</p>
@@ -1578,7 +1580,7 @@ export default function SpiritualDiary() {
                       </div>
 
                       <div>
-                        <h3 className="text-xs font-bold text-kiri-gold mb-2">今日の運勢</h3>
+                        <h3 className="text-xs font-bold text-kiri-gold mb-1.5">今日の運勢</h3>
                         <div className="grid grid-cols-2 gap-2">
                           <div className="bg-kiri-gold/20 p-2 rounded-lg">
                             <p className="text-xs text-kiri-gold">日運（今日）</p>
@@ -1600,7 +1602,7 @@ export default function SpiritualDiary() {
                       </div>
 
                       <div>
-                        <h3 className="text-xs font-bold text-kiri-rain mb-2">月運・年運</h3>
+                        <h3 className="text-xs font-bold text-kiri-rain mb-1.5">月運・年運</h3>
                         <div className="grid grid-cols-2 gap-2">
                           <div className="bg-kiri-rain/20 p-2 rounded-lg">
                             <p className="text-xs text-kiri-rain">月運（今月）</p>
@@ -1614,7 +1616,7 @@ export default function SpiritualDiary() {
                       </div>
 
                       <div>
-                        <h3 className="text-xs font-bold text-kiri-rain mb-2">大運（中長期）</h3>
+                        <h3 className="text-xs font-bold text-kiri-rain mb-1.5">大運（中長期）</h3>
                         <div className="grid grid-cols-2 gap-2">
                           {result.saju.taiun && (
                             <div className="bg-kiri-rain/20 p-2 rounded-lg">
@@ -1707,7 +1709,7 @@ export default function SpiritualDiary() {
 
                 {/* メインメッセージ */}
                 <div className="kiri-card-strong rounded-xl p-4 text-white">
-                  <div className="flex items-center gap-2 mb-2">
+                  <div className="flex items-center gap-2 mb-3">
                     <span className="text-kiri-fog">{result.time === '朝' ? <Sun className="w-8 h-8" /> : result.time === '昼' ? <Sparkles className="w-8 h-8" /> : <Moon className="w-8 h-8" />}</span>
                     <h2 className="font-display text-lg font-bold drop-shadow-md">Kiriが映すあなたのエネルギー</h2>
                   </div>
