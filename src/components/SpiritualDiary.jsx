@@ -1220,7 +1220,7 @@ export default function SpiritualDiary() {
           />
           <div className="min-h-screen kiri-shell p-4 pb-20">
             <div className="max-w-2xl mx-auto">
-              <div className="text-center mb-4 pt-2 relative">
+              <div className="text-center mb-4 pt-2 relative kiri-dt-header">
                 <button
                   type="button"
                   aria-label="設定"
@@ -1248,8 +1248,8 @@ export default function SpiritualDiary() {
               </div>
 
               <div className="space-y-3">
-                <div className="kiri-card rounded-xl p-4">
-                  <div className="space-y-4">
+                <div className="kiri-card rounded-xl p-4 kiri-dt-card">
+                  <div className="space-y-4 kiri-dt-stack">
                     <div>
                       <label className="block text-white text-sm mb-2 font-medium text-center">今日の気分を選んでください</label>
                       <div className="grid grid-cols-4 sm:grid-cols-6 gap-2" role="group" aria-label="今日の気分">
@@ -1275,12 +1275,16 @@ export default function SpiritualDiary() {
                     <div>
                       <label className="block text-white text-sm mb-2 font-medium">記録する</label>
                       <p className="text-xs text-kiri-lilac mb-2">今日の予定や出来事をあなたの言葉で自由に記入して</p>
-                      <textarea
-                        value={entry.event}
-                        onChange={(e) => setEntry({...entry, event: e.target.value})}
-                        placeholder={placeholders.event}
-                        className="w-full px-3 py-2.5 text-sm rounded-lg bg-white/20 text-white border border-kiri-lilac/50 focus:outline-none focus:ring-2 focus:ring-kiri-lilac h-32 resize-none placeholder-kiri-lilac/70 kiri-dt-event"
-                      />
+                      {/* 枠と内側の余白は外の箱に持たせ、文字は内側でスクロールさせる（上下の余白が文字で埋まらない。2026-10-09） */}
+                      <label className="block w-full px-3 py-2.5 rounded-lg bg-white/20 border border-kiri-lilac/50 focus-within:ring-2 focus-within:ring-kiri-lilac h-32 kiri-dt-event cursor-text">
+                        <textarea
+                          value={entry.event}
+                          onChange={(e) => setEntry({...entry, event: e.target.value})}
+                          placeholder={placeholders.event}
+                          aria-label="記録する"
+                          className="block w-full h-full p-0 text-sm bg-transparent text-white border-0 focus:outline-none resize-none placeholder-kiri-lilac/70"
+                        />
+                      </label>
                     </div>
 
                     <div>

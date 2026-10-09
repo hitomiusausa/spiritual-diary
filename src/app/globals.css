@@ -125,7 +125,24 @@ html[data-kiri-dynamic-type] {
 */
 /* 大きい文字のとき、日記の「記録する」欄を低くして「Kiriに読み解いてもらう」まで1画面に入れる（2026-10-09） */
 html[data-kiri-large-text] .kiri-dt-event {
-  height: 84px; /* rem だと文字と一緒に伸びるので px（通常は h-32＝128px） */
+  height: 78px; /* 2行＋上下の余白。rem だと文字と一緒に伸びるので px（通常は h-32＝128px） */
+}
+
+/* 大きい文字のとき、日記画面の余白を少し詰めて、カードの下端がホームバーの角に掛からないようにする（2026-10-09） */
+html[data-kiri-large-text] .kiri-dt-header {
+  margin-bottom: 8px;
+}
+
+html[data-kiri-large-text] .kiri-dt-card {
+  padding: 12px;
+}
+
+html[data-kiri-large-text] .kiri-dt-stack > :not(:last-child) {
+  margin-bottom: 12px;
+}
+
+html[data-kiri-large-text] .kiri-dt-stack > :not(:first-child) {
+  margin-top: 0;
 }
 
 html[data-kiri-large-text] .kiri-dt-section-head {
