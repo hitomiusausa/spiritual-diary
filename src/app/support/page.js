@@ -13,7 +13,7 @@ export default function SupportPage() {
         <h2>よくある質問</h2>
         <div className="space-y-4 mt-2">
           <div>
-            <p className="font-bold text-white">Q. 記録はどこに保存されますか？</p>
+            <p className="font-bold text-white mb-1">Q. 記録はどこに保存されますか？</p>
             <p>
               この端末の中にのみ保存されます（ウェブ版はブラウザ内、iOSアプリはアプリ内の保存領域。
               iOSアプリの保存領域は、端末のバックアップ（iCloudなど）の対象になる場合があります）。
@@ -24,7 +24,7 @@ export default function SupportPage() {
             </p>
           </div>
           <div>
-            <p className="font-bold text-white">Q. 記録を自分で削除するには？</p>
+            <p className="font-bold text-white mb-1">Q. 記録を自分で削除するには？</p>
             <p>
               ホーム画面右上の設定アイコンの「すべて削除」から、この端末の記録を削除できます。
               iOSアプリは、アプリそのものを端末から削除しても、アプリ内の保存領域のデータが消えます。
@@ -32,7 +32,7 @@ export default function SupportPage() {
             </p>
           </div>
           <div>
-            <p className="font-bold text-white">Q. 記録が消えてしまいました。</p>
+            <p className="font-bold text-white mb-1">Q. 記録が消えてしまいました。</p>
             <p>
               バックアップファイルがあれば、ホーム画面右上の設定アイコンの「バックアップ」→「読み込む」から復元できます。
               読み込みは今ある記録を消さず、足りない分だけ追加します。
@@ -40,7 +40,7 @@ export default function SupportPage() {
             </p>
           </div>
           <div>
-            <p className="font-bold text-white">Q. アプリのロックとは？（iOSアプリ）</p>
+            <p className="font-bold text-white mb-1">Q. アプリのロックとは？（iOSアプリ）</p>
             <p>
               iOSアプリでは、設定アイコンの「アプリのロック」をオンにすると、アプリを開くときに
               Face ID・Touch ID・端末のパスコードで確認します。Kiri専用の合言葉はないので、忘れて開けなくなることはありません。
@@ -55,21 +55,21 @@ export default function SupportPage() {
             </p>
           </div>
           <div>
-            <p className="font-bold text-white">Q. 同じ日にもう一度占うと、結果が同じなのはなぜですか？</p>
+            <p className="font-bold text-white mb-1">Q. 同じ日にもう一度占うと、結果が同じなのはなぜですか？</p>
             <p>
               仕様です。同じ日・同じ記録に対しては同じ読み解きを返すことで、
               その日の結果として安心して振り返れるようにしています。記録の内容を変えると読み解きも変わります。
             </p>
           </div>
           <div>
-            <p className="font-bold text-white">Q. Kiriとの対話が使えません。</p>
+            <p className="font-bold text-white mb-1">Q. Kiriとの対話が使えません。</p>
             <p>
               Kiriとの自由な対話は有料機能として準備中で、現在は開発プレビューです。
               提供が始まるまでお待ちください。
             </p>
           </div>
           <div>
-            <p className="font-bold text-white">Q. 占いの結果がつらく感じられます。</p>
+            <p className="font-bold text-white mb-1">Q. 占いの結果がつらく感じられます。</p>
             <p>
               Kiriの言葉は傾向を映す読み物であり、あなたの未来や価値を決めるものではありません。
               心がつらいときは、占いではなく人に頼ってください。厚生労働省の

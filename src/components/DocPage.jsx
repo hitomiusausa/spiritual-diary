@@ -10,7 +10,7 @@ export default function DocPage({ title, updatedAt, children }) {
         </Link>
         <h1 className="font-display text-xl font-bold text-white mb-1">{title}</h1>
         <p className="text-xs text-kiri-lilac mb-6">最終更新: {updatedAt}</p>
-        <div className="space-y-5 text-sm text-white/90 leading-relaxed [&_h2]:text-base [&_h2]:font-bold [&_h2]:text-kiri-gold [&_h2]:mt-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1">
+        <div className="space-y-5 text-sm text-white/90 leading-relaxed [&_h2]:text-base [&_h2]:font-bold [&_h2]:text-kiri-gold [&_h2]:mt-2 [&_h2]:mb-1.5 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1">
           {children}
         </div>
       </div>
