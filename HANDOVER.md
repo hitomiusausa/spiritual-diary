@@ -283,3 +283,9 @@ npm run dev
 - 想定どおりの失敗: 読み解きは「通信がつながっていない」系のエラー（本番にまだ CORS が無いため。AI は呼ばれていない）→ main マージ後に確認
 - 未確認: 共有シートを開いたまま背景→戻るとロックの上に残る件（D-25 で受容済みの残リスク）・「すぐに」で戻る瞬間に中身が一瞬見えないか（目視では気づかず）
 - 再インストール: Personal Team は7日で失効。`xcodebuild ... -destination 'id=00008101-000A19540E69003A' -allowProvisioningUpdates DEVELOPMENT_TEAM=QJ8WUGJF25 CODE_SIGN_STYLE=Automatic build` → `xcrun devicectl device install app --device 925C3C81-1356-517C-BD44-2A1682B50974 <App.app>`（プロジェクトファイルは書き換えない）
+
+### 本番反映（2026-10-10）
+- ひとみうさが `git push origin agent/ios-lock:main`（1bd3599→cb88893・早送り）→ Workers Builds で約2分で反映
+- 本番確認: トップ・/privacy・/terms・/support 200／OPTIONS（capacitor://localhost）で ACAO 付き・他オリジンは付かない／空POSTの analyze 400（ACAO付き）・chat 403
+- **実機（iPhone 12 mini）から本番で読み解き1回成功**（同意画面→結果画面）。D-21 の本番CORS確認は完了
+- この追記コミットは main 未反映（docs のみ。次に main へ push するときに一緒に入る）
