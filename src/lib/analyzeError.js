@@ -1,7 +1,7 @@
 // 読み解きが失敗したときに画面へ出す文（Kiriの声のまま、技術的な文字列は出さない）。
 // サーバーの error 文字列（英語・開発者向け）やブラウザの例外文（"Load failed" など）は表示しない。
 // 原因の判定には HTTP ステータスとサーバーの code（daily_limit / rate_limited）だけを使う。
-// 文言は T13 検収での提案（オーナー確認待ち）。
+// 文言は 2026-10-09 ひとみうさ確認済み（5番目のみ「紡げない」に修正）。
 
 const KEEP_ENTRY = "書いた記録はそのまま残っています。";
 
@@ -32,6 +32,6 @@ export function describeAnalyzeFailure({ network = false, status, code } = {}) {
   }
   return {
     title: "Kiriの声が届きませんでした",
-    message: `いまはうまく言葉を結べないみたい。少し時間をおいて、もう一度ためしてみてね。${KEEP_ENTRY}`,
+    message: `いまはうまく言葉を紡げないみたい。少し時間をおいて、もう一度ためしてみてね。${KEEP_ENTRY}`,
   };
 }
