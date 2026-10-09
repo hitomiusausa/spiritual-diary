@@ -96,7 +96,7 @@ Cloudflareに設定するもの: Secrets＝`CLAUDE_API_KEY`・`UPSTASH_REDIS_RES
 
 ローカル検証（2026-10-08）: test 138件・lint・build・audit(--omit=dev 0件)・OpenNext build OK。workerdプレビューでトップ等200、空入力 analyze 400／chat 403、Upstash未設定で両方503、実入力の analyze 200（Claude 2回）、Upstashにレート制限キー（IPハッシュ）と日次クォータ加算、ログに日記本文・IPなし。Worker gzip 1.4MB。Playwright 375/1280でトップ表示・画像OK
 
-残課題: 本番デプロイ・`kiri.kugainc.com`の割当（Workersのカスタムドメイン）・本番で`[kiri-store] incr fell back to memory`が出ないことの確認・1.20.7が2週間経つ10/13以降に版の再確認・`kiri.png`(512px/138KB)を48px表示しているので小さい版を作るか検討
+残課題: 本番デプロイ・`kiri.kugainc.com`の割当（Workersのカスタムドメイン）・本番で`[kiri-store] incr fell back to memory`が出ないことの確認・1.20.7が2週間経つ10/13以降に版の再確認・~~`kiri.png`(512px/138KB)を48px表示~~ → 3x版`public/kiri-avatar-144.png`(20KB)に置き換え済み（原本はアイコン用に残す。Playwright 375@3x/1280@2xで原本とPSNR 44/46dB）
 
 ## 2026-10-08 Phase 1-1 API保護の共有ストア化（コード側完了・push済み）
 
