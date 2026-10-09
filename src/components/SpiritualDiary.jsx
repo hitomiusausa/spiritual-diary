@@ -1273,7 +1273,7 @@ export default function SpiritualDiary() {
                     </div>
 
                     <div>
-                      <label className="block text-white text-sm mb-2 font-medium">記録する</label>
+                      <label className="block text-white text-sm mb-1 font-medium">記録する</label>
                       <p className="text-xs text-kiri-lilac mb-2">今日の予定や出来事をあなたの言葉で自由に記入して</p>
                       {/* 枠と内側の余白は外の箱に持たせ、文字は内側でスクロールさせる（上下の余白が文字で埋まらない。2026-10-09） */}
                       <label className="block w-full px-3 py-2.5 rounded-lg bg-white/20 border border-kiri-lilac/50 focus-within:ring-2 focus-within:ring-kiri-lilac h-32 kiri-dt-event cursor-text">
@@ -1288,7 +1288,7 @@ export default function SpiritualDiary() {
                     </div>
 
                     <div>
-                      <label className="block text-white text-sm mb-2 font-medium">ひらめき・直感的な一言</label>
+                      <label className="block text-white text-sm mb-1.5 font-medium">ひらめき・直感的な一言</label>
                       <input
                         type="text"
                         value={entry.intuition}

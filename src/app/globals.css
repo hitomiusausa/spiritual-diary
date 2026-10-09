@@ -138,7 +138,7 @@ html[data-kiri-large-text] .kiri-dt-card {
 }
 
 html[data-kiri-large-text] .kiri-dt-stack > :not(:last-child) {
-  margin-bottom: 12px;
+  margin-bottom: 14px; /* グループの間はグループ内（4〜8px）よりはっきり空ける */
 }
 
 html[data-kiri-large-text] .kiri-dt-stack > :not(:first-child) {
