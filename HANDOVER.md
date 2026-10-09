@@ -272,3 +272,8 @@ npm run dev
 5. 公開前の日次上限（全体30回では審査員が429で弾かれうる）・Anthropic側の保持（最長30日）をプライバシーポリシーに追記するか
 6. ~~Cloudflare 非mainビルド~~ 済み（2026-10-09: 「プレビューブランチのビルド」をオフ。プロダクション=main・cf:build/cf:deploy を確認）→ `agent/ios-lock`・`agent/ios-shell` を GitHub へ push済み（バックアップ）
 7. 実機T-L9 → main マージ（`git push origin agent/ios-lock:main`）→ 本番CORS確認
+
+### Apple Developer Program（法人）の状況（2026-10-10 確認）
+- くうが株式会社の登録は**処理中**（登録ID 6HD9YZT8ZL。Appleが署名権限を確認中→完了メール待ち。確認の電話が来ることがある）。Xcodeのアカウント（hitomisisa@yahoo.co.jp）に見えるのは「TEPPEI TSUZUKI（Finance・署名不可・Kiriには使わない）」と「Personal Team」だけ
+- それまでの実機テストは **Personal Team**（無料・プロファイル7日・課金などは不可）。署名チームの設定は project.pbxproj に入るが**コミットしない**
+- TestFlight・課金（Phase 3）・App Store提出は法人登録の完了が前提
