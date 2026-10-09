@@ -303,6 +303,21 @@ export default function SpiritualDiary() {
     };
   }, [lockNative, lockAvailability]);
 
+  // 設定を開くたびに調べ直す。起動後に Face ID・パスコードを設定した人にも「アプリのロック」を出すため
+  // （起動時の1回だけだと、未設定のときの結果が残り続ける）。
+  useEffect(() => {
+    if (!lockNative || !showSettings) return undefined;
+    let cancelled = false;
+    checkLockAvailability().then((availability) => {
+      if (cancelled) return;
+      setLockAvailability(availability);
+      dispatchLock({ type: 'availability', availability });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [lockNative, showSettings]);
+
   // 切り替え画面の目隠しは、ロックがオン かつ「記録を隠す」がオンのときだけ（Ruling 5）。
   useEffect(() => {
     if (!lockNative) return;
