@@ -26,14 +26,12 @@ import { authenticateForLock, checkLockAvailability } from '@/lib/lockAuth';
 import { setPrivacyScreen } from '@/lib/privacyScreen';
 import { subscribeAppVisibility } from '@/lib/appState';
 import {
-  AUTO_AUTH_DELAY_MS,
   AUTO_LOCK_OPTIONS,
   LOCK_AUTH_REASONS,
   LOCK_SETTINGS_NOTE,
   lockScreenView,
   lockToggleDescription,
   privacyScreenWanted,
-  shouldAutoAuthenticate,
   shouldOfferLockSettings,
 } from '@/lib/lockUi';
 import LockScreen from '@/components/LockScreen';
@@ -337,17 +335,7 @@ export default function SpiritualDiary() {
     });
   }, [lockNative, lockState.enabled, lockController]);
 
-  // ロック画面が出たら（前景に戻っていれば）、少し待ってから自動で 1 回だけ OS 認証を求める（キャンセルされたらボタン待ち）。
-  const autoAuthWanted = shouldAutoAuthenticate(lockState, { hydrated: profileHydrated });
-  useEffect(() => {
-    if (!autoAuthWanted) return undefined;
-    const timer = setTimeout(() => {
-      unlockApp({ automatic: true });
-    }, AUTO_AUTH_DELAY_MS);
-    return () => clearTimeout(timer);
-    // ロックされて前景にある状態になった瞬間にだけ走らせる（認証中・失敗の表示では値が変わらないので再実行しない）
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoAuthWanted]);
+  // ロック画面では OS 認証を自動で始めない。先にロック画面を見せ、「Face IDでひらく」を押してもらう（2026-10-09 ひとみうさ決定）。
 
   useEffect(() => {
     if (profileHydrated) {

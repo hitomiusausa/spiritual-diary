@@ -58,7 +58,6 @@ export const AUTO_LOCK_OPTIONS = Object.freeze(
 
 // ロック画面が出てから自動で OS 認証を呼ぶまでの待ち（復帰直後はアプリがまだ前面になりきっておらず、
 // すぐ呼ぶと notInteractive で失敗するため）。
-export const AUTO_AUTH_DELAY_MS = 400;
 
 // 再認証に通ってから、次の画面（共有シート）を出すまでの待ち。OS の認証画面が閉じきる前に共有シートを出すと
 // 表示に失敗し、プラグインが「共有中」のまま固まる（T-L5 シミュレータで再現: Can't share while sharing is in progress）。
@@ -100,14 +99,6 @@ export function lockToggleDescription(biometryType) {
   if (biometryType === "faceId") return "Face ID・端末のパスコードで、アプリを開くときに確認します。";
   if (biometryType === "touchId") return "Touch ID・端末のパスコードで、アプリを開くときに確認します。";
   return "端末のパスコードで、アプリを開くときに確認します。";
-}
-
-// ロック画面が出たときの自動の OS 認証（1 回）を求めてよいか。背景にいる間は求めない（「すぐに」は背景でロックするため、
-// そこで求めると空振りして、戻っても Face ID が出なかった。シミュレータ再検収 2026-10-09）。
-// 認証中かどうかは見ない（見ると、キャンセルで認証が終わるたびに自動の認証が繰り返される）。重なった呼び出しは
-// authenticateForLock が 1 つにまとめる。
-export function shouldAutoAuthenticate(lockState, { hydrated }) {
-  return Boolean(hydrated && lockState?.locked && lockState?.visible !== false);
 }
 
 export function autoAuthFailEvent(code) {
