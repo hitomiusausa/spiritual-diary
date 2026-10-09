@@ -11,6 +11,14 @@
 - GitHub: `https://github.com/hitomiusausa/spiritual-diary`
 - 最新状態: 2026-07-28分まではGitHubへpush済み。2026-10-08のリリース準備 Phase 0（D-14〜D-16）もpush済み。
 
+## 2026-10-09 仕上げ（ブランチ`agent/ios-polish`・`agent/ios-lock`の上・mainへ未マージ）
+
+- L-6: `npm run ios:sync:dev`（＝`npm run ios:sync -- --dev`）で dev 向けの書き出し→`cap sync ios`が1コマンドに。`--dev`以外の引数は止まる
+- L-7: Info.plistの`UIRequiredDeviceCapabilities`を`arm64`に
+- Kiriのアバターを3x版`public/kiri-avatar-144.png`（20KB）に。原本`kiri.png`はアイコン用に残す
+- Dynamic Type（D-26）: iOSアプリだけ「文字を大きく」に追従（100%〜135%）。検収はiPhone 17・16eで標準・XXL・アクセシビリティM（ロック・日記入力・設定・基本情報・同意・結果）。Webは変更前と一致
+- シミュレータ: Dynamic Typeの確認は`xcrun simctl ui <udid> content_size <large|extra-extra-large|accessibility-medium>`。アプリは再起動しなくても追従する。16eはFace IDの画面が出るまで約3.5秒かかる（早く`pearl.match`を送ると失敗表示になる）
+
 ## 2026-10-09 アプリのロック（D-25・ブランチ`agent/ios-lock`・mainへ未マージ）
 
 できたこと: iOSアプリだけに「アプリのロック」（Face ID／Touch ID／端末パスコードのゲート）。見た目はA「静かな扉」。設定に「アプリのロック」トグル・自動ロック（すぐに／1分／5分／15分、既定5分）・「切り替え画面で記録を隠す」。書き出しとオフの前に再認証。Webには何も出ない（Playwright 375/1280で設定の画素が変更前と一致）。
@@ -50,12 +58,12 @@
 
 コマンド:
 - `npm run ios:build` … 静的書き出し（API先は`https://kiri.kugainc.com`）。`-- --dev`で`http://localhost:3000`向け。検査に落ちると`out/`を消して止まる
-- **`ios:sync -- --dev`は効かない（L-6）** → `npm run ios:build -- --dev && npx cap sync ios`
+- `npm run ios:sync` … 書き出し→`cap sync ios`を1コマンドで（本番API）。**dev向けは`npm run ios:sync:dev`**（＝`npm run ios:sync -- --dev`。L-6解消: 引数は書き出し側へ渡し、`--dev`以外の引数は止める）
 - `npm run ios:open` … Xcodeで開く
 - シミュレータ用ビルド: `xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath <dir> build`
 - `.next`を共有するので`npm run dev`・`cf:build`と同時に走らせない。Workers Buildsに`KIRI_BUILD_TARGET`を置かない
 
-シミュレータQAの要点（iPhone 17 / 16e / 17 Pro Max・iOS 26.3.1で実施。チェックリストは本番CORSとDynamic Type以外PASS）:
+シミュレータQAの要点（iPhone 17 / 16e / 17 Pro Max・iOS 26.3.1で実施。チェックリストは本番CORS以外PASS。Dynamic TypeはD-26で対応）:
 - Xcode 26.3は**iOS 26.2プラットフォーム必須**。今のランタイムは26.3
 - `simctl`が固まることがある → タイムアウト付き（watchdog）で呼ぶ。復旧は`CoreSimulatorService`をkill
 - 再インストール後に古い起動画像が残る → `splashboardd`をkill
@@ -66,10 +74,10 @@
 1. **本番CORSの実確認**（デプロイ後。実APIは**2回まで**）
 2. **一日の上限**（Q2未変更。`DAILY_LIMIT_ANALYZE=30`のまま。**一般配布前に必ず見直す**。実費未計測。D-24付記）
 3. `src/lib/analyzeError.js`の失敗文言のオーナーレビュー
-4. Dynamic Typeに追従していない（WKWebView既定）。やるか決める
+4. ~~Dynamic Type~~ → D-26で追従（iOSアプリのみ・100%〜135%。ブランチ`agent/ios-polish`）。オーナーの目視確認待ち。切るなら`DYNAMIC_TYPE_ENABLED = false`
 5. L-4: `/terms`・`/support`のプレビュー文言とチャットパネル内文言はPhase 3で改稿
 6. L-5: 開発依存の`uuid`（<11.1.1、@capacitor/cli→xcode）moderate。ビルド道具のみ
-7. L-6（上記コマンド）／L-7: Info.plistの`UIRequiredDeviceCapabilities=armv7` → Phase 4のアップロード前に`arm64`へ／L-8: dev時の`capacitor://`→`http://localhost:3000`がATSで止まるか未確認
+7. ~~L-6~~（解消・`ios:sync:dev`）／~~L-7~~（解消: `UIRequiredDeviceCapabilities`を`arm64`に。iOS 15.5以上は64ビット端末のみ・arm64だけのバイナリでarmv7のままだとITMS-90502の恐れ。シミュレータビルド・起動OK。アップロード時に書き出したIPAのInfo.plistも確認）／L-8: dev時の`capacitor://`→`http://localhost:3000`がATSで止まるか未確認
 8. Workers Buildsの**mainより前のブランチ（非main）のビルドが無効か**確認
 9. 実機の検収（T13の後半）、Phase 3（RevenueCat・購読接続）の前に`npm pack @revenuecat/purchases-capacitor --dry-run | grep Package.swift`でSPM対応を確認
 10. アプリのロック（D-25）の実機検収（T-L9）。下の「アプリのロック」節を参照
@@ -96,7 +104,7 @@ Cloudflareに設定するもの: Secrets＝`CLAUDE_API_KEY`・`UPSTASH_REDIS_RES
 
 ローカル検証（2026-10-08）: test 138件・lint・build・audit(--omit=dev 0件)・OpenNext build OK。workerdプレビューでトップ等200、空入力 analyze 400／chat 403、Upstash未設定で両方503、実入力の analyze 200（Claude 2回）、Upstashにレート制限キー（IPハッシュ）と日次クォータ加算、ログに日記本文・IPなし。Worker gzip 1.4MB。Playwright 375/1280でトップ表示・画像OK
 
-残課題: 本番デプロイ・`kiri.kugainc.com`の割当（Workersのカスタムドメイン）・本番で`[kiri-store] incr fell back to memory`が出ないことの確認・1.20.7が2週間経つ10/13以降に版の再確認・`kiri.png`(512px/138KB)を48px表示しているので小さい版を作るか検討
+残課題: 本番デプロイ・`kiri.kugainc.com`の割当（Workersのカスタムドメイン）・本番で`[kiri-store] incr fell back to memory`が出ないことの確認・1.20.7が2週間経つ10/13以降に版の再確認・~~`kiri.png`(512px/138KB)を48px表示~~ → 3x版`public/kiri-avatar-144.png`(20KB)に置き換え済み（原本はアイコン用に残す。Playwright 375@3x/1280@2xで原本とPSNR 44/46dB）
 
 ## 2026-10-08 Phase 1-1 API保護の共有ストア化（コード側完了・push済み）
 

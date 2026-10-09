@@ -18,6 +18,16 @@ export const FORBIDDEN_MARKERS = Object.freeze([
   "x-api-key",
 ]);
 
+// npm run ios:build / ios:sync の引数。受け付けるのは --dev だけ。知らない引数は黙って無視せず止める（L-6）。
+export const IOS_BUILD_FLAGS = Object.freeze(["--dev"]);
+export function parseIosBuildArgs(argv = []) {
+  const unknown = argv.filter((arg) => !IOS_BUILD_FLAGS.includes(arg));
+  if (unknown.length) {
+    throw new Error(`知らない引数です: ${unknown.join(" ")}（使えるのは ${IOS_BUILD_FLAGS.join(" ")} だけ）`);
+  }
+  return { dev: argv.includes("--dev") };
+}
+
 // API のベースURL: 明示の NEXT_PUBLIC_KIRI_API_BASE ＞ --dev（ローカル dev）＞ 本番。
 // オリジンだけを受け付ける（パスや末尾スラッシュ付きは apiUrl() の連結を壊すので拒否）。
 export function resolveApiBase(argv = [], env = {}) {

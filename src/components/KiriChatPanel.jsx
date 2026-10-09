@@ -103,7 +103,7 @@ export default function KiriChatPanel({ userProfile, entry, result, onClose }) {
           <textarea value={input} onChange={(event) => setInput(event.target.value.slice(0, 1200))} placeholder="Kiriに聞きたいこと" rows={2} className="flex-1 resize-none rounded-xl bg-white/10 border border-white/15 p-3 text-sm text-white placeholder-kiri-lilac/60 focus:outline-none focus:ring-2 focus:ring-kiri-lilac" />
           <button type="submit" disabled={!input.trim() || loading} aria-label="送信" className="self-end kiri-button rounded-xl p-3 disabled:opacity-40"><Send className="w-5 h-5" /></button>
         </form>
-        <p className="px-4 pb-3 text-[11px] text-kiri-lilac/70">開発プレビュー：購入・購読状態の確認はまだ接続されていません。</p>
+        <p className="px-4 pb-3 text-[0.6875rem] text-kiri-lilac/70">開発プレビュー：購入・購読状態の確認はまだ接続されていません。</p>
       </div>
     </div>
   );

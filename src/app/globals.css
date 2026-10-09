@@ -101,8 +101,43 @@ body::before {
   input,
   select,
   textarea {
-    font-size: 16px;
+    /* iOS アプリで文字を大きくしているときは入力欄も一緒に大きく（16px 未満にはしない） */
+    font-size: max(16px, 1rem);
   }
+}
+
+/*
+  Dynamic Type（iOS アプリだけ。src/lib/dynamicType.js が html に目印と font-size を付ける）。
+  Tailwind の余白は rem なので、そのままだと画面ごと拡大される。目印のあるときだけ余白の単位を 4px に固定し、
+  文字（text-* の rem）だけを大きくする。Web には目印が付かないので変わらない。
+*/
+html[data-kiri-dynamic-type] {
+  --spacing: 4px;
+}
+
+/*
+  大きい文字（120% 以上・data-kiri-large-text）のときだけ、狭い画面で崩れやすい所の組み方を変える。
+  iPhone 16e（390px）・アクセシビリティサイズで「今日のヒ／ント」「読み解／く」と1文字だけ折れ、ヒントの2列は1行6文字ほどになった。
+  - セクション見出し: 見出しは折らず、バッジが入りきらなければ次の行へ
+  - 今日のヒント: 1列に
+  - 同意モーダルのボタン: 文言は折らず、2つ並ばなければ縦に積む
+*/
+html[data-kiri-large-text] .kiri-dt-section-head {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+html[data-kiri-large-text] .kiri-dt-section-head > h2 {
+  white-space: nowrap;
+}
+html[data-kiri-large-text] .kiri-dt-hint-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+html[data-kiri-large-text] .kiri-dt-actions {
+  flex-wrap: wrap;
+}
+html[data-kiri-large-text] .kiri-dt-actions > * {
+  flex: 1 1 auto;
+  white-space: nowrap;
 }
 
 /*

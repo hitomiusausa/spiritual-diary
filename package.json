@@ -17,7 +17,8 @@
     "cf-typegen": "wrangler types --env-interface CloudflareEnv ./cloudflare-env.d.ts",
     "postinstall": "node scripts/patch-privacy-screen.mjs",
     "ios:build": "node scripts/build-ios.mjs",
-    "ios:sync": "npm run ios:build && cap sync ios",
+    "ios:sync": "node scripts/sync-ios.mjs",
+    "ios:sync:dev": "node scripts/sync-ios.mjs --dev",
     "ios:open": "cap open ios"
   },
   "dependencies": {

@@ -38,7 +38,7 @@ export default function ConsentModal({ show, onAccept, onDecline, onReadPolicy }
             <Link href="/privacy" onClick={onReadPolicy} className="text-kiri-gold underline underline-offset-2">プライバシーポリシーを読む</Link>
           </p>
         </div>
-        <div className="flex gap-2 mt-5">
+        <div className="kiri-dt-actions flex gap-2 mt-5">
           <button
             type="button"
             onClick={onDecline}
