@@ -1107,7 +1107,8 @@ export default function SpiritualDiary() {
                 </p>
               </div>
 
-              <div className="space-y-3">
+              {/* 項目どうしは16px（大きい文字は14px）。見出し→入力欄6px・入力欄→補足4pxより広く空けて、項目の切れ目を見せる（D-29） */}
+              <div className="space-y-4 kiri-dt-stack">
                 <div>
                   <label className="block text-white text-sm mb-1.5 font-medium">ニックネーム（任意）</label>
                   <input
@@ -1251,7 +1252,7 @@ export default function SpiritualDiary() {
                 <div className="kiri-card rounded-xl p-4 kiri-dt-card">
                   <div className="space-y-4 kiri-dt-stack">
                     <div>
-                      <label className="block text-white text-sm mb-2 font-medium text-center">今日の気分を選んでください</label>
+                      <label className="block text-white text-sm mb-1.5 font-medium text-center">今日の気分を選んでください</label>
                       <div className="grid grid-cols-4 sm:grid-cols-6 gap-2" role="group" aria-label="今日の気分">
                         {MOODS.map(mood => (
                           <button
