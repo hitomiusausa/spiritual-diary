@@ -1,6 +1,6 @@
 # Kiri / Mind & Energy Note — 現状と次の作業
 
-更新日: 2026-07-28
+更新日: 2026-10-09
 
 ## 1. このリポジトリの位置づけ
 
@@ -85,7 +85,7 @@ src/lib/chatHistory.js
 
 ### App Store公開前
 
-- Swift/Capacitor等によるiOSアプリの器
+- iOSアプリの器: Phase 2として`agent/ios-shell`に実装・シミュレータQA済み（D-20〜D-24。未マージ・未実機）。アプリのロックはD-25で方針決定・実装中。ホスティングはCloudflare Workers（D-19）、サーバー保存ゼロ（D-18）。詳細はHANDOVER.mdの2026-10-09
 - StoreKitまたはRevenueCatによる購入・復元・購読状態確認
 - サーバー側のentitlement判定（クライアントのフラグを信用しない）
 - プライバシーポリシー、利用規約、サポートページ
@@ -106,7 +106,7 @@ src/lib/chatHistory.js
 3. 結果を端末またはアカウント単位で保存できるようにする（端末内保存＋JSONバックアップ済み: D-09。アカウント同期は将来）
 4. 無料結果と有料チャットの境界を確定する（済: D-11で閲覧境界も確定）
 5. 課金・entitlement・チャットを実装する（entitlementスタブ済み。課金はiOS化時: D-12）
-6. iOS化、実機QA、プライバシー資料、App Store提出を行う（法務3ページ作成済み・運営者表記は保留。iOSはCapacitor方式確定）
+6. iOS化、実機QA、プライバシー資料、App Store提出を行う（法務3ページ作成済み。iOSはCapacitorで器・同意画面・Preferences保存まで実装済み=Phase 2。残: 実機検収、課金=Phase 3、審査資料=Phase 4）
 
 ## 7. 検証状態（2026-07-28）
 

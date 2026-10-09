@@ -1,6 +1,6 @@
 # HANDOVER.md — Kiri 現在地
 
-最終更新: 2026-10-08
+最終更新: 2026-10-09
 
 新しいセッションでは、まず`CLAUDE.md` → `DECISIONS.md` → `HANDOVER.md`の順に読む。詳細な履歴は`docs/HANDOFF-2026-07-28.md`と`docs/PROJECT_STATUS.md`にある。
 
@@ -10,6 +10,41 @@
 - ブランチ: `agent/consolidate-spiritual-diary`
 - GitHub: `https://github.com/hitomiusausa/spiritual-diary`
 - 最新状態: 2026-07-28分まではGitHubへpush済み。2026-10-08のリリース準備 Phase 0（D-14〜D-16）もpush済み。
+
+## 2026-10-09 Phase 2 iOSの器（Capacitor・課金なし）
+
+ブランチ（**どれもmainへ未マージ・本番Webは不変**）:
+- `agent/ios-shell` … Phase 2の統合ブランチ（D-20〜D-24）。`agent/ios-qa`はそこから派生したQA修正（7件、HEAD `ea056ab`）
+- `agent/ios-lock` … アプリのロック（D-25）の実装中（T-L1/T-L2）。ロック画面の見た目は比較HTML→合意が先
+- mainへ入れる前: `npm run cf:build && npm run preview`で workerd 上の`/api/analyze` 400・`/api/chat` 403を再確認（D-20）
+
+コマンド:
+- `npm run ios:build` … 静的書き出し（API先は`https://kiri.kugainc.com`）。`-- --dev`で`http://localhost:3000`向け。検査に落ちると`out/`を消して止まる
+- **`ios:sync -- --dev`は効かない（L-6）** → `npm run ios:build -- --dev && npx cap sync ios`
+- `npm run ios:open` … Xcodeで開く
+- シミュレータ用ビルド: `xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath <dir> build`
+- `.next`を共有するので`npm run dev`・`cf:build`と同時に走らせない。Workers Buildsに`KIRI_BUILD_TARGET`を置かない
+
+シミュレータQAの要点（iPhone 17 / 16e / 17 Pro Max・iOS 26.3.1で実施。チェックリストは本番CORSとDynamic Type以外PASS）:
+- Xcode 26.3は**iOS 26.2プラットフォーム必須**。今のランタイムは26.3
+- `simctl`が固まることがある → タイムアウト付き（watchdog）で呼ぶ。復旧は`CoreSimulatorService`をkill
+- 再インストール後に古い起動画像が残る → `splashboardd`をkill
+- WebKitインスペクタ経由でJSを実行できる（UDIDを1台に固定して使う）。MobileBuildMCP 2.7.1をこのプロジェクトにlocal登録済み（次セッションから使用可）
+- QAで直したバグ: 起動時のPreferencesプロキシ（thenable）ハング、スプラッシュが起動画像サイズ上限超過で黒画面、iOSの入力ズーム／出生時刻欄の幅／ステータスバー、失敗文言のKiri口調化、エラーバナー10秒で閉じる、キャッシュ再表示で履歴が重複
+
+未了・要判断（優先順）:
+1. **本番CORSの実確認**（デプロイ後。実APIは**2回まで**）
+2. **一日の上限**（Q2未変更。`DAILY_LIMIT_ANALYZE=30`のまま。**一般配布前に必ず見直す**。実費未計測。D-24付記）
+3. `src/lib/analyzeError.js`の失敗文言のオーナーレビュー
+4. Dynamic Typeに追従していない（WKWebView既定）。やるか決める
+5. L-4: `/terms`・`/support`のプレビュー文言とチャットパネル内文言はPhase 3で改稿
+6. L-5: 開発依存の`uuid`（<11.1.1、@capacitor/cli→xcode）moderate。ビルド道具のみ
+7. L-6（上記コマンド）／L-7: Info.plistの`UIRequiredDeviceCapabilities=armv7` → Phase 4のアップロード前に`arm64`へ／L-8: dev時の`capacitor://`→`http://localhost:3000`がATSで止まるか未確認
+8. Workers Buildsの**mainより前のブランチ（非main）のビルドが無効か**確認
+9. 実機の検収（T13の後半）、Phase 3（RevenueCat・購読接続）の前に`npm pack @revenuecat/purchases-capacitor --dry-run | grep Package.swift`でSPM対応を確認
+10. 日記ロック（D-25）の実装・検収
+
+文言の更新: プライバシーポリシー2・4節とサポートFAQを、Web（ブラウザ）とiOSアプリ（アプリ内保存・端末バックアップ対象・アプリ削除で消える）の両方に正確な書き方へ直した。
 
 ## 2026-10-08 Cloudflare Workers 移行（ブランチ`agent/cloudflare-workers`・ローカル検証済み・未デプロイ）
 

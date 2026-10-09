@@ -179,3 +179,69 @@
   - **ログ**: `observability.logs.invocation_logs: false`（呼び出しログは接続元などリクエストのメタデータを含むため）、traces も無効。console の運用ログ（本文・IP・秘密を含まない）は残す。キーは wrangler の config-schema.json で確認
 - **バージョン選定の例外**: 方針は「リリースから2週間以上の安定版」だが、2週間を超える 1.20.6 は Next.js 16.3以降の実行時チャンクに未対応で、API ルートが`loadCustomCacheHandlers`内の`No such module "file:/.next/None"`で500になった（1.20.7 の #1403 で修正）。Next を 16.3 へ戻すのは本番の版を下げることになるため、1.20.7（2026-09-29）を採用した。wrangler も 4.143.0 以下に miniflare 経由の undici（high）が残るため、修正版の 4.143.1（2026-09-29）を採用した
 - **補足**: `esbuild`を開発依存に明示した（0.27.2）。OpenNext が宣言せずに import しており、vitest（vite の optional peer）と版が衝突して node_modules 直下に置かれず build が失敗したため。0.27.3〜0.28.0 は開発サーバーの脆弱性があるので避けた
+
+## D-20 iOS版は静的書き出し（Capacitor）で作り、切替は`KIRI_BUILD_TARGET=ios`
+
+- **Status**: 確定（2026-10-09、Phase 2、ブランチ`agent/ios-shell`。mainへは未マージ・本番Webは不変）
+- **決定**:
+  - Capacitor 8.5.2（SPM）。`@capacitor/core`・`cli`・`ios`は固定版。プラグインはpreferences・haptics・share・filesystem・status-bar・splash-screen（2週間ルールで固定）。Bundle ID `com.kugainc.kiri`、ホーム画面の表示名「Kiri」、App Storeは名前「Kiri」＋サブタイトル「Mind & Energy Note」（登録はPhase 4）。`ios/`はコミットする（生成物だが再現性のため）
+  - `next.config.mjs`は`KIRI_BUILD_TARGET === 'ios'`のときだけ`output:'export'`と`trailingSlash:true`を足す。APIルートは`route.js`→`route.api.js`に改名し、`pageExtensions`（Webは`api.js`を含む、iOSは含まない）で除外する。**`distDir`は使わない**（Next 16.4は書き出し先が`out/`でなく`distDir`になる）
+  - ビルドは`npm run ios:build`（`scripts/build-ios.mjs`）。`KIRI_BUILD_TARGET`と`NEXT_PUBLIC_KIRI_API_BASE`は**プロセス環境として**渡し、`.env.ios`は作らない（D-19: OpenNextが`.env*`をWorkerへ埋め込むため）。既定のAPI先は`https://kiri.kugainc.com`、`--dev`で`http://localhost:3000`
+  - **ビルド後の安全検査**: 必須ページの有無、秘密の変数名・値（`.env`系から照合）、チャット開発プレビュー文言の混入を調べ、問題があれば`out/`を消して失敗にする。`--dev`でないビルドは`NEXT_PUBLIC_KIRI_CHAT_PREVIEW=0`を強制する（`.env.local`に`=1`があっても本番向けに入らない）
+  - Workers Buildsの環境変数に**`KIRI_BUILD_TARGET`を置かない**（置くと本番が静的化してAPIが消える。未設定ならWeb既定）
+- **理由**: 実測で、リポの書き出しとOpenNextの両ビルドが正しく出た。ディレクトリ退避方式はビルド途中の失敗で`src/app/api`が消えたままになる事故があり、`pageExtensions`は決定的で副作用がない。監査（audit-AB）でworkerd上の`route.api.js`＋`pageExtensions`の動作とCORSを実測確認済み。
+- **代償**: 本番のビルド経路（ファイル名と`pageExtensions`）に触れるので、main統合前に`cf:build`＋workerdプレビューで`/api/analyze` 400・`/api/chat` 403を再確認する。`.next`を共有するため`npm run dev`や`cf:build`と同時に走らせない。ドメインを変える日はiOSを再ビルドして審査に出し直す。
+
+## D-21 CORSは`capacitor://localhost`だけを許可する
+
+- **Status**: 確定（2026-10-09）。実本番での確認はデプロイ後（HANDOVER参照）
+- **決定**: `src/lib/cors.js`の許可リストは`capacitor://localhost`のみ（完全一致・Originをそのまま返す）。両APIに`OPTIONS`を足し、許可Originなら204＋`Allow-Origin`・`Allow-Methods: POST, OPTIONS`・`Allow-Headers: Content-Type`・`Max-Age: 86400`・`Vary: Origin`。POSTの全応答（400/403/429/503含む）にも許可Originのときだけ同じヘッダと`Expose-Headers: Retry-After`を付ける。`*`と`Allow-Credentials`は使わない。`https://kiri.kugainc.com`は入れない（Webは同一オリジン）。開発用`KIRI_EXTRA_ALLOWED_ORIGINS`は`production/preview`判定（D-19の`isGuardedDeployEnv`）では無視する。`CapacitorHttp`は有効化しない。OPTIONSはレート制限・クォータを消費しない
+- **理由**: `Content-Type: application/json`でプリフライトが走るため。CORSはブラウザの読み取り制限を緩めるだけで、API防御（IPレート制限・日次クォータ・Cookieなし・秘密なし）には関与しない。他サイトのOriginは今後もプリフライトで落ちる。
+- **注意**: 許可リストを`*`にした瞬間、他サイトが利用者のブラウザ経由でAPIを叩けるようになるので絶対にやらない。
+
+## D-22 端末保存はネイティブでPreferencesへ。一度きりの非破壊移行
+
+- **Status**: 確定（2026-10-09、D-09の第二段階）
+- **決定**:
+  - `src/lib/storage.js`: `initStorage()`（非同期・起動時1回）と`getStorage()`（同期の`getItem/setItem/removeItem`）。Webは`window.localStorage`をそのまま返す。ネイティブ（`Capacitor.isNativePlatform()`）では起動時に対象キーをPreferencesからメモリへ読み、書き込みはメモリ更新（同期）＋Preferencesへのwrite-through（キーごとに直列化・最後の値が勝つ）。`history.js`・`backup.js`・`chatHistory.js`・`analysisCache.js`は`storage`引数設計のまま無変更
+  - 対象キー: 履歴・プロフィール・チャット・端末キャッシュ・**同意（`spiritual-diary.consent.v1`）**。同意を含めないと起動毎に同意画面が再表示される
+  - **一度きり移行**: ネイティブで`spiritual-diary.migrated.v1`がPreferencesに無いとき、WKWebViewのlocalStorageにある対象キーを**コピー**してから印を置く。localStorage側は**消さない**（D-09「既存データを消さない」）。**優先順位**: Preferencesに既にある値は上書きしない（移行はPreferencesに無いキーだけを埋める）。印があれば以後localStorageは読まない
+  - 起動の落とし穴: Capacitorのプラグインプロキシは`then`を持つように見え、Promiseの解決値に入れると永久に待つ。解決値にプロキシを渡さない（66924b1）
+- **理由**: ライブラリは全部同期APIでstorageを引数に取るので、同期シムなら呼び出し側の改修が最小。PreferencesはiCloud/端末バックアップの対象で、WebKitの7日削除（ITP）から逃れられる。
+- **代償**: write-through直後の強制終了で最後の1書き込みが落ち得る（数ms窓）。データが数MBに育ったらFilesystem移設をD-09第三段階と合わせて判断する。初期化前の`getStorage()`書き込みは禁止（読み書きのずれ。監査P2-5）。
+
+## D-23 AI送信の同意画面（Web・iOS共通、撤回可）
+
+- **Status**: 確定（2026-10-09、オーナー承認。App Store 5.1.2(i)対応）
+- **決定**:
+  - `src/lib/consent.js`: `CONSENT_VERSION = 1`、キー`spiritual-diary.consent.v1`（`{version, acceptedAt}`）。**バックアップには含めない**（端末ごとの同意。取り込み側もホワイトリストで同意を立てない）
+  - 同意が無い状態で「読み解く」（およびチャット送信）を押すとモーダルを出し、同意後に続行する。起動時にはブロックしない。文言は、基本情報と今日の記録がくうが株式会社のサーバーを経由してAnthropic社のAI（Claude）に送られること、送信は読み解きのときだけでサーバーに日記を保存しないこと、取り扱いは同社の方針に従うこと、設定でいつでも取り消せること。ボタンは「同意して読み解く」「今はやめる」＋ポリシーへのリンク（読んでも書きかけが消えない）
+  - 撤回は設定の「AI送信の同意を取り消す」。「すべて削除」は同意を消さない（同意は記録ではなく端末の設定）
+  - **断った場合**: 送信はしない。ただし危機表現は`detectCrisis`（外部依存なしの純関数）で**端末内で検出**し、当たれば`SupportCard`（相談窓口）を出す。D-15「つらい気持ちで書いた人を突き放さない」の維持（監査P1-1）
+  - Webにも出す（送信内容が同じなので説明責任も同じ）。プライバシーポリシー2〜3節の文言変更を承認済み
+- **理由**: 5.1.2(i)は第三者AIへの共有前の明示的な許可を求める。D-18の「サーバー保存ゼロ」は文言の強み。
+- **代償**: 初回体験に1タップ増える。
+
+## D-24 課金開始までプレミアムカード・チャット入口を隠す（Web・iOS）
+
+- **Status**: 確定（2026-10-09、オーナー決定Q4）
+- **決定**: プレミアムカード（とその中の「開発プレビューでKiriに聞く」）、`KiriChatPanel`、プレミアムのInfoPopupは`NEXT_PUBLIC_KIRI_CHAT_PREVIEW === '1'`のビルドでだけ描画する。`next.config`で未設定を`'0'`に静的置換し、フラグ外のコードはバンドルから消える。サーバーの403ゲート（`KIRI_CHAT_PREVIEW`未設定）は残す（二重の壁）。開発でチャットを試すには`NEXT_PUBLIC_KIRI_CHAT_PREVIEW=1`と`KIRI_CHAT_PREVIEW=1`の両方が要る（`.env.local`のみ。iOSは`--dev`ビルドのみ。D-20の強制`0`参照）。チャット送信にも同意ゲートを置いた
+- **持ち越し（L-4）**: `/terms`・`/support`の「開発プレビュー」文言とチャットパネル内文言はPhase 3（課金接続）で改稿する。
+
+## D-25 アプリのロック方針（決定済み・実装は進行中）
+
+- **Status**: 方針確定（2026-10-09、オーナー決定）。実装はT-L1/T-L2（ブランチ`agent/ios-lock`）。ロック画面の見た目は比較HTML→合意→実装の順
+- **決定**:
+  - 守る対象は「他人に見られないこと」。**OS認証（Face ID／Touch ID／端末パスコード）だけ**でゲートする。独自パスワードは持たず、忘れて全損するリスクがない（D-09と矛盾しない）
+  - **Web版にはロックをつけない**（T-L10不要）
+  - 端末内データの暗号化はしない。**バックアップの合言葉暗号化は今はつけない**（保留。将来のためにデータ形式の`version`を確保するのは任意）
+  - 自動ロックの既定は**5分**（選択肢: すぐに／1／5／15分）。切り替え画面はOSの目隠し
+- **理由**: 暗号化（端末内）は「合言葉を忘れたら全損」でD-09・D-18と両立しない。覗き見・貸し出しにはゲートで足りる。
+- **正直な限界**: 平文のままiCloudバックアップとバックアップJSONに乗る点はゲートでは守れない（バックアップの扱いは利用者の管理）。
+
+## 付記（Phase 2 の確定事項）
+
+- **Q2 一日の上限は未変更**: `DAILY_LIMIT_ANALYZE=30`（全体合算）のまま。1端末あたり上限（T11）も入れていない。**アプリを一般配布する前に必ず見直す**（Kiriワークスペース月$20のままだと実費$0.05/回で約13回/日分。実費は未計測）。
+- **スプラッシュはA案「静かな霧」**（「霧の谷の光」風グラデーション3案から、ロゴなし・初画面と最も自然につながる案を選択。ステータスバーは明るい文字）。iOSの起動画像サイズ上限を超えると黒画面になるため、機種ごとの縦長クロップを使う（17e0710）。
+- **エラー文言**: `src/lib/analyzeError.js`にKiriの口調の失敗メッセージを実装済み（2c55694）。文言はオーナーのレビュー待ち。
+- **iOSの表示**: 入力欄は16px（フォーカス時の自動ズーム防止）、ステータスバー背後にスクリム。Dynamic Typeには追従していない（WKWebView既定。要検討）。
