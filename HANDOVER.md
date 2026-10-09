@@ -253,3 +253,16 @@ npm run dev
 ### 2026-10-09 最終（ロック再監査の後）
 - 再監査（scratchpad rereview-lock.md）: P0/P1なし。P2-A（postinstall失敗でWeb本番ビルド停止）→ postinstallは警告のみ・`ios:build`は`--strict`で停止に変更。P2-B（prepareLockBootの例外で起動停止）→ ロックなしで続行。P2-C（ロックON時スプラッシュ最大+1.5秒）・P2-D（心拍の小さな穴、早めロック側）は記録のみ。
 - 次: 実機T-L9（ひとみうさのiPhone。Xcodeで Team=くうが株式会社 を選んで実機ビルド）→ 監査チェック項目（共有シートがロックの上に残る件・切り替え画面のぼかし・「すぐに」で中身が一瞬見えないか・注記どおりパスコードが出るか・コントロールセンター後のクラッシュ）→ main へのマージ判断（ユーザーが `git push origin agent/ios-lock:main`）→ 本番CORSを実呼び出し1〜2回で確認。
+
+### 2026-10-09 午後（ひとみうさ外出中に進めた分）
+- 改善: `ios:sync:dev`（L-6）・Info.plist arm64（L-7）・アバター144px化（138KB→20KB）・**Dynamic Type（D-26、iOSアプリのみ100〜135%・Webは不変・`src/lib/dynamicType.js`の`DYNAMIC_TYPE_ENABLED`で切れる）**。ロック画面は自動でFace IDを始めずボタンから（D-25更新）。設定を開くたびに認証可否を再確認。
+- 設計資料は `docs/plans/2026-10-09/`（README参照）。Phase 3課金設計・Phase 4申請素材の下書きもここ。
+
+### ひとみうさの判断待ち（次回まとめて）
+1. 文言の確認: 失敗時のKiriの声（`src/lib/analyzeError.js`）・ロック画面・フェイルオープン通知
+2. Dynamic Type をこのまま採用するか（シミュレータで「設定→アクセシビリティ→画面表示とテキストサイズ→さらに大きな文字」で確認）
+3. **App Store 4.3(b)**: Appleは「占い（fortune telling）」を新規受付しない例に名指し（原文確認済み）。日記＋内省＋AIとして見せる方針（名前・説明・スクショで占い語を避け、カテゴリはライフスタイル）でよいか。結果画面の見出し調整の要否
+4. Phase 3 課金の質問5件（`docs/plans/2026-10-09/kiri-phase3-billing-design.md` §4）: 月額価格（推奨¥480）・無料トライアル（推奨なし）・1日の上限（推奨60通）・解約後のログ閲覧（推奨: 消さずに閲覧可）・商品名と約束内容
+5. 公開前の日次上限（全体30回では審査員が429で弾かれうる）・Anthropic側の保持（最長30日）をプライバシーポリシーに追記するか
+6. Cloudflare Workers Builds の main 以外のビルド無効の確認 → 確認できたら作業ブランチを GitHub へ push（バックアップ）
+7. 実機T-L9 → main マージ（`git push origin agent/ios-lock:main`）→ 本番CORS確認
