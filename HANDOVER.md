@@ -277,3 +277,9 @@ npm run dev
 - くうが株式会社の登録は**処理中**（登録ID 6HD9YZT8ZL。Appleが署名権限を確認中→完了メール待ち。確認の電話が来ることがある）。Xcodeのアカウント（hitomisisa@yahoo.co.jp）に見えるのは「TEPPEI TSUZUKI（Finance・署名不可・Kiriには使わない）」と「Personal Team」だけ
 - それまでの実機テストは **Personal Team**（無料・プロファイル7日・課金などは不可）。署名チームの設定は project.pbxproj に入るが**コミットしない**
 - TestFlight・課金（Phase 3）・App Store提出は法人登録の完了が前提
+
+### 実機テスト T-L9（2026-10-10 ひとみうさの iPhone 12 mini・Personal Team 署名・本番API向けビルド）
+- PASS: 初回は基本情報から→入力後に完全終了して再起動すると日記画面から（Preferences 保存）／ロックをオンにすると Face ID 確認／Appスイッチャーで画面がぼける／Face ID に2回失敗すると iOS が「パスコードを入力」を出す（ロック画面の注記は事実どおり）・「あとで」でロック画面に戻り文言なし（設計どおり）／コントロールセンターの出し入れで落ちない
+- 想定どおりの失敗: 読み解きは「通信がつながっていない」系のエラー（本番にまだ CORS が無いため。AI は呼ばれていない）→ main マージ後に確認
+- 未確認: 共有シートを開いたまま背景→戻るとロックの上に残る件（D-25 で受容済みの残リスク）・「すぐに」で戻る瞬間に中身が一瞬見えないか（目視では気づかず）
+- 再インストール: Personal Team は7日で失効。`xcodebuild ... -destination 'id=00008101-000A19540E69003A' -allowProvisioningUpdates DEVELOPMENT_TEAM=QJ8WUGJF25 CODE_SIGN_STYLE=Automatic build` → `xcrun devicectl device install app --device 925C3C81-1356-517C-BD44-2A1682B50974 <App.app>`（プロジェクトファイルは書き換えない）
