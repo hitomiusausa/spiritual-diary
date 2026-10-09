@@ -1,6 +1,8 @@
 // アプリのロックの画面まわりの純粋関数（T-L3・T-L4）。React から切り離して vitest で確かめる。
 // 文言の規律（設計 Ruling 16）: 画面に「暗号化」「パスワード」を出さない。
 
+import { AUTO_LOCK_CHOICES } from "./appLock";
+
 const METHODS = {
   faceId: { kind: "faceId", label: "Face IDでひらく" },
   touchId: { kind: "touchId", label: "Touch IDでひらく" },
@@ -37,4 +39,79 @@ export function lockScreenView(state, biometryType) {
     message,
     detail,
   };
+}
+
+// ---- 設定・再認証の結線（T-L4）----
+
+
+const AUTO_LOCK_LABELS = { 0: "すぐに", 1: "1分", 5: "5分", 15: "15分" };
+export const AUTO_LOCK_OPTIONS = Object.freeze(
+  AUTO_LOCK_CHOICES.map((value) => Object.freeze({ value, label: AUTO_LOCK_LABELS[value] })),
+);
+
+// ロック画面が出てから自動で OS 認証を呼ぶまでの待ち（復帰直後はアプリがまだ前面になりきっておらず、
+// すぐ呼ぶと notInteractive で失敗するため）。
+export const AUTO_AUTH_DELAY_MS = 400;
+
+export const LOCK_SETTINGS_NOTE = "他の人に記録を見られないようにする機能です。端末の中の保存データは、これまでどおりのままです。";
+
+// OS の認証画面（Touch ID・パスコード）に出る理由文。Face ID は Info.plist の NSFaceIDUsageDescription が出る。
+export const LOCK_AUTH_REASONS = Object.freeze({
+  unlock: "Kiri のロックを解除します",
+  enable: "アプリのロックをオンにするために確認します",
+  disable: "アプリのロックをオフにするために確認します",
+  export: "バックアップを書き出すために確認します",
+});
+
+const RETRY_NOTICE = "確認できませんでした。もう一度お試しください。";
+const NEEDS_PASSCODE_NOTICE = "端末のパスコードを設定すると使えます。";
+const CANCEL_CODES = new Set(["userCancel", "appCancel", "systemCancel"]);
+const NO_PASSCODE_CODES = new Set(["passcodeNotSet", "noDeviceCredential"]);
+// 自動の 1 回目は、キャンセルや「まだ前面でない」で失敗しても黙ってボタン待ちにする。
+const SILENT_AUTO_CODES = new Set([...CANCEL_CODES, "notInteractive"]);
+
+// 設定に「アプリのロック」を出すか（Ruling 16）。Web では決して出さない（オーナー決定 Q2）。
+// ロックがオンのまま端末のパスコードが外された場合も、オフにできるよう項目は残す。
+export function shouldOfferLockSettings({ native, availability, enabled }) {
+  if (!native) return false;
+  return Boolean(availability?.available) || enabled === true;
+}
+
+// 切り替え画面の目隠しは、ロックがオン かつ「切り替え画面で記録を隠す」がオンのときだけ（Ruling 5）。
+export function privacyScreenWanted(settings) {
+  return Boolean(settings?.enabled && settings?.hideInSwitcher);
+}
+
+export function lockToggleDescription(biometryType) {
+  if (biometryType === "faceId") return "Face ID・端末のパスコードで、アプリを開くときに確認します。";
+  if (biometryType === "touchId") return "Touch ID・端末のパスコードで、アプリを開くときに確認します。";
+  return "端末のパスコードで、アプリを開くときに確認します。";
+}
+
+export function autoAuthFailEvent(code) {
+  return { type: "authFail", code: SILENT_AUTO_CODES.has(code) ? "userCancel" : code };
+}
+
+// 再認証が要る操作（バックアップの書き出し・ロックのオフ。Ruling 11）は、ロックがオンのときだけ確認する。
+export function needsReauth(lockState) {
+  return lockState?.enabled === true;
+}
+
+// 書き出し・オフの前の再認証の結果 → 続けるか。
+// 端末のパスコードが無い端末ではロック自体が働かないので、フェイルオープン（Ruling 9）。
+export function reauthOutcome(result) {
+  if (result?.ok) return { proceed: true, failOpen: false, notice: null };
+  const code = result?.code;
+  if (NO_PASSCODE_CODES.has(code)) return { proceed: true, failOpen: true, notice: null };
+  if (CANCEL_CODES.has(code)) return { proceed: false, failOpen: false, notice: null };
+  return { proceed: false, failOpen: false, notice: RETRY_NOTICE };
+}
+
+// ロックをオンにする前の確認の結果 → オンにするか。パスコードの無い端末ではオンにできない（Ruling 3）。
+export function enableOutcome(result) {
+  if (result?.ok) return { enable: true, notice: null };
+  const code = result?.code;
+  if (NO_PASSCODE_CODES.has(code)) return { enable: false, notice: NEEDS_PASSCODE_NOTICE };
+  if (CANCEL_CODES.has(code)) return { enable: false, notice: null };
+  return { enable: false, notice: RETRY_NOTICE };
 }
