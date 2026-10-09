@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { initialLockState, reduceLock } from "@/lib/appLock";
 import {
   AUTO_LOCK_OPTIONS,
@@ -225,5 +227,29 @@ describe("turning the lock on", () => {
       ...Object.values(LOCK_AUTH_REASONS),
     ];
     for (const text of texts) expect(text).not.toMatch(FORBIDDEN);
+  });
+});
+
+// 監査 P2-6: 文言の規律（Ruling 16）を、ロックについて書いたポリシーと FAQ、ロック画面のコンポーネントにも広げる。
+// コメント（「暗号化ではない」と書いた設計メモ）は対象外にし、画面に出る文字だけを見る。
+describe("wording rule on the pages that describe the lock", () => {
+  const stripComments = (source) =>
+    source
+      .replace(/\{\/\*[\s\S]*?\*\/\}/g, "")
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/(^|[^:])\/\/.*$/gm, "$1");
+
+  it.each(["src/app/privacy/page.js", "src/app/support/page.js", "src/components/LockScreen.jsx", "src/components/SpiritualDiary.jsx"])(
+    "%s does not show the forbidden words",
+    (file) => {
+      const source = readFileSync(join(process.cwd(), file), "utf8");
+      expect(stripComments(source)).not.toMatch(FORBIDDEN);
+    },
+  );
+
+  it("the policy and the FAQ actually talk about the lock (so the check is meaningful)", () => {
+    for (const file of ["src/app/privacy/page.js", "src/app/support/page.js"]) {
+      expect(readFileSync(join(process.cwd(), file), "utf8")).toContain("アプリのロック");
+    }
   });
 });
