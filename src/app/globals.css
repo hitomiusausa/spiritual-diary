@@ -101,8 +101,9 @@ body::before {
   input,
   select,
   textarea {
-    /* iOS アプリで文字を大きくしているときは入力欄も一緒に大きく（16px 未満にはしない） */
-    font-size: max(16px, 1rem);
+    /* iOS アプリで文字を大きくしているときは入力欄も少し大きく。本文より一段小さく（0.875rem）して、
+       画面を押し出しすぎないようにする（16px 未満にはしない。2026-10-09 ひとみうさ確認） */
+    font-size: max(16px, 0.875rem);
   }
 }
 
@@ -122,6 +123,11 @@ html[data-kiri-dynamic-type] {
   - 今日のヒント: 1列に
   - 同意モーダルのボタン: 文言は折らず、2つ並ばなければ縦に積む
 */
+/* 大きい文字のとき、日記の「記録する」欄を低くして「Kiriに読み解いてもらう」まで1画面に入れる（2026-10-09） */
+html[data-kiri-large-text] .kiri-dt-event {
+  height: 84px; /* rem だと文字と一緒に伸びるので px（通常は h-32＝128px） */
+}
+
 html[data-kiri-large-text] .kiri-dt-section-head {
   flex-wrap: wrap;
   row-gap: 4px;

@@ -1279,7 +1279,7 @@ export default function SpiritualDiary() {
                         value={entry.event}
                         onChange={(e) => setEntry({...entry, event: e.target.value})}
                         placeholder={placeholders.event}
-                        className="w-full px-3 py-2.5 text-sm rounded-lg bg-white/20 text-white border border-kiri-lilac/50 focus:outline-none focus:ring-2 focus:ring-kiri-lilac h-32 resize-none placeholder-kiri-lilac/70"
+                        className="w-full px-3 py-2.5 text-sm rounded-lg bg-white/20 text-white border border-kiri-lilac/50 focus:outline-none focus:ring-2 focus:ring-kiri-lilac h-32 resize-none placeholder-kiri-lilac/70 kiri-dt-event"
                       />
                     </div>
 
