@@ -10,7 +10,7 @@ import SupportCard from '@/components/SupportCard';
 // - つらいときの相談先は、ページ移動せずにこの画面の中で開く（D-15。移動すると本体が消えて書きかけが失われるため）。
 // view は lockScreenView()（src/lib/lockUi.js）の戻り値。
 
-const METHOD_ICONS = { faceId: ScanFace, touchId: Fingerprint, passcode: KeyRound };
+const METHOD_ICONS = { faceId: ScanFace, touchId: Fingerprint, passcode: KeyRound, pending: Lock };
 
 const BACKGROUND = {
   backgroundColor: '#171522',
@@ -18,7 +18,7 @@ const BACKGROUND = {
     'radial-gradient(circle at 50% -10%, rgba(126, 104, 156, 0.2), transparent 42%), linear-gradient(180deg, #171522 62%, rgba(40, 35, 58, 0.55) 100%)',
 };
 
-export default function LockScreen({ view, onUnlock, onPasscode }) {
+export default function LockScreen({ view, onUnlock }) {
   const [showSupport, setShowSupport] = useState(false);
   const primaryRef = useRef(null);
   const supportCloseRef = useRef(null);
@@ -104,17 +104,8 @@ export default function LockScreen({ view, onUnlock, onPasscode }) {
                 <PrimaryIcon className="w-5 h-5" strokeWidth={1.6} aria-hidden="true" />
                 {view.busy ? '確認しています' : view.primaryLabel}
               </button>
-              {view.showPasscode && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!view.busy) onPasscode();
-                  }}
-                  aria-disabled={view.busy || undefined}
-                  className="w-full h-[52px] rounded-full flex items-center justify-center text-[15px] tracking-[0.06em] border border-kiri-gold/25 text-kiri-fog bg-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-kiri-fog/70 aria-disabled:opacity-60"
-                >
-                  端末のパスコードでひらく
-                </button>
+              {view.note && (
+                <p className="text-xs leading-relaxed text-kiri-lilac/80 text-center px-2">{view.note}</p>
               )}
             </div>
             <button

@@ -8,9 +8,13 @@ const METHODS = {
   touchId: { kind: "touchId", label: "Touch IDでひらく" },
 };
 const PASSCODE_METHOD = { kind: "passcode", label: "パスコードでひらく" };
+// 端末の対応がまだ分からない間（起動直後）。後で別の名前に変わって見えないよう、どの方法でも正しい言い方にする（監査 P2-7）。
+const PENDING_METHOD = { kind: "pending", label: "端末の認証でひらく" };
+const BIOMETRY_NAMES = { faceId: "Face ID", touchId: "Touch ID" };
 
-// checkLockAvailability().biometryType（"faceId" | "touchId" | "none"）→ ボタンの文言とアイコンの種類。
+// checkLockAvailability().biometryType（"faceId" | "touchId" | "none"、未確認なら null）→ ボタンの文言とアイコンの種類。
 export function unlockMethod(biometryType) {
+  if (biometryType === null || biometryType === undefined) return { ...PENDING_METHOD };
   return { ...(METHODS[biometryType] ?? PASSCODE_METHOD) };
 }
 
@@ -23,21 +27,24 @@ function splitMessage(text) {
 }
 
 // reduceLock の状態 → ロック画面（A 静かな扉）の表示。
-// idle: 錠前＋「ロックされています」＋ボタン 1 つ / failed: 失敗文言＋「もう一度」＋「端末のパスコードでひらく」。
+// idle: 錠前＋「ロックされています」＋ボタン 1 つ / failed: 失敗文言＋「もう一度ためす」＋パスコードの小さな注記。
+// 「端末のパスコードでひらく」の 2 つ目のボタンは置かない: プラグインにパスコード直行の指定が無く、同じ OS の画面を
+// 呼び直すだけだったため（監査 P2-3）。パスコードは Face ID・Touch ID に失敗したあと OS が出す。
 export function lockScreenView(state, biometryType) {
   const method = unlockMethod(biometryType);
   const failed = Boolean(state?.message) && !state?.failOpen;
   // 失敗文言は Face ID 前提で書かれているので、Touch ID の端末では名前を差し替える。
   const text = failed && method.kind === "touchId" ? state.message.replaceAll("Face ID", "Touch ID") : state?.message;
   const { message, detail } = failed ? splitMessage(text) : { message: null, detail: null };
+  const biometryName = BIOMETRY_NAMES[method.kind];
   return {
     mode: failed ? "failed" : "idle",
     busy: Boolean(state?.authenticating),
-    primaryLabel: failed ? "もう一度" : method.label,
+    primaryLabel: failed ? "もう一度ためす" : method.label,
     method: method.kind,
-    showPasscode: failed && method.kind !== "passcode",
     message,
     detail,
+    note: failed && biometryName ? `${biometryName} がうまくいかないときは、iOS が端末のパスコードの入力をたずねます。` : null,
   };
 }
 

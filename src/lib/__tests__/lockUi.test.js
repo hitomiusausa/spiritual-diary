@@ -22,7 +22,7 @@ describe("unlockMethod (button label by biometry type)", () => {
     expect(unlockMethod("faceId")).toEqual({ kind: "faceId", label: "Face IDでひらく" });
     expect(unlockMethod("touchId")).toEqual({ kind: "touchId", label: "Touch IDでひらく" });
     expect(unlockMethod("none")).toEqual({ kind: "passcode", label: "パスコードでひらく" });
-    expect(unlockMethod(undefined)).toEqual({ kind: "passcode", label: "パスコードでひらく" });
+    expect(unlockMethod(undefined)).toEqual({ kind: "pending", label: "端末の認証でひらく" });
   });
 });
 
@@ -35,10 +35,18 @@ describe("lockScreenView", () => {
       busy: false,
       primaryLabel: "Face IDでひらく",
       method: "faceId",
-      showPasscode: false,
       message: null,
       detail: null,
+      note: null,
     });
+  });
+
+  // 監査 P2-7: 端末の対応が分かる前に「パスコードでひらく」と出して「Face IDでひらく」へ変わらないように。
+  it("uses a neutral label until the device's method is known", () => {
+    for (const unknown of [null, undefined]) {
+      expect(lockScreenView(locked, unknown)).toMatchObject({ primaryLabel: "端末の認証でひらく", method: "pending" });
+    }
+    expect(lockScreenView(locked, "none")).toMatchObject({ primaryLabel: "パスコードでひらく", method: "passcode" });
   });
 
   it("is busy while the OS sheet is up", () => {
@@ -53,15 +61,25 @@ describe("lockScreenView", () => {
     expect(view.message).toBeNull();
   });
 
-  it("shows the failure state with retry and a passcode button after a failed attempt", () => {
+  // 監査 P2-3: 2 つ目のボタン（端末のパスコードでひらく）は同じ OS の画面を呼び直すだけだった。
+  // ボタンは 1 つにして正直な名前にし、パスコードは OS が出すことを小さく添える。
+  it("shows one honest retry button and a note about the passcode after a failed attempt", () => {
     const view = lockScreenView(reduceLock(locked, { type: "authFail", code: "authenticationFailed" }), "faceId");
-    expect(view).toMatchObject({
+    expect(view).toEqual({
       mode: "failed",
-      primaryLabel: "もう一度",
-      showPasscode: true,
+      busy: false,
+      primaryLabel: "もう一度ためす",
+      method: "faceId",
       message: "認証できませんでした。",
       detail: "もう一度お試しください。",
+      note: "Face ID がうまくいかないときは、iOS が端末のパスコードの入力をたずねます。",
     });
+    expect(view).not.toHaveProperty("showPasscode");
+  });
+
+  it("names Touch ID in the note on Touch ID devices", () => {
+    const view = lockScreenView(reduceLock(locked, { type: "authFail", code: "authenticationFailed" }), "touchId");
+    expect(view.note).toBe("Touch ID がうまくいかないときは、iOS が端末のパスコードの入力をたずねます。");
   });
 
   it("explains a lockout in two lines (the OS will ask for the passcode next)", () => {
@@ -76,15 +94,15 @@ describe("lockScreenView", () => {
     expect(view.message).toBe("Touch ID が一時的に使えません。");
   });
 
-  it("does not offer a separate passcode button when the passcode is already the method", () => {
+  it("adds no passcode note when the passcode is already the method", () => {
     const view = lockScreenView(reduceLock(locked, { type: "authFail", code: "authenticationFailed" }), "none");
-    expect(view.showPasscode).toBe(false);
+    expect(view.note).toBeNull();
   });
 
   it("never uses the forbidden words", () => {
     for (const code of ["authenticationFailed", "biometryLockout", "unknown", "passcodeNotSet"]) {
       const view = lockScreenView(reduceLock(locked, { type: "authFail", code }), "faceId");
-      expect(`${view.primaryLabel}${view.message ?? ""}${view.detail ?? ""}`).not.toMatch(FORBIDDEN);
+      expect(`${view.primaryLabel}${view.message ?? ""}${view.detail ?? ""}${view.note ?? ""}`).not.toMatch(FORBIDDEN);
     }
   });
 });

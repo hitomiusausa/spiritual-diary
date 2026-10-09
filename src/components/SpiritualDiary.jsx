@@ -1820,7 +1820,6 @@ export default function SpiritualDiary() {
         <LockScreen
           view={lockScreenView(lockState, lockAvailability?.biometryType)}
           onUnlock={() => unlockApp()}
-          onPasscode={() => unlockApp()}
         />
       );
     }
