@@ -31,6 +31,10 @@ function fail(message) {
   process.exit(1);
 }
 
+// @capacitor/privacy-screen の iOS 実装を Kiri 版に差し替える（D-25・ロック監査 P2-2）。想定外なら止める。
+const patched = spawnSync(process.execPath, [join(projectRoot, "scripts/patch-privacy-screen.mjs")], { stdio: "inherit" });
+if (patched.status !== 0) fail("@capacitor/privacy-screen の差し替えに失敗しました");
+
 let apiBase;
 try {
   apiBase = resolveApiBase(argv, process.env);

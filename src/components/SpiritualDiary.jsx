@@ -109,8 +109,8 @@ export default function SpiritualDiary() {
   const [failOpenDismissed, setFailOpenDismissed] = useState(false);
 
   // OS 認証・再認証・オン/オフの結線は lockController.js（テスト済み）。状態は reduceLock に dispatch する。
-  // 切り替え画面の目隠しは、@capacitor/privacy-screen 2.0.1 の不具合（D-25）のため OS 認証の間だけ外す（shieldDuringAuth）。
-  // 認証中に背景へ回ったら、controller が目隠しをすぐ戻す。
+  // 切り替え画面の目隠しは OS 認証の間も付けたまま（@capacitor/privacy-screen 2.0.1 の不具合はパッチで直した。D-25）。
+  // だから Face ID の画面のまま背景へ回っても、切り替え画面には記録が写らない。
   const lockSettingsRef = useRef(lockSettings);
   lockSettingsRef.current = lockSettings;
   const lockStateRef = useRef(lockState);
@@ -121,7 +121,6 @@ export default function SpiritualDiary() {
     getSettings: () => lockSettingsRef.current,
     authenticate: authenticateForLock,
     setPrivacyScreen,
-    shieldDuringAuth: true,
   }));
   const unlockApp = (options) => lockController.unlock(options);
 
