@@ -50,7 +50,7 @@
 
 コマンド:
 - `npm run ios:build` … 静的書き出し（API先は`https://kiri.kugainc.com`）。`-- --dev`で`http://localhost:3000`向け。検査に落ちると`out/`を消して止まる
-- **`ios:sync -- --dev`は効かない（L-6）** → `npm run ios:build -- --dev && npx cap sync ios`
+- `npm run ios:sync` … 書き出し→`cap sync ios`を1コマンドで（本番API）。**dev向けは`npm run ios:sync:dev`**（＝`npm run ios:sync -- --dev`。L-6解消: 引数は書き出し側へ渡し、`--dev`以外の引数は止める）
 - `npm run ios:open` … Xcodeで開く
 - シミュレータ用ビルド: `xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath <dir> build`
 - `.next`を共有するので`npm run dev`・`cf:build`と同時に走らせない。Workers Buildsに`KIRI_BUILD_TARGET`を置かない
@@ -69,7 +69,7 @@
 4. Dynamic Typeに追従していない（WKWebView既定）。やるか決める
 5. L-4: `/terms`・`/support`のプレビュー文言とチャットパネル内文言はPhase 3で改稿
 6. L-5: 開発依存の`uuid`（<11.1.1、@capacitor/cli→xcode）moderate。ビルド道具のみ
-7. L-6（上記コマンド）／L-7: Info.plistの`UIRequiredDeviceCapabilities=armv7` → Phase 4のアップロード前に`arm64`へ／L-8: dev時の`capacitor://`→`http://localhost:3000`がATSで止まるか未確認
+7. ~~L-6~~（解消・`ios:sync:dev`）／L-7: Info.plistの`UIRequiredDeviceCapabilities=armv7` → Phase 4のアップロード前に`arm64`へ／L-8: dev時の`capacitor://`→`http://localhost:3000`がATSで止まるか未確認
 8. Workers Buildsの**mainより前のブランチ（非main）のビルドが無効か**確認
 9. 実機の検収（T13の後半）、Phase 3（RevenueCat・購読接続）の前に`npm pack @revenuecat/purchases-capacitor --dry-run | grep Package.swift`でSPM対応を確認
 10. アプリのロック（D-25）の実機検収（T-L9）。下の「アプリのロック」節を参照

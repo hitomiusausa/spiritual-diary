@@ -13,6 +13,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   iosBuildEnv,
+  parseIosBuildArgs,
   resolveApiBase,
   secretValuesFromDotenv,
   secretValuesFromEnv,
@@ -22,12 +23,19 @@ import {
 const projectRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const outDir = join(projectRoot, "out");
 const argv = process.argv.slice(2);
-const production = !argv.includes("--dev");
 
 // 失敗したら out/ を残さない（後で npx cap sync が ios/ へ取り込まないように）。
 function fail(message) {
   rmSync(outDir, { recursive: true, force: true });
   console.error(`[ios:build] 中止: ${message}（out/ は削除しました）`);
+  process.exit(1);
+}
+
+let production;
+try {
+  production = !parseIosBuildArgs(argv).dev;
+} catch (error) {
+  console.error(`[ios:build] 中止: ${error.message}`);
   process.exit(1);
 }
 
