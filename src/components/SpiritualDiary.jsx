@@ -787,7 +787,7 @@ export default function SpiritualDiary() {
                   <p className="text-xs text-kiri-lilac leading-relaxed">アプリを閉じたとき・ほかのアプリへ移ったときから数えます。</p>
                 </div>
               </div>
-              <div role="radiogroup" aria-labelledby="kiri-autolock-label" className="grid grid-cols-4 gap-1 p-1 mt-2.5 rounded-xl bg-black/25">
+              <div role="radiogroup" aria-labelledby="kiri-autolock-label" className="grid grid-cols-4 gap-1 p-1 mt-2 rounded-xl bg-black/25">
                 {AUTO_LOCK_OPTIONS.map((option) => {
                   const selected = lockSettings.autoLockMinutes === option.value;
                   return (
@@ -839,9 +839,10 @@ export default function SpiritualDiary() {
             </button>
           </div>
           {renderLockSettings()}
+          {/* カードどうしは12px。カードの中は 見出し→説明 4px・説明→ボタン 8px で詰め、ひとまとまりに見せる（D-29） */}
           <div className="bg-white/10 rounded-xl p-4">
             <h4 className="text-sm font-bold text-kiri-gold mb-1">バックアップ</h4>
-            <p className="text-xs text-kiri-lilac mb-3 leading-relaxed">記録・プロフィール・会話をJSONファイルとして保存/復元できます。読み込みは既存の記録を消しません。バックアップは自動では行われないので、大切な記録は設定アイコンの「バックアップ」を選択して定期的に書き出してください。</p>
+            <p className="text-xs text-kiri-lilac mb-2 leading-relaxed">記録・プロフィール・会話をJSONファイルとして保存/復元できます。読み込みは既存の記録を消しません。バックアップは自動では行われないので、大切な記録は設定アイコンの「バックアップ」を選択して定期的に書き出してください。</p>
             <div className="flex gap-2">
               <button
                 type="button"
@@ -871,7 +872,7 @@ export default function SpiritualDiary() {
           </div>
           <div className="bg-white/10 rounded-xl p-4 mt-3">
             <h4 className="text-sm font-bold text-kiri-gold mb-1">AI送信の同意</h4>
-            <p className="text-xs text-kiri-lilac mb-3 leading-relaxed">
+            <p className="text-xs text-kiri-lilac mb-2 leading-relaxed">
               {aiConsent
                 ? '読み解きのため、入力内容をAnthropic社のAI（Claude）へ送ることに同意しています。取り消すと、次の読み解きで改めて確認します。'
                 : '現在は同意していません。次に「読み解く」を押したときに確認します。'}
