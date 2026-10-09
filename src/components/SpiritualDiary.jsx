@@ -537,7 +537,7 @@ export default function SpiritualDiary() {
               type="button"
               onClick={() => setError(null)}
               aria-label="お知らせを閉じる"
-              className="text-white hover:bg-white/20 rounded-full p-2 -m-1 flex-shrink-0"
+              className="kiri-hit text-white hover:bg-white/20 rounded-full p-2 -m-1 flex-shrink-0"
             >
               <X className="w-5 h-5" />
             </button>
@@ -632,7 +632,7 @@ export default function SpiritualDiary() {
         <div className="kiri-card-strong rounded-2xl p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-display text-xl font-bold text-kiri-gold">{title}</h3>
-            <button onClick={onClose} className="text-white hover:bg-white/20 rounded-full p-1">
+            <button type="button" onClick={onClose} aria-label="閉じる" className="kiri-hit text-white hover:bg-white/20 rounded-full p-1">
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -652,9 +652,11 @@ export default function SpiritualDiary() {
             <span className="text-kiri-fog">{icon}</span>
             <span className="text-xs font-bold text-white">{title}</span>
           </div>
-          <button 
+          <button
+            type="button"
+            aria-label={`${title}の説明`}
             onClick={onInfoClick}
-            className="text-kiri-lilac hover:text-kiri-gold transition-colors"
+            className="kiri-hit text-kiri-lilac hover:text-kiri-gold transition-colors"
           >
             <HelpCircle className="w-3 h-3" />
           </button>
@@ -696,7 +698,7 @@ export default function SpiritualDiary() {
                 e.stopPropagation();
                 onInfoClick();
               }}
-              className="ml-1 text-kiri-lilac hover:text-kiri-gold transition-colors"
+              className="kiri-hit ml-1 text-kiri-lilac hover:text-kiri-gold transition-colors"
             >
               <HelpCircle className="w-4 h-4" />
             </button>
@@ -834,7 +836,7 @@ export default function SpiritualDiary() {
         <div className={`kiri-card-strong rounded-2xl w-full max-w-md p-6 kiri-rise${lockNative ? ' max-h-full overflow-y-auto' : ''}`} onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-display text-xl font-bold text-kiri-gold">設定</h3>
-            <button type="button" onClick={() => setShowSettings(false)} aria-label="閉じる" className="text-white hover:bg-white/20 rounded-full p-1">
+            <button type="button" onClick={() => setShowSettings(false)} aria-label="閉じる" className="kiri-hit text-white hover:bg-white/20 rounded-full p-1">
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -911,7 +913,7 @@ export default function SpiritualDiary() {
                   すべて削除
                 </button>
               )}
-              <button type="button" onClick={() => setShowHistoryList(false)} aria-label="閉じる" className="text-kiri-lilac hover:text-white"><X className="w-5 h-5" /></button>
+              <button type="button" onClick={() => setShowHistoryList(false)} aria-label="閉じる" className="kiri-hit text-kiri-lilac hover:text-white"><X className="w-5 h-5" /></button>
             </div>
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-2">
@@ -1016,7 +1018,7 @@ export default function SpiritualDiary() {
                 <p className="text-[0.6875rem] text-kiri-lilac">{entryLabel}の記録</p>
               </div>
             </div>
-            <button type="button" onClick={onClose} aria-label="閉じる" className="text-kiri-lilac hover:text-white p-1"><X className="w-5 h-5" /></button>
+            <button type="button" onClick={onClose} aria-label="閉じる" className="kiri-hit text-kiri-lilac hover:text-white p-1"><X className="w-5 h-5" /></button>
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             <div className="bg-white/10 rounded-lg p-3">
@@ -1852,7 +1854,7 @@ export default function SpiritualDiary() {
           <div className="max-w-md mx-auto rounded-xl p-3 flex items-start gap-2 text-sm text-white border border-kiri-gold/30 shadow-lg" style={{ background: 'rgba(40, 35, 58, 0.98)' }}>
             <Lock className="w-4 h-4 mt-0.5 shrink-0 text-kiri-gold" strokeWidth={1.6} aria-hidden="true" />
             <p className="flex-1 leading-relaxed">{lockState.message}</p>
-            <button type="button" onClick={() => setFailOpenDismissedSeq(lockState.failOpenSeq)} aria-label="閉じる" className="text-kiri-lilac hover:text-white p-1 -m-1">
+            <button type="button" onClick={() => setFailOpenDismissedSeq(lockState.failOpenSeq)} aria-label="閉じる" className="kiri-hit text-kiri-lilac hover:text-white p-1 -m-1">
               <X className="w-4 h-4" aria-hidden="true" />
             </button>
           </div>

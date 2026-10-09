@@ -58,7 +58,7 @@ export default function LockScreen({ view, onUnlock }) {
                 type="button"
                 onClick={() => setShowSupport(false)}
                 aria-label="相談先を閉じる"
-                className="text-kiri-lilac hover:text-white p-2 rounded-full hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-kiri-fog/70"
+                className="kiri-hit text-kiri-lilac hover:text-white p-2 rounded-full hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-kiri-fog/70"
               >
                 <X className="w-5 h-5" aria-hidden="true" />
               </button>

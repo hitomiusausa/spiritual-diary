@@ -21,7 +21,7 @@ export default function ConsentModal({ show, onAccept, onDecline, onReadPolicy }
             <ShieldCheck className="w-5 h-5" aria-hidden="true" />
             読み解きのための送信について
           </h3>
-          <button type="button" onClick={onDecline} aria-label="閉じる" className="text-white hover:bg-white/20 rounded-full p-1">
+          <button type="button" onClick={onDecline} aria-label="閉じる" className="kiri-hit text-white hover:bg-white/20 rounded-full p-1">
             <X className="w-5 h-5" />
           </button>
         </div>

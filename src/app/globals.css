@@ -266,3 +266,21 @@ input[type="time"]::-webkit-date-and-time-value {
     transform: none;
   }
 }
+
+/*
+  小さなアイコンボタンの「押せる範囲」だけを 44×44px に広げる（見た目は変えない。Apple HIG の最小タップ領域）。
+  透明な ::after をボタンの中心に重ねる。2026-10-09。
+*/
+.kiri-hit {
+  position: relative;
+}
+
+.kiri-hit::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
