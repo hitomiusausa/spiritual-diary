@@ -11,11 +11,36 @@
 - GitHub: `https://github.com/hitomiusausa/spiritual-diary`
 - 最新状態: 2026-07-28分まではGitHubへpush済み。2026-10-08のリリース準備 Phase 0（D-14〜D-16）もpush済み。
 
+## 2026-10-09 アプリのロック（D-25・ブランチ`agent/ios-lock`・mainへ未マージ）
+
+できたこと: iOSアプリだけに「アプリのロック」（Face ID／Touch ID／端末パスコードのゲート）。見た目はA「静かな扉」。設定に「アプリのロック」トグル・自動ロック（すぐに／1分／5分／15分、既定5分）・「切り替え画面で記録を隠す」。書き出しとオフの前に再認証。Webには何も出ない（Playwright 375/1280で設定の画素が変更前と一致）。
+
+ファイル: `src/lib/appLock.js`（状態遷移`reduceLock`・設定キー）、`src/lib/lockUi.js`（画面と再認証の純粋関数）、`src/lib/lockAuth.js`／`privacyScreen.js`／`appState.js`（OS窓口）、`src/components/LockScreen.jsx`、`SpiritualDiary.jsx`（起動順・オーバーレイ・設定）。
+
+シミュレータでFace IDを試す（iPhone 17 `F9165023-EDA1-4EEA-B7D1-B4361E3BCB40`）:
+- 登録: `xcrun simctl spawn <udid> notifyutil -s com.apple.BiometricKit.enrollmentChanged 1 && xcrun simctl spawn <udid> notifyutil -p com.apple.BiometricKit.enrollmentChanged`（またはSimulatorのFeatures → Face ID → Enrolled）
+- 一致／不一致: `xcrun simctl spawn <udid> notifyutil -p com.apple.BiometricKit_Sim.pearl.match`／`.pearl.nomatch`（Touch IDは`fingerTouch.match`）。Face IDの画面が出てから（約2秒後）送る。早すぎると取りこぼす
+- 登録するとシミュレータは`deviceIsSecure: true`になり、パスコードの設定は不要だった
+- 初めての端末では「Face IDの使用を許可」の確認が先に出る（文言はInfo.plistの`NSFaceIDUsageDescription`）
+- iOS 26のFace ID画面は不一致のあと「Face IDをやり直す／あとで」だけで、2回失敗してもパスコードの選択肢は出なかった。アプリの失敗表示（「もう一度」＋「端末のパスコードでひらく」）は、`authenticationFailed`をWebKitインスペクタ経由で差し込んで確認した
+- 検収の記録・スクリーンショット: scratchpad `QA-lock/`（セッション内のみ）
+
+シミュレータ検収の結果（iPhone 17・16e、iOS 26.3.1）: オンにするときFace ID／5分超の背景で再ロック（実測315秒）・短い背景ではロックしない／一致で解除／キャンセルでロックのまま／終了→起動でロック（スプラッシュ→ロック画面。連続スクリーンショットの間隔では本文は見えなかった）／書きかけが残る／書き出しとオフで再認証／ロック中に相談先（電話3件）が開ける／同意モーダルの上にロック画面／パスコード未設定のフェイルオープン帯（差し込みで確認）／16eで設定はスクロール・ロック画面も収まる。**iPhone 17はロックをオフ（設定キー削除）にして最新ビルドを入れたまま起動中**。
+
+直したバグ（T-L5）: 目隠しプラグインが Face ID の後に見えない覆いを残し、共有シートが開けない・`disable()`でアプリが落ちる → 認証の間だけ目隠しを外す（D-25）。設定モーダルが画面からはみ出す → 中でスクロール。フェイルオープンの帯が透けていた。
+
+未了・要判断:
+1. **実機検収（T-L9）**: Face ID実動・アプリ切り替え画面のぼかし（シミュレータでは切り替え画面を出せず未確認）・復帰時に本文が一瞬見えないか（「すぐに」で）・コントロールセンターを引いた後にロック／目隠しをオフにしても落ちないか（D-25の残るリスク）
+2. 「端末のパスコードでひらく」はOSの同じ認証画面を呼び直すだけ（プラグインにパスコード直行の指定が無い）。実機で、失敗後にOSがパスコードを出すか確認。出ないなら文言を「もう一度ためす」系へ変えるか、オーナーと相談
+3. ロック画面の文言（「ロックされています」「つらいときの相談先」など）とFace IDの許可文のオーナー確認
+4. 監査A/B（ロック中に本文が読める経路・認証なしで書き出し／オフできる経路）。JSから`.click()`すると`inert`の下のボタンも押せる（DevToolsを開ける人＝ゲートの守備範囲外）
+5. 同意モーダルの「プライバシーポリシーを読む」で移動して戻ると再ロックされる（設計どおり・1回余分にFace ID）
+
 ## 2026-10-09 Phase 2 iOSの器（Capacitor・課金なし）
 
 ブランチ（**どれもmainへ未マージ・本番Webは不変**）:
 - `agent/ios-shell` … Phase 2の統合ブランチ（D-20〜D-24）。`agent/ios-qa`はそこから派生したQA修正（7件、HEAD `ea056ab`）
-- `agent/ios-lock` … アプリのロック（D-25）の実装中（T-L1/T-L2）。ロック画面の見た目は比較HTML→合意が先
+- `agent/ios-lock` … アプリのロック（D-25）。T-L1〜T-L5・T-L8まで実装・シミュレータ検収済み（下の節）。残りは実機検収T-L9
 - mainへ入れる前: `npm run cf:build && npm run preview`で workerd 上の`/api/analyze` 400・`/api/chat` 403を再確認（D-20）
 
 コマンド:
@@ -42,7 +67,7 @@
 7. L-6（上記コマンド）／L-7: Info.plistの`UIRequiredDeviceCapabilities=armv7` → Phase 4のアップロード前に`arm64`へ／L-8: dev時の`capacitor://`→`http://localhost:3000`がATSで止まるか未確認
 8. Workers Buildsの**mainより前のブランチ（非main）のビルドが無効か**確認
 9. 実機の検収（T13の後半）、Phase 3（RevenueCat・購読接続）の前に`npm pack @revenuecat/purchases-capacitor --dry-run | grep Package.swift`でSPM対応を確認
-10. 日記ロック（D-25）の実装・検収
+10. アプリのロック（D-25）の実機検収（T-L9）。下の「アプリのロック」節を参照
 
 文言の更新: プライバシーポリシー2・4節とサポートFAQを、Web（ブラウザ）とiOSアプリ（アプリ内保存・端末バックアップ対象・アプリ削除で消える）の両方に正確な書き方へ直した。
 
