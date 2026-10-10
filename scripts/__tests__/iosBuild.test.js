@@ -10,6 +10,8 @@ import {
   secretValuesFromDotenv,
   secretValuesFromEnv,
   verifyExport,
+  resolveIapBuild,
+  IAP_MOCK_MARKER,
   PROD_API_BASE,
   DEV_API_BASE,
 } from "../lib/iosBuild.mjs";
@@ -234,5 +236,92 @@ describe("verifyExport（ビルド後の検査のまとめ）", () => {
   it("秘密の値はどちらでも問題", () => {
     writeFileSync(join(dir, "_next/a.js"), "sk-test-abcdefghijklmnop");
     expect(verifyExport(dir, { production: false, secretValues: ["sk-test-abcdefghijklmnop"] })).toHaveLength(1);
+  });
+});
+
+// Phase 3（ブリーフ「設計書からの変更 5」）: 公開キーが無ければ警告して IAP なし（今の挙動）。
+// --require-iap でキー必須。本番ビルドにモックは入れない。
+describe("resolveIapBuild（購入機能をビルドに入れるか）", () => {
+  const KEY = "appl_AbCdEfGhIjKlMnOp123";
+
+  it("キー無しの本番ビルドは警告して IAP なし", () => {
+    const iap = resolveIapBuild([], {});
+    expect(iap).toMatchObject({ iap: "0", mock: "0", key: "" });
+    expect(iap.warnings.join("\n")).toMatch(/NEXT_PUBLIC_REVENUECAT_IOS_KEY/);
+  });
+
+  it("キーがあれば IAP あり（警告なし）", () => {
+    expect(resolveIapBuild([], { NEXT_PUBLIC_REVENUECAT_IOS_KEY: ` ${KEY} ` })).toEqual({ iap: "1", mock: "0", key: KEY, warnings: [] });
+  });
+
+  it("--require-iap でキーが無ければ止める", () => {
+    expect(() => resolveIapBuild(["--require-iap"], {})).toThrow(/NEXT_PUBLIC_REVENUECAT_IOS_KEY/);
+    expect(resolveIapBuild(["--require-iap"], { NEXT_PUBLIC_REVENUECAT_IOS_KEY: KEY }).iap).toBe("1");
+  });
+
+  it("秘密キー（sk_）や形の違うキーは埋め込まずに止める", () => {
+    expect(() => resolveIapBuild([], { NEXT_PUBLIC_REVENUECAT_IOS_KEY: "sk_abcdefghijklmnop" })).toThrow(/appl_/);
+    expect(() => resolveIapBuild([], { NEXT_PUBLIC_REVENUECAT_IOS_KEY: "appl_ with space" })).toThrow(/appl_/);
+  });
+
+  it("本番ビルドにモックを頼まれたら止める", () => {
+    expect(() => resolveIapBuild([], { NEXT_PUBLIC_KIRI_IAP_MOCK: "1" })).toThrow(/モック/);
+    expect(() => resolveIapBuild(["--require-iap"], { NEXT_PUBLIC_KIRI_IAP_MOCK: "1", NEXT_PUBLIC_REVENUECAT_IOS_KEY: KEY })).toThrow(/モック/);
+  });
+
+  it("--dev はモックを使える（キー無しでも IAP あり）", () => {
+    expect(resolveIapBuild(["--dev"], { NEXT_PUBLIC_KIRI_IAP_MOCK: "1" })).toEqual({ iap: "1", mock: "1", key: "", warnings: [] });
+  });
+
+  it("--dev でキーとモックが両方あればモックを優先し、キーは埋め込まない", () => {
+    expect(resolveIapBuild(["--dev"], { NEXT_PUBLIC_KIRI_IAP_MOCK: "1", NEXT_PUBLIC_REVENUECAT_IOS_KEY: KEY })).toEqual({ iap: "1", mock: "1", key: "", warnings: [] });
+  });
+
+  it("--dev でキーだけなら本物の購入（サンドボックス）", () => {
+    expect(resolveIapBuild(["--dev"], { NEXT_PUBLIC_REVENUECAT_IOS_KEY: KEY })).toMatchObject({ iap: "1", mock: "0", key: KEY });
+  });
+});
+
+describe("iosBuildEnv（IAP の定数をプロセス環境で渡し、.env.local より優先させる）", () => {
+  it("本番ビルドは IAP・モック・キーを必ず上書きする", () => {
+    const env = iosBuildEnv([], { NEXT_PUBLIC_KIRI_IAP: "1", NEXT_PUBLIC_KIRI_IAP_MOCK: "1" }, PROD_API_BASE, { iap: "0", mock: "0", key: "" });
+    expect(env).toMatchObject({ NEXT_PUBLIC_KIRI_IAP: "0", NEXT_PUBLIC_KIRI_IAP_MOCK: "0", NEXT_PUBLIC_REVENUECAT_IOS_KEY: "" });
+  });
+
+  it("IAP ありならキーを渡す", () => {
+    const env = iosBuildEnv([], {}, PROD_API_BASE, { iap: "1", mock: "0", key: "appl_x" });
+    expect(env).toMatchObject({ NEXT_PUBLIC_KIRI_IAP: "1", NEXT_PUBLIC_KIRI_IAP_MOCK: "0", NEXT_PUBLIC_REVENUECAT_IOS_KEY: "appl_x" });
+  });
+
+  it("IAP の指定が無ければ IAP なし（従来の呼び出し）", () => {
+    expect(iosBuildEnv([], {}, PROD_API_BASE)).toMatchObject({ NEXT_PUBLIC_KIRI_IAP: "0", NEXT_PUBLIC_KIRI_IAP_MOCK: "0" });
+  });
+});
+
+describe("本番の書き出しにモック購入が混ざらない", () => {
+  let dir;
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), "kiri-out-"));
+    for (const page of ["privacy", "terms", "support"]) {
+      mkdirSync(join(dir, page), { recursive: true });
+      writeFileSync(join(dir, page, "index.html"), "<html></html>");
+    }
+    mkdirSync(join(dir, "_next"), { recursive: true });
+    writeFileSync(join(dir, "index.html"), "<html>Kiri</html>");
+  });
+  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+
+  it("モックの目印が _next にあれば本番では問題、--dev では見逃す", () => {
+    writeFileSync(join(dir, "_next/a.js"), `marker:"${IAP_MOCK_MARKER}"`);
+    expect(verifyExport(dir)).toHaveLength(1);
+    expect(verifyExport(dir, { production: false })).toEqual([]);
+  });
+});
+
+describe("parseIosBuildArgs（--require-iap）", () => {
+  it("--require-iap を受け付ける", async () => {
+    const { parseIosBuildArgs } = await import("../lib/iosBuild.mjs");
+    expect(parseIosBuildArgs(["--require-iap"])).toEqual({ dev: false, requireIap: true });
+    expect(parseIosBuildArgs(["--dev"])).toEqual({ dev: true, requireIap: false });
   });
 });

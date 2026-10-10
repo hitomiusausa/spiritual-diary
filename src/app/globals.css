@@ -200,6 +200,12 @@ input[type="time"]::-webkit-date-and-time-value {
   background: #bb98c4;
 }
 
+/* 購入画面「Kiriと話す」のシート（D-30 案A）。夜色の面を少し持ち上げた縦グラデーション */
+.kiri-paywall-sheet {
+  background: linear-gradient(180deg, #2a2440 0%, #211c31 100%);
+  box-shadow: 0 -18px 48px rgba(7, 5, 15, 0.45);
+}
+
 /* Kiriの言葉（読み解き文）: 明朝でゆったり組む */
 .kiri-voice {
   font-family: var(--font-kiri-display), "Hiragino Mincho ProN", "Yu Mincho", serif;

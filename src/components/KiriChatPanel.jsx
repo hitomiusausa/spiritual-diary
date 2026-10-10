@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { MessageCircle, Send, X, Trash2 } from 'lucide-react';
+import { KIRI_TALK_NAME, chatErrorMessage } from '@/lib/kiriTalk';
 import { clearChatHistory, loadChatHistory, saveChatHistory } from '@/lib/chatHistory';
 import SupportCard from '@/components/SupportCard';
 import { apiUrl } from '@/lib/apiUrl';
@@ -10,7 +11,9 @@ import { hasConsent } from '@/lib/consent';
 
 const CONSENT_REQUIRED_MESSAGE = '……ここで話した言葉は、Anthropic社のAI（Claude）に送られるの。いまは送信への同意が取り消されているから、届けられないみたい。「読み解く」の確認画面で同意すると、また話せるよ。';
 
-export default function KiriChatPanel({ userProfile, entry, result, onClose }) {
+// readOnly: 未購読・解約後（D-28）。会話ログは読めるが、送れない。入力欄の代わりに案内と「Kiriと話す」を出す。
+// getAppUserId: RevenueCat の App User ID を返す関数（/api/chat の body に入れる。サーバーが権利を確かめる）。
+export default function KiriChatPanel({ userProfile, entry, result, onClose, readOnly = false, onOpenPaywall, getAppUserId }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -36,7 +39,7 @@ export default function KiriChatPanel({ userProfile, entry, result, onClose }) {
   const send = async (event) => {
     event.preventDefault();
     const content = input.trim();
-    if (!content || loading) return;
+    if (readOnly || !content || loading) return;
     // 第三者AIへの送信は同意があるときだけ（5.1.2(i)）。同意は「読み解く」の確認画面で取る。
     // 送らずに案内だけを出し、書いた言葉は入力欄に残す。
     if (!hasConsent(getStorage())) {
@@ -48,6 +51,7 @@ export default function KiriChatPanel({ userProfile, entry, result, onClose }) {
     setInput('');
     setLoading(true);
     try {
+      const appUserId = getAppUserId ? await getAppUserId() : null;
       const response = await fetch(apiUrl('/api/chat'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -55,6 +59,7 @@ export default function KiriChatPanel({ userProfile, entry, result, onClose }) {
           messages: nextMessages,
           userProfile: { nickname: userProfile?.nickname || '' },
           context: { entry, result },
+          ...(typeof appUserId === 'string' && appUserId ? { appUserId } : {}),
         }),
       });
       const data = await response.json();
@@ -65,13 +70,8 @@ export default function KiriChatPanel({ userProfile, entry, result, onClose }) {
       }
       setMessages([...nextMessages, { role: 'assistant', content: data.reply, ...(data.support ? { support: true } : {}) }]);
     } catch (error) {
-      const fallback = {
-        chat_disabled: '……この対話は、いまは準備中みたい。開発プレビューが有効になるまで待っていて。',
-        rate_limited: '……少し言葉が続きすぎたみたい。ひと呼吸おいてから、また聞かせて。',
-        daily_limit: '……今日はここまでにしておこう。また明日、続きを聞かせて。',
-      }[error.code] || '……少し声が届かなかったみたい。もう一度聞かせて。';
-      setMessages([...nextMessages, { role: 'assistant', content: fallback, isSystem: true }]);
-      console.error('[kiri-chat-ui]', error);
+      setMessages([...nextMessages, { role: 'assistant', content: chatErrorMessage(error.code), isSystem: true }]);
+      console.error('[kiri-chat-ui]', error.code || 'error');
     } finally {
       setLoading(false);
     }
@@ -88,7 +88,11 @@ export default function KiriChatPanel({ userProfile, entry, result, onClose }) {
           </div>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-48">
-          {messages.length === 0 && <p className="text-sm text-kiri-fog/80 leading-relaxed">今日のメッセージで、もう少し聞きたいところがあれば話して。ここでは答えを急がなくていいよ。</p>}
+          {messages.length === 0 && (
+            <p className="text-sm text-kiri-fog leading-relaxed">
+              {readOnly ? 'まだ会話はありません。' : '今日のメッセージで、もう少し聞きたいところがあれば話して。ここでは答えを急がなくていいよ。'}
+            </p>
+          )}
           {messages.map((message, index) => (
             <div key={`${message.role}-${index}`} className="space-y-2">
               <div className={`rounded-xl p-3 text-sm whitespace-pre-line ${message.role === 'user' ? 'bg-kiri-lilac/20 ml-8 text-white leading-relaxed' : 'kiri-voice bg-white/10 mr-8 text-kiri-fog'}`}>
@@ -99,11 +103,23 @@ export default function KiriChatPanel({ userProfile, entry, result, onClose }) {
           ))}
           {loading && <p className="text-xs text-kiri-lilac">Kiriが言葉を探しています…</p>}
         </div>
-        <form onSubmit={send} className="p-3 border-t border-white/10 flex gap-2">
-          <textarea value={input} onChange={(event) => setInput(event.target.value.slice(0, 1200))} placeholder="Kiriに聞きたいこと" rows={2} className="flex-1 resize-none rounded-xl bg-white/10 border border-white/15 p-3 text-sm text-white placeholder-kiri-lilac/60 focus:outline-none focus:ring-2 focus:ring-kiri-lilac" />
-          <button type="submit" disabled={!input.trim() || loading} aria-label="送信" className="self-end kiri-button rounded-xl p-3 disabled:opacity-40"><Send className="w-5 h-5" /></button>
-        </form>
-        <p className="px-4 pb-3 text-[0.6875rem] text-kiri-lilac/70">開発プレビュー：購入・購読状態の確認はまだ接続されていません。</p>
+        {readOnly ? (
+          <div className="p-4 border-t border-white/10">
+            <p className="text-xs text-kiri-lilac leading-relaxed mb-2">これまでの会話は、いつでも読めます。続きを話すには「{KIRI_TALK_NAME}」が必要です。</p>
+            <button
+              type="button"
+              onClick={onOpenPaywall}
+              className="w-full min-h-11 rounded-full bg-kiri-gold px-4 text-sm font-bold tracking-wider text-kiri-night"
+            >
+              {KIRI_TALK_NAME}
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={send} className="p-3 border-t border-white/10 flex gap-2">
+            <textarea value={input} onChange={(event) => setInput(event.target.value.slice(0, 1200))} placeholder="Kiriに聞きたいこと" rows={2} className="flex-1 resize-none rounded-xl bg-white/10 border border-white/15 p-3 text-sm text-white placeholder-kiri-lilac/60 focus:outline-none focus:ring-2 focus:ring-kiri-lilac" />
+            <button type="submit" disabled={!input.trim() || loading} aria-label="送信" className="self-end kiri-button rounded-xl p-3 disabled:opacity-40"><Send className="w-5 h-5" /></button>
+          </form>
+        )}
       </div>
     </div>
   );

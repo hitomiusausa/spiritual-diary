@@ -13,19 +13,52 @@ export const FORBIDDEN_MARKERS = Object.freeze([
   "UPSTASH_REDIS",
   "KV_REST_API",
   "KIRI_STORE_SECRET",
+  "REVENUECAT_SECRET_KEY",
   "api.anthropic.com",
   "@upstash/redis",
   "x-api-key",
 ]);
 
-// npm run ios:build / ios:sync の引数。受け付けるのは --dev だけ。知らない引数は黙って無視せず止める（L-6）。
-export const IOS_BUILD_FLAGS = Object.freeze(["--dev"]);
+// npm run ios:build / ios:sync の引数。知らない引数は黙って無視せず止める（L-6）。
+// --require-iap: 購入機能（RevenueCat の公開キー）が無ければ止める（審査提出用。Phase 3）。
+export const IOS_BUILD_FLAGS = Object.freeze(["--dev", "--require-iap"]);
 export function parseIosBuildArgs(argv = []) {
   const unknown = argv.filter((arg) => !IOS_BUILD_FLAGS.includes(arg));
   if (unknown.length) {
     throw new Error(`知らない引数です: ${unknown.join(" ")}（使えるのは ${IOS_BUILD_FLAGS.join(" ")} だけ）`);
   }
-  return { dev: argv.includes("--dev") };
+  return { dev: argv.includes("--dev"), requireIap: argv.includes("--require-iap") };
+}
+
+// RevenueCat の iOS 公開 SDK キーの形。秘密キー（sk_…）を誤って埋め込まないよう、形が違えば止める。
+const REVENUECAT_IOS_KEY_PATTERN = /^appl_[A-Za-z0-9]+$/;
+
+// アプリ内課金「Kiriと話す」をビルドに入れるか（ブリーフ「設計書からの変更 5」）。
+// - 公開キー NEXT_PUBLIC_REVENUECAT_IOS_KEY があれば IAP あり。無ければ警告して IAP なし（今の挙動）。
+// - --require-iap ならキー必須（提出用）。
+// - モック（NEXT_PUBLIC_KIRI_IAP_MOCK=1）は --dev だけ。本番ビルドで頼まれたら止める。--dev でモックとキーが両方あればモック。
+// 戻り値: { iap: '0'|'1', mock: '0'|'1', key, warnings: string[] }。止めるときは Error を投げる。
+export function resolveIapBuild(argv = [], env = {}) {
+  const { dev, requireIap } = parseIosBuildArgs(argv);
+  const key = String(env.NEXT_PUBLIC_REVENUECAT_IOS_KEY ?? "").trim();
+  const mockRequested = env.NEXT_PUBLIC_KIRI_IAP_MOCK === "1";
+  if (mockRequested && !dev) {
+    throw new Error("NEXT_PUBLIC_KIRI_IAP_MOCK=1（モック購入）は --dev のビルドでしか使えません。本番向けには入れられません");
+  }
+  if (key && !REVENUECAT_IOS_KEY_PATTERN.test(key)) {
+    throw new Error("NEXT_PUBLIC_REVENUECAT_IOS_KEY は RevenueCat の iOS 公開キー（appl_ で始まる）を指定してください（秘密キーは埋め込みません）");
+  }
+  if (requireIap && !key) {
+    throw new Error("--require-iap: NEXT_PUBLIC_REVENUECAT_IOS_KEY（RevenueCat の iOS 公開キー）がありません");
+  }
+  if (dev && mockRequested) return { iap: "1", mock: "1", key: "", warnings: [] };
+  if (key) return { iap: "1", mock: "0", key, warnings: [] };
+  return {
+    iap: "0",
+    mock: "0",
+    key: "",
+    warnings: ["NEXT_PUBLIC_REVENUECAT_IOS_KEY が無いので、購入機能（Kiriと話す）なしでビルドします（提出用は --require-iap）"],
+  };
 }
 
 // API のベースURL: 明示の NEXT_PUBLIC_KIRI_API_BASE ＞ --dev（ローカル dev）＞ 本番。
@@ -78,6 +111,7 @@ export const SECRET_ENV_NAMES = Object.freeze([
   "KIRI_STORE_SECRET",
   "UPSTASH_REDIS_REST_TOKEN",
   "KV_REST_API_TOKEN",
+  "REVENUECAT_SECRET_KEY",
 ]);
 
 // dotenv（@next/env）と同じ読み方で値を取り出す: クォートで囲めば中身だけ（# も値のうち）、
@@ -110,8 +144,16 @@ export function secretValuesFromEnv(env = {}) {
 
 // next build に渡すプロセス環境。プロセス環境は .env* より優先される。
 // 本番向け（--dev なし）はチャットのプレビューを必ず '0' にする（.env.local の '1' を持ち込まない。Q4）。
-export function iosBuildEnv(argv = [], env = {}, apiBase = PROD_API_BASE) {
-  const next = { ...env, KIRI_BUILD_TARGET: IOS_BUILD_TARGET, NEXT_PUBLIC_KIRI_API_BASE: apiBase };
+// 購入まわり（resolveIapBuild の結果）は本番・--dev とも必ずプロセス環境に置く（.env.local の値より優先させる）。
+export function iosBuildEnv(argv = [], env = {}, apiBase = PROD_API_BASE, iap = { iap: "0", mock: "0", key: "" }) {
+  const next = {
+    ...env,
+    KIRI_BUILD_TARGET: IOS_BUILD_TARGET,
+    NEXT_PUBLIC_KIRI_API_BASE: apiBase,
+    NEXT_PUBLIC_KIRI_IAP: iap.iap === "1" ? "1" : "0",
+    NEXT_PUBLIC_KIRI_IAP_MOCK: iap.iap === "1" && iap.mock === "1" ? "1" : "0",
+    NEXT_PUBLIC_REVENUECAT_IOS_KEY: iap.iap === "1" ? iap.key || "" : "",
+  };
   if (!argv.includes("--dev")) next.NEXT_PUBLIC_KIRI_CHAT_PREVIEW = "0";
   return next;
 }
@@ -120,7 +162,9 @@ export function iosBuildEnv(argv = [], env = {}, apiBase = PROD_API_BASE) {
 // どのファイルでも不可のものと、_next/（JS バンドル・画面）の中だけ不可のものに分ける。
 // 規約・サポートのページ本文は「開発プレビュー」に触れている（台帳 L-4、Phase 3 で改稿）ので、そこは許す。
 export const PREVIEW_UI_MARKERS = Object.freeze(["開発プレビューでKiriに聞く", "Kiriとの対話（プレミアム）", "StoreKit"]);
-export const PREVIEW_UI_BUNDLE_MARKERS = Object.freeze(["開発プレビュー"]);
+// モック購入（src/lib/purchases.js の目印）も本番の JS に残ってはいけない（Phase 3）。
+export const IAP_MOCK_MARKER = "kiri-iap-mock";
+export const PREVIEW_UI_BUNDLE_MARKERS = Object.freeze(["開発プレビュー", IAP_MOCK_MARKER]);
 
 // バンドルでは日本語が \uXXXX にエスケープされることがあるので、生の形と両方で探す。
 function markerForms(marker) {
