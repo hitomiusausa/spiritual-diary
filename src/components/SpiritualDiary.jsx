@@ -95,10 +95,10 @@ export default function SpiritualDiary() {
   const [backupNotice, setBackupNotice] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  // バイオリズムとテーマ別運勢は詳細を見たい人だけ開く（結果が長く、Kiriの読み解きまで進めないように見えるため。2026-10-10）
+  // バイオリズム・四柱推命・テーマ別運勢は詳細を見たい人だけ開く（結果が長く、Kiriの読み解きまで進めないように見えるため。2026-10-10）
   const [expandedSections, setExpandedSections] = useState({
     biorhythm: false,
-    saju: true,
+    saju: false,
     themes: false,
     hints: true
   });
@@ -665,7 +665,7 @@ export default function SpiritualDiary() {
         };
         setResult(nextResult);
         // 新しい読み解きでは、バイオリズムとテーマ別運勢を閉じた状態から始める（寄り添いモードで点数を開かない D-15 もこれで満たす）
-        setExpandedSections((sections) => ({ ...sections, biorhythm: false, themes: false }));
+        setExpandedSections((sections) => ({ ...sections, biorhythm: false, saju: false, themes: false }));
         const record = toHistoryRecord({
           result: nextResult,
           entry,
@@ -875,10 +875,11 @@ export default function SpiritualDiary() {
         onClick={onToggle}
         className={`w-full p-4 ${isExpanded ? 'pb-3' : ''} flex items-center justify-between cursor-pointer active:bg-white/5 transition-colors`}
       >
-        <div className="kiri-dt-section-head flex flex-1 min-w-0 items-center gap-2">
-          <h2 className="font-display text-lg font-bold text-kiri-gold">{title}</h2>
+        {/* 見出し・バッジは割らない。入りきらないときは「タップで確認」だけ次の行へ回る */}
+        <div className="kiri-dt-section-head flex flex-1 min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+          <h2 className="font-display text-lg font-bold text-kiri-gold whitespace-nowrap">{title}</h2>
           {badge && (
-            <span className="text-xs bg-kiri-gold/11 text-kiri-gold px-2 py-0.5 rounded-full">
+            <span className="text-xs bg-kiri-gold/11 text-kiri-gold px-2 py-0.5 rounded-full whitespace-nowrap">
               {badge}
             </span>
           )}
@@ -1821,6 +1822,7 @@ export default function SpiritualDiary() {
                     isExpanded={expandedSections.saju}
                     onToggle={() => setExpandedSections({...expandedSections, saju: !expandedSections.saju})}
                     onInfoClick={() => setShowSajuInfo(true)}
+                    collapsedHint="タップで確認"
                   >
                     {/* グループ（本命／今日の運勢／月運・年運／大運）どうしは16px（大きい文字は14px）、見出し→格子は6px（D-29） */}
                     <div className="space-y-4 kiri-dt-stack">
