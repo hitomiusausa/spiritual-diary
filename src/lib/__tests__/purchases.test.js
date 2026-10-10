@@ -314,6 +314,16 @@ describe("モック（NEXT_PUBLIC_KIRI_IAP_MOCK=1・next dev と ios:build --dev
     expect((await iap.getChatOffering()).trial.eligible).toBe(false);
   });
 
+  it("無料期間（7日）が過ぎたら権利なし（期限切れの確認用）", async () => {
+    let now = Date.parse("2026-10-10T00:00:00Z");
+    const iap = createPurchases({ enabled: true, mock: createMockBackend, native: false, apiKey: "", load: vi.fn(), now: () => now });
+    await iap.purchaseChat();
+    expect((await iap.getEntitlementState()).entitled).toBe(true);
+    now += 8 * 24 * 60 * 60 * 1000;
+    expect(await iap.getEntitlementState()).toMatchObject({ entitled: false, isTrial: false });
+    expect(await iap.restorePurchases()).toMatchObject({ entitled: false });
+  });
+
   it("App User ID はサーバーの形式どおりの固定値", async () => {
     expect(await mockIap().getAppUserId()).toBe(MOCK_APP_USER_ID);
     expect(MOCK_APP_USER_ID).toMatch(/^\$RCAnonymousID:[0-9a-f]{32}$/);

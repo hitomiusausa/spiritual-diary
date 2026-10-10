@@ -79,8 +79,10 @@ export function createMockBackend(now) {
   let entitled = false;
   let trialUsed = false;
   let expiresAt = null;
+  // 無料期間が過ぎたら権利なし（更新はしない＝開いているチャットの期限切れを確かめるため）。
+  const active = () => entitled && now() < Date.parse(expiresAt);
   const state = () =>
-    entitled ? { entitled: true, expiresAt, willRenew: true, isTrial: true, managementUrl: APPLE_SUBSCRIPTIONS_URL } : { ...NOT_ENTITLED };
+    active() ? { entitled: true, expiresAt, willRenew: true, isTrial: true, managementUrl: APPLE_SUBSCRIPTIONS_URL } : { ...NOT_ENTITLED };
   return {
     marker: MOCK_MARKER,
     offering: () => ({
