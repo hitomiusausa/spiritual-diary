@@ -326,3 +326,4 @@ npm run dev
 - 本番: `agent/readability`（2e3bafc）を ひとみうさが main へ push → Workers Builds で反映済み（11:04 UTC）。本番で新しい色・規約の 1,000 件・`/api/chat` 403 not_entitled を確認
 - 2026-10-10 夜: 気分「もやもや」のアイコンを `CircleHelp`（？）→ `CloudFog`（霧の雲。説明の「？」と重ねない）。日記の説明を「今日の予定や出来事を、自由に記録してください」に（375px で1行に収まる）。どちらも ひとみうさの選択
 - 本番反映（2026-10-10 11:28 UTC）: main=59a05f7（D-31〜D-33＋もやもやアイコン・日記の説明）。本番で新しい説明文・霧の雲アイコン・`/api/chat` 403 not_entitled を確認。この追記は main 未反映（docs のみ）
+- 2026-10-10 夜（実機 Safari の確認後）: D-35（四柱推命も閉じた状態から・text-wrap: pretty を外してヒントのカードが細長くなるのを直す）。WebKit 26 でヒントの文 99→127px・13→9行を確認。test 715・lint 0・build OK

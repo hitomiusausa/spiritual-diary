@@ -224,7 +224,7 @@ input[type="time"]::-webkit-date-and-time-value {
   /*
     Kiriの読み解き（長い明朝の文章）だけは、ふつうの折り返しで行の端まで詰める。
     D-32 の text-wrap: pretty は Safari の日本語で各行が2〜3文字ぶん早く折り返り、右が空いて左寄りに見えた
-    （2026-10-10 ひとみうさの iPhone で発見・D-34）。短い説明文などは pretty のまま。
+    （2026-10-10 ひとみうさの iPhone で発見・D-34）。その後 D-35 で全体の pretty も外した。
   */
   text-wrap: wrap;
 }
@@ -308,10 +308,6 @@ input[type="time"]::-webkit-date-and-time-value {
 }
 
 /*
-  文章の折り返し（D-32）: 最後の行が1〜2文字だけになる折り返しを避ける。
-  対応していないブラウザでは従来どおり折り返すだけ（手動の改行は入れない）。
+  文章の折り返しは通常のまま（text-wrap: pretty は使わない）。
+  iOS Safari 26 では日本語の段落が実幅の7割ほどで折り返され、ヒントのカードが細長くなったため外した（D-35）。
 */
-p,
-li {
-  text-wrap: pretty;
-}
