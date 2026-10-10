@@ -1,5 +1,5 @@
 export const CHAT_HISTORY_STORAGE_KEY = "spiritual-diary.chat.v1";
-export const MAX_CHAT_MESSAGES = 40;
+export const MAX_CHAT_MESSAGES = 1000;
 
 export function loadChatHistory(storage) {
   try {
