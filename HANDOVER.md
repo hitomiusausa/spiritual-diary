@@ -322,3 +322,5 @@ npm run dev
 - 検証: 再測定で不合格 0/0（最小 5.12）・`npm test` 714・lint 0・build・audit 0・購入まわりの e2e 132/132。調整前後 `docs/plans/2026-10-10/readability-v2/compare.html`
 - 気づいたこと（未対応・判断待ち）: 気分の「もやもや」も `CircleHelp`（？）のアイコン。説明の「？」と重なるので、`CloudFog`（霧の雲）などに替える案。日記の「記録する」の説明「今日の予定や出来事をあなたの言葉で自由に記入して」が 375px で2文字だけ次の行に落ちる（13px 化のため。文言を短くするなら例「今日の予定や出来事を、自由に書いてください」）
 - main へは `agent/ios-billing` と一緒に入る（push は ひとみうさが `git push origin agent/readability:main`。入れても購入機能はキーが無い間は出ない）
+- 2026-10-10 夜: D-33（バイオリズム・テーマ別運勢は閉じた状態から＋「タップで確認」）を追加。e2e 132/132・test 714・lint 0・build OK
+- 本番: `agent/readability`（2e3bafc）を ひとみうさが main へ push → Workers Builds で反映済み（11:04 UTC）。本番で新しい色・規約の 1,000 件・`/api/chat` 403 not_entitled を確認

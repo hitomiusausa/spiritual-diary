@@ -95,10 +95,11 @@ export default function SpiritualDiary() {
   const [backupNotice, setBackupNotice] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  // バイオリズムとテーマ別運勢は詳細を見たい人だけ開く（結果が長く、Kiriの読み解きまで進めないように見えるため。2026-10-10）
   const [expandedSections, setExpandedSections] = useState({
-    biorhythm: true,
+    biorhythm: false,
     saju: true,
-    themes: true,
+    themes: false,
     hints: true
   });
   const [showBioInfo, setShowBioInfo] = useState(false);
@@ -663,8 +664,8 @@ export default function SpiritualDiary() {
           ...data.data
         };
         setResult(nextResult);
-        // 寄り添いモードでは点数を最初から開かない（D-15）
-        setExpandedSections((sections) => ({ ...sections, themes: !nextResult.support }));
+        // 新しい読み解きでは、バイオリズムとテーマ別運勢を閉じた状態から始める（寄り添いモードで点数を開かない D-15 もこれで満たす）
+        setExpandedSections((sections) => ({ ...sections, biorhythm: false, themes: false }));
         const record = toHistoryRecord({
           result: nextResult,
           entry,
@@ -867,13 +868,14 @@ export default function SpiritualDiary() {
 
   // 見出し行はdiv+個別ボタン構成にする（button入れ子はHTML違反でhydrationエラーになる）
   // 開いているときは見出し→中身を12px（カード見出し→中身の共通値。D-29）。行の高さは56px（閉じて60px）でタップ範囲は足りる
-  const CollapsibleSection = ({ title, isExpanded, onToggle, children, badge, onInfoClick }) => (
+  // collapsedHint: 閉じているときだけ右に小さく出す案内（例「タップで確認」）
+  const CollapsibleSection = ({ title, isExpanded, onToggle, children, badge, onInfoClick, collapsedHint }) => (
     <div className="bg-white/[0.055] backdrop-blur-md rounded-xl border border-kiri-lilac/30 overflow-hidden">
       <div
         onClick={onToggle}
         className={`w-full p-4 ${isExpanded ? 'pb-3' : ''} flex items-center justify-between cursor-pointer active:bg-white/5 transition-colors`}
       >
-        <div className="kiri-dt-section-head flex items-center gap-2">
+        <div className="kiri-dt-section-head flex flex-1 min-w-0 items-center gap-2">
           <h2 className="font-display text-lg font-bold text-kiri-gold">{title}</h2>
           {badge && (
             <span className="text-xs bg-kiri-gold/11 text-kiri-gold px-2 py-0.5 rounded-full">
@@ -893,23 +895,29 @@ export default function SpiritualDiary() {
               <HelpCircle className="w-4 h-4" />
             </button>
           )}
-        </div>
-        <button
-          type="button"
-          aria-expanded={isExpanded}
-          aria-label={isExpanded ? `${title}を折りたたむ` : `${title}を開く`}
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggle();
-          }}
-          className="text-kiri-lilac-ink hover:text-white p-1"
-        >
-          {isExpanded ? (
-            <ChevronUp className="w-5 h-5" />
-          ) : (
-            <ChevronDown className="w-5 h-5" />
+          {/* 見出しと同じまとまりに置く。大きい文字では見出しの下へ回り込む（kiri-dt-section-head が折り返す） */}
+          {collapsedHint && !isExpanded && (
+            <span className="ml-auto text-xs text-kiri-lilac-ink whitespace-nowrap" aria-hidden="true">{collapsedHint}</span>
           )}
-        </button>
+        </div>
+        <div className="flex items-center shrink-0">
+          <button
+            type="button"
+            aria-expanded={isExpanded}
+            aria-label={isExpanded ? `${title}を折りたたむ` : `${title}を開く`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggle();
+            }}
+            className="text-kiri-lilac-ink hover:text-white p-1"
+          >
+            {isExpanded ? (
+              <ChevronUp className="w-5 h-5" />
+            ) : (
+              <ChevronDown className="w-5 h-5" />
+            )}
+          </button>
+        </div>
       </div>
       {isExpanded && (
         <div className="px-4 pb-4">
@@ -1792,6 +1800,7 @@ export default function SpiritualDiary() {
                 {/* バイオリズムセクション */}
                 <CollapsibleSection
                     title="バイオリズム"
+                    collapsedHint="タップで確認"
                   isExpanded={expandedSections.biorhythm}
                   onToggle={() => setExpandedSections({...expandedSections, biorhythm: !expandedSections.biorhythm})}
                   onInfoClick={() => setShowBioInfo(true)}
@@ -1901,6 +1910,7 @@ export default function SpiritualDiary() {
                 {result.themeScores && (
                   <CollapsibleSection
                     title="今日のテーマ別運勢"
+                    collapsedHint="タップで確認"
                     isExpanded={expandedSections.themes}
                     onToggle={() => setExpandedSections({...expandedSections, themes: !expandedSections.themes})}
                     onInfoClick={() => setShowThemeInfo(true)}
