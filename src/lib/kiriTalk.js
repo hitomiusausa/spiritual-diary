@@ -1,14 +1,25 @@
 // 「Kiriと話す」（月額サブスク）の画面の文言と出し分け（D-28・D-30・設計 Ruling 5/7/9）。純粋関数だけを置く。
 // 価格は必ず StoreKit の文字列（getChatOffering().priceString）を使い、ここに数字を書かない（Ruling 8）。
 // 文言の規律: 「暗号化」「パスワード」（D-25）・「占い」（D-27）・「無制限」「パターン分析」（D-30）を使わない（テストで検査）。
+// Web の本番ではこのモジュールは使われず、バンドルから消える（D-24）。消えるように、モジュールの初期化で関数を呼ばない
+// （Object.freeze などの呼び出しは副作用ありと見なされ、文言ごと残る。scripts/check-web-bundle.mjs が検査）。
 
 export const KIRI_TALK_NAME = "Kiriと話す";
 export const KIRI_TALK_KIND = "月額の自動更新サブスクリプション";
 
-export const KIRI_TALK_PROMISES = Object.freeze([
-  Object.freeze({ title: "Kiriと話せる（1日60通まで）", detail: "今日の読み解きと記録をふまえて返事をします" }),
-  Object.freeze({ title: "会話はこの端末に残ります", detail: "解約したあとも、それまでの会話は読めます" }),
-]);
+// 会話ログは端末に新しいものから MAX_CHAT_MESSAGES 件まで残る（古いものから消える）。件数は規約・サポートに書く（F-B1）。
+// 保存サイズの見積もり（F-B1・D-22）: 1件は保存時に1,800字で切る（送る側は入力欄で1,200字まで）。日本語は UTF-8 で約3バイト。
+//   典型（Kiri の返事 300〜500字・自分 100字前後）で 1,000件 ≒ 1MB 前後、最悪（全件 1,800字）で ≒ 5.4MB。
+//   iOS では Preferences（UserDefaults）の1つの値になり、書くたびに全体を書き直す。UserDefaults は約4MBを超える値で
+//   警告が出る（tvOS では書けない）ので、最悪ケースは Filesystem への移設（D-09 第三段階）で解消する。
+export const KIRI_TALK_PROMISES = [
+  { title: "Kiriと話せる（1日60通まで）", detail: "今日の読み解きと記録をふまえて返事をします" },
+  { title: "会話はこの端末に残ります", detail: "解約したあとも、残っている会話は読めます" },
+];
+
+// チャット欄の「読むだけ」（未購読・解約後。D-28）の案内とボタン。
+export const KIRI_TALK_READ_ONLY_NOTE = `これまでの会話は、いつでも読めます。続きを話すなら『${KIRI_TALK_NAME}』で。`;
+export const KIRI_TALK_START_LABEL = `${KIRI_TALK_NAME}を始める`;
 
 // 購入前に知らせる AI 送信の告知（Ruling 7。購入は同意の対価にしない＝同意が無くても購入画面は開ける）。
 export const KIRI_TALK_AI_NOTICE = "対話の言葉は Anthropic社のAI（Claude）に送られます（送信の同意はあとで設定から取り消せます）。";
@@ -56,14 +67,15 @@ export function entryCardView({ entitled, offering, hasLog }) {
   };
 }
 
-const DAILY_LIMIT_MESSAGE = "……今日はここまでにしておこう。また明日、続きを聞かせて。";
-const CHAT_ERROR_MESSAGES = Object.freeze({
-  not_entitled: "……この対話は、購読が確認できたときに開くの。設定から『購入を復元』を試してみて。",
-  user_daily_limit: DAILY_LIMIT_MESSAGE,
-  daily_limit: DAILY_LIMIT_MESSAGE,
+const CHAT_ERROR_MESSAGES = {
+  // 解約した人にもずれない言い方。「購入を復元」ではなく「Kiriと話す」へ（F-B9）。
+  not_entitled: `……いまは続きを話せないみたい。『${KIRI_TALK_NAME}』を確かめてみて。`,
+  user_daily_limit: "……今日はここまでにしておこう。また明日、続きを聞かせて。",
+  // 全体の上限（サーバー全体の1日の上限）。個人の上限とは別の文（F-B10）。
+  daily_limit: "……今日はたくさんの声が届いて、Kiriも少し休んでいるの。また明日、続きを聞かせて。",
   chat_unavailable: "……いまは声が届きにくいみたい。少ししてから、もう一度聞かせて。",
   rate_limited: "……少し言葉が続きすぎたみたい。ひと呼吸おいてから、また聞かせて。",
-});
+};
 const CHAT_ERROR_FALLBACK = "……少し声が届かなかったみたい。もう一度聞かせて。";
 
 // /api/chat のエラーコード → Kiri の口調の案内（Ruling 5。chat_disabled は廃止）。
@@ -75,6 +87,8 @@ export function chatErrorMessage(code) {
 export function purchaseNotice(result) {
   if (result?.entitled || result?.cancelled) return null;
   if (result?.error === "pending") return "購入の承認を待っています。承認されると、Kiriと話せるようになります。";
+  if (result?.error === "not_reflected") return "購入を受け付けました。反映まで少しかかることがあります。少しして『購入を復元』を試してください。";
+  if (result?.error === "already_purchased") return "すでに購読しています。『購入を復元』を試してください。";
   return "購入を完了できませんでした。通信の状態を確かめて、もう一度お試しください。";
 }
 
@@ -82,7 +96,7 @@ export function purchaseNotice(result) {
 export function restoreNotice(result) {
   if (result?.entitled) return "購入を復元しました。";
   if (result?.error) return "いまは復元できませんでした。通信の状態を確かめて、もう一度お試しください。";
-  return "復元できる購入が見つかりませんでした。";
+  return "有効な購読が見つかりませんでした。";
 }
 
 // 次の更新・終了の日付（日本時間の「11月17日」）。
@@ -95,12 +109,19 @@ export function formatRenewalDate(iso) {
 }
 
 // 設定の「Kiriと話す」の欄。
-export function talkSettingsView({ entitled, willRenew, expiresAt } = {}) {
+export function talkSettingsView({ entitled, willRenew, expiresAt, isTrial } = {}) {
   if (!entitled) return { subscribed: false, status: "使っていません", renewalLabel: null, renewalDate: null };
   return {
     subscribed: true,
-    status: "利用中",
+    status: isTrial ? "無料期間中" : "利用中",
     renewalLabel: willRenew ? "次の更新" : "終了予定",
     renewalDate: formatRenewalDate(expiresAt),
   };
+}
+
+// 購入・復元の直後の状態（F-B8）。読み直し（getEntitlementState）が失敗すると「権利なし」に見えるので、
+// 購入・復元が権利を返していればその結果（outcome.state）から作り、読み直しで上書きしない。
+export function talkStateAfterPurchase(fresh, outcome) {
+  if (!outcome?.entitled || fresh?.entitled) return fresh;
+  return outcome.state?.entitled ? outcome.state : { entitled: true, expiresAt: null, willRenew: false, isTrial: false, managementUrl: null };
 }
