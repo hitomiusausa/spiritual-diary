@@ -970,11 +970,15 @@ export default function SpiritualDiary() {
   const renderTalkSettings = () => {
     if (!IAP_BUILD || !iapActive) return null;
     const view = talkSettingsView(talk);
-    const rowClass = 'w-full min-h-12 flex items-center justify-between gap-3 border-t border-white/10 text-left text-sm text-white';
+    // 1行: 左に項目名（その下に小さな補足）、右に値か矢印。狭い設定カードでも項目名を折らない。
+    const rowClass = 'w-full min-h-12 py-2 flex items-center justify-between gap-3 border-t border-white/10 text-left text-sm text-white';
     const restoreRow = (
       <button type="button" onClick={handleSettingsRestore} disabled={talkBusy} aria-busy={talkBusy} className={`${rowClass} hover:text-kiri-gold disabled:opacity-60`}>
-        <span>{talkBusy ? '確認しています…' : '購入を復元'}</span>
-        <span className="text-xs text-kiri-lilac">機種変更・再インストールのとき</span>
+        <span className="min-w-0">
+          <span className="block">{talkBusy ? '確認しています…' : '購入を復元'}</span>
+          <span className="block text-xs text-kiri-lilac mt-0.5">機種変更・再インストールのとき</span>
+        </span>
+        <ChevronRight className="w-4 h-4 shrink-0 text-kiri-lilac" aria-hidden="true" />
       </button>
     );
     return (
@@ -992,8 +996,11 @@ export default function SpiritualDiary() {
               </div>
             )}
             <button type="button" onClick={manageSubscription} className={`${rowClass} hover:text-kiri-gold${view.renewalDate ? '' : ' border-t-0'}`}>
-              <span>サブスクリプションを管理</span>
-              <span className="flex items-center gap-1 text-xs text-kiri-lilac">解約・変更<ChevronRight className="w-4 h-4" aria-hidden="true" /></span>
+              <span className="min-w-0">
+                <span className="block">サブスクリプションを管理</span>
+                <span className="block text-xs text-kiri-lilac mt-0.5">解約・変更（App Store）</span>
+              </span>
+              <ChevronRight className="w-4 h-4 shrink-0 text-kiri-lilac" aria-hidden="true" />
             </button>
             {restoreRow}
           </>
