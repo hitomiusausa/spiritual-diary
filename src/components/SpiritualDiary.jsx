@@ -468,6 +468,11 @@ export default function SpiritualDiary() {
     };
   }, []);
 
+  // 購読が付いたら offering を読み直せるようにする（期限切れ後の入口カードは、トライアルなしの価格に。F-B7）。
+  useEffect(() => {
+    if (talk.entitled) talkOfferingRequested.current = false;
+  }, [talk.entitled]);
+
   // 結果画面で未購読なら、入口カードの価格・トライアル表示のために offering を1回だけ読む。
   useEffect(() => {
     if (!IAP_BUILD || !iapActive || talk.entitled || step !== 'result' || talkOfferingRequested.current) return;
