@@ -4,10 +4,24 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useState, useEffect, useReducer, useRef } from 'react';
 import { flushSync } from 'react-dom';
-import { Sparkles, Lock, AlertCircle, X, ChevronDown, ChevronUp, HelpCircle, Heart, Smile, Frown, Meh, Angry, Star, Sun, Moon, Cloud, Zap, CircleHelp, Download, Upload, Settings, History, Laugh, Leaf, CloudRain, Droplet, Music, ShieldOff, Timer, EyeOff } from 'lucide-react';
+import { Sparkles, Lock, AlertCircle, X, ChevronRight, ChevronDown, ChevronUp, HelpCircle, Heart, Smile, Frown, Meh, Angry, Star, Sun, Moon, Cloud, Zap, CircleHelp, Download, Upload, Settings, History, Laugh, Leaf, CloudRain, Droplet, Music, ShieldOff, Timer, EyeOff } from 'lucide-react';
 import { clearHistory, deleteHistoryItem, loadHistory, saveHistory, toHistoryRecord, loadProfile, saveProfile, initialStepFor, formatBirthDateJa, isSameReading } from '@/lib/history';
 import { buildBackup, backupFileName, parseBackup, applyBackup } from '@/lib/backup';
 import KiriChatPanel from '@/components/KiriChatPanel';
+import PaywallSheet from '@/components/PaywallSheet';
+import { loadChatHistory } from '@/lib/chatHistory';
+import {
+  APPLE_SUBSCRIPTIONS_URL,
+  configurePurchases,
+  getAppUserId,
+  getChatOffering,
+  getEntitlementState,
+  isIapEnabled,
+  onEntitlementChange,
+  purchaseChat,
+  restorePurchases,
+} from '@/lib/purchases';
+import { KIRI_TALK_NAME, entryCardView, purchaseNotice, restoreNotice, talkSettingsView } from '@/lib/kiriTalk';
 import SupportCard from '@/components/SupportCard';
 import { entryNeedsSupport } from '@/lib/kiriSafety';
 import { apiUrl } from '@/lib/apiUrl';
@@ -37,8 +51,13 @@ import {
 import LockScreen from '@/components/LockScreen';
 import { analysisCacheKey, clearCachedAnalyses, loadCachedAnalysis, saveCachedAnalysis } from '@/lib/analysisCache';
 
-// ビルド時定数。未設定(本番)ならプレミアムカードとチャット入口を出さない。
-const CHAT_PREVIEW_ENABLED = process.env.NEXT_PUBLIC_KIRI_CHAT_PREVIEW === '1';
+// ビルド時定数（next.config が '0'/'1' を埋め込む）。どちらも '0' なら入口・購入画面・チャット欄はバンドルから消える（D-24）。
+// IAP_BUILD: 購入「Kiriと話す」あり（iOS で RevenueCat の公開キーあり、または next dev / ios:build --dev のモック）。Web 本番は常に '0'。
+// CHAT_DEV_PREVIEW: 開発用のバイパス（購入なしでチャットを開く。サーバーも KIRI_CHAT_PREVIEW=1 の開発環境だけが通す）。
+const IAP_BUILD = process.env.NEXT_PUBLIC_KIRI_IAP === '1';
+const CHAT_DEV_PREVIEW = process.env.NEXT_PUBLIC_KIRI_CHAT_PREVIEW === '1';
+const CHAT_UI_BUILD = IAP_BUILD || CHAT_DEV_PREVIEW;
+const TALK_NOT_ENTITLED = { entitled: false, expiresAt: null, willRenew: false, managementUrl: null };
 // エラーの帯は画面上部（設定ボタン・見出しの上）に重なるので、読み終えたころに自動で閉じる。
 const ERROR_BANNER_AUTO_DISMISS_MS = 10000;
 
@@ -87,8 +106,17 @@ export default function SpiritualDiary() {
     direction: false, 
     distance: false 
   });
-  const [showPremiumInfo, setShowPremiumInfo] = useState(false);
   const [showChat, setShowChat] = useState(false);
+  // 「Kiriと話す」（D-28/D-30）。iapActive は実行時の判定（iOS アプリ＋公開キー、またはモック）。
+  const [iapActive, setIapActive] = useState(false);
+  const [talk, setTalk] = useState(TALK_NOT_ENTITLED);
+  // undefined = 読み込み中・未取得 / null = 取れなかった / { priceString, productId, trial }
+  const [talkOffering, setTalkOffering] = useState(undefined);
+  const talkOfferingRequested = useRef(false);
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [chatReadOnly, setChatReadOnly] = useState(false);
+  const [talkNotice, setTalkNotice] = useState(null);
+  const [talkBusy, setTalkBusy] = useState(false);
   const [showConsent, setShowConsent] = useState(false);
   const [aiConsent, setAiConsent] = useState(false);
   // 同意せずに閉じたとき、記録に危機の言葉があれば送信せずに相談窓口カードを出す（D-15）。
@@ -418,6 +446,117 @@ export default function SpiritualDiary() {
   const withdrawConsent = () => {
     revokeConsent(getStorage());
     setAiConsent(false);
+  };
+
+  // 「Kiriと話す」: 起動時に RevenueCat を設定し、購読状態を読んで、変化（購入・更新・期限切れ）を受け取る。
+  // AI 送信の同意（D-23）は購入の前提にしない（Ruling 7。同意はチャットの送信時に確かめる）。
+  useEffect(() => {
+    if (!IAP_BUILD || !isIapEnabled()) return undefined;
+    let cancelled = false;
+    setIapActive(true);
+    const unsubscribe = onEntitlementChange((state) => {
+      if (!cancelled) setTalk(state);
+    });
+    configurePurchases()
+      .then(() => getEntitlementState())
+      .then((state) => {
+        if (!cancelled) setTalk(state);
+      });
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, []);
+
+  // 結果画面で未購読なら、入口カードの価格・トライアル表示のために offering を1回だけ読む。
+  useEffect(() => {
+    if (!IAP_BUILD || !iapActive || talk.entitled || step !== 'result' || talkOfferingRequested.current) return;
+    talkOfferingRequested.current = true;
+    getChatOffering().then(setTalkOffering);
+  }, [iapActive, talk.entitled, step]);
+
+  // 設定を開いたら購読状態を読み直す（次の更新日・解約の反映）。
+  useEffect(() => {
+    if (!IAP_BUILD || !iapActive || !showSettings) return undefined;
+    let cancelled = false;
+    getEntitlementState().then((state) => {
+      if (!cancelled) setTalk(state);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [iapActive, showSettings]);
+
+  // 開発用プレビュー（購入なし）では購読中と同じに扱う。それ以外は RevenueCat の状態。
+  const devPreviewChat = CHAT_DEV_PREVIEW && !iapActive;
+  const talkEntitled = devPreviewChat || talk.entitled;
+  const talkAvailable = CHAT_UI_BUILD && (iapActive || CHAT_DEV_PREVIEW);
+
+  const reloadTalkOffering = async () => {
+    setTalkOffering(undefined);
+    talkOfferingRequested.current = true;
+    setTalkOffering(await getChatOffering());
+  };
+
+  const openChat = (readOnly) => {
+    setChatReadOnly(readOnly);
+    setShowChat(true);
+  };
+
+  const openPaywall = () => {
+    setShowPaywall(true);
+    if (talkOffering === null) reloadTalkOffering();
+  };
+
+  // 入口カードのボタン: 購読中ならチャット、未購読なら購入画面。
+  const openTalk = () => {
+    if (talkEntitled) openChat(false);
+    else openPaywall();
+  };
+
+  // 購入・復元で権利が付いたら、購入画面を閉じてそのまま話せるようにする。
+  const enterTalkAfterPurchase = async () => {
+    setTalk(await getEntitlementState());
+    setShowPaywall(false);
+    openChat(false);
+  };
+
+  const handlePurchase = async () => {
+    const outcome = await purchaseChat();
+    if (outcome.entitled) {
+      await enterTalkAfterPurchase();
+      return null;
+    }
+    return purchaseNotice(outcome);
+  };
+
+  const handlePaywallRestore = async () => {
+    const outcome = await restorePurchases();
+    if (outcome.entitled) {
+      await enterTalkAfterPurchase();
+      return null;
+    }
+    return restoreNotice(outcome);
+  };
+
+  const handleSettingsRestore = async () => {
+    if (talkBusy) return;
+    setTalkBusy(true);
+    setTalkNotice(null);
+    try {
+      const outcome = await restorePurchases();
+      setTalk(await getEntitlementState());
+      setTalkNotice(restoreNotice(outcome));
+    } finally {
+      setTalkBusy(false);
+    }
+  };
+
+  // App Store のサブスクリプション管理へ。iOS の Capacitor は window.open（新しいウインドウ）を
+  // UIApplication.open に渡す（WebViewDelegationHandler の createWebViewWith）＝外部の Safari／App Store が開く。
+  // タップの処理の中で同期的に呼ぶ（await をはさむとポップアップ扱いで止められることがある）。
+  const manageSubscription = () => {
+    window.open(talk.managementUrl || APPLE_SUBSCRIPTIONS_URL, '_blank', 'noopener,noreferrer');
   };
 
   const analyze = async () => {
@@ -827,13 +966,58 @@ export default function SpiritualDiary() {
     );
   };
 
+  // 設定の「Kiriと話す」（D-30。iOS で購入機能があるときだけ）。Apple は購入画面の外でも「購入を復元」と解約の手段を求める。
+  const renderTalkSettings = () => {
+    if (!IAP_BUILD || !iapActive) return null;
+    const view = talkSettingsView(talk);
+    const rowClass = 'w-full min-h-12 flex items-center justify-between gap-3 border-t border-white/10 text-left text-sm text-white';
+    const restoreRow = (
+      <button type="button" onClick={handleSettingsRestore} disabled={talkBusy} aria-busy={talkBusy} className={`${rowClass} hover:text-kiri-gold disabled:opacity-60`}>
+        <span>{talkBusy ? '確認しています…' : '購入を復元'}</span>
+        <span className="text-xs text-kiri-lilac">機種変更・再インストールのとき</span>
+      </button>
+    );
+    return (
+      <div className="bg-white/10 rounded-xl p-4 mb-3">
+        <h4 className="text-sm font-bold text-kiri-gold mb-1 flex items-center gap-2">
+          {KIRI_TALK_NAME}
+          {view.subscribed && <span className="rounded-full border border-kiri-gold/50 px-2 py-0.5 text-[0.6875rem] font-medium text-kiri-gold">{view.status}</span>}
+        </h4>
+        {view.subscribed ? (
+          <>
+            {view.renewalDate && (
+              <div className={`${rowClass} border-t-0`}>
+                <span>{view.renewalLabel}</span>
+                <span className="text-xs text-kiri-lilac">{view.renewalDate}</span>
+              </div>
+            )}
+            <button type="button" onClick={manageSubscription} className={`${rowClass} hover:text-kiri-gold${view.renewalDate ? '' : ' border-t-0'}`}>
+              <span>サブスクリプションを管理</span>
+              <span className="flex items-center gap-1 text-xs text-kiri-lilac">解約・変更<ChevronRight className="w-4 h-4" aria-hidden="true" /></span>
+            </button>
+            {restoreRow}
+          </>
+        ) : (
+          <>
+            <div className={`${rowClass} border-t-0`}>
+              <span>いまの状態</span>
+              <span className="text-xs text-kiri-lilac">{view.status}</span>
+            </div>
+            {restoreRow}
+          </>
+        )}
+        {talkNotice && <p className="text-xs mt-2 text-kiri-gold" role="status">{talkNotice}</p>}
+      </div>
+    );
+  };
+
   // 設定（バックアップの書き出し/読み込み）
   const SettingsModal = () => {
     if (!showSettings) return null;
     return (
       <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1rem+env(safe-area-inset-bottom))]" onClick={() => setShowSettings(false)} role="dialog" aria-modal="true" aria-label="設定">
         {/* iOS アプリではロックの項目で縦に長くなるので、画面に収まらないときは中でスクロールする（Web は従来どおり。監査 P2-5） */}
-        <div className={`kiri-card-strong rounded-2xl w-full max-w-md p-6 kiri-rise${lockNative ? ' max-h-full overflow-y-auto' : ''}`} onClick={(e) => e.stopPropagation()}>
+        <div className={`kiri-card-strong rounded-2xl w-full max-w-md p-6 kiri-rise${lockNative || iapActive ? ' max-h-full overflow-y-auto' : ''}`} onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-display text-xl font-bold text-kiri-gold">設定</h3>
             <button type="button" onClick={() => setShowSettings(false)} aria-label="閉じる" className="kiri-hit text-white hover:bg-white/20 rounded-full p-1">
@@ -841,6 +1025,7 @@ export default function SpiritualDiary() {
             </button>
           </div>
           {renderLockSettings()}
+          {renderTalkSettings()}
           {/* カードどうしは12px。カードの中は 見出し→説明 4px・説明→ボタン 8px で詰め、ひとまとまりに見せる（D-29） */}
           <div className="bg-white/10 rounded-xl p-4">
             <h4 className="text-sm font-bold text-kiri-gold mb-1">バックアップ</h4>
@@ -1379,13 +1564,28 @@ export default function SpiritualDiary() {
           <HistoryListModal />
           <ConfirmDeleteModal />
           <RecordDetail record={openedRecord} onClose={() => setOpenedRecord(null)} />
-          {/* チャットと「プレミアム」の詳細は開発プレビューのビルドにだけ入れる（定数で囲み、本番のバンドルから消す）。 */}
-          {CHAT_PREVIEW_ENABLED && showChat && (
+          {/* チャット欄と購入画面は購入機能（または開発用プレビュー）のあるビルドにだけ入れる（定数で囲み、Web 本番のバンドルから消す）。 */}
+          {CHAT_UI_BUILD && showChat && (
             <KiriChatPanel
               userProfile={{ nickname, birthDate, birthTime, gender }}
               entry={entry}
               result={result}
+              readOnly={chatReadOnly && !talkEntitled}
+              onOpenPaywall={openPaywall}
+              getAppUserId={getAppUserId}
               onClose={() => setShowChat(false)}
+            />
+          )}
+          {IAP_BUILD && (
+            <PaywallSheet
+              open={showPaywall}
+              offering={talkOffering}
+              entitled={talk.entitled}
+              onPurchase={handlePurchase}
+              onRestore={handlePaywallRestore}
+              onRetry={reloadTalkOffering}
+              onManage={manageSubscription}
+              onClose={() => setShowPaywall(false)}
             />
           )}
           <InfoPopup 
@@ -1503,21 +1703,6 @@ export default function SpiritualDiary() {
             <p className="mt-2 text-kiri-lilac text-xs">正解はないので、心地よい距離を自分で選んでくださいね。</p>
           </InfoPopup>
 
-          {CHAT_PREVIEW_ENABLED && (
-            <InfoPopup
-              show={showPremiumInfo}
-              onClose={() => setShowPremiumInfo(false)}
-              title="Kiriとの対話（プレミアム）"
-            >
-              <p>今日の占い結果と過去の記録をもとに、Kiriへ続けて相談できる機能です。</p>
-              <div className="bg-white/10 p-3 rounded-lg space-y-1.5">
-                <p>・今日の無料占い結果：このまま利用できます</p>
-                <p>・端末内の履歴保存：この端末で利用できます</p>
-                <p>・Kiriとの対話：有料機能として準備中です</p>
-              </div>
-              <p className="text-xs text-kiri-lilac">購入機能はまだ接続されていません。App Store公開前にStoreKitまたはRevenueCatとサーバー側の購読確認を追加します。</p>
-            </InfoPopup>
-          )}
 
           <div className="min-h-screen kiri-shell p-4 pb-20">
             <div className="max-w-2xl mx-auto">
@@ -1781,37 +1966,44 @@ export default function SpiritualDiary() {
                   </button>
                 </div>
 
-                {/* 課金開始までチャットは画面に出さない（Q4）。開発時だけ NEXT_PUBLIC_KIRI_CHAT_PREVIEW=1 で表示。 */}
-                {CHAT_PREVIEW_ENABLED && (
-                  <div className="kiri-card-strong rounded-xl p-4">
-                      <div className="flex items-start gap-3">
-                      <Lock className="text-kiri-gold w-6 h-6 flex-shrink-0 mt-0.5" />
-                      <div className="flex-1">
-                        <h3 className="text-base font-bold text-kiri-gold mb-1">プレミアム版</h3>
-                        <p className="text-xs text-kiri-gold/90 mb-2">今日の占い結果は無料。Kiriとの継続チャットは有料オプションです。</p>
-                        <ul className="text-white space-y-0.5 mb-2 text-xs">
-                          <li>Kiriとの対話無制限</li>
-                          <li>Kiriとの会話ログの読み返し</li>
-                          <li>あなた専用のパターン分析</li>
-                        </ul>
-                        <button
-                          type="button"
-                          onClick={() => setShowPremiumInfo(true)}
-                          className="kiri-button px-4 py-2 rounded-lg text-sm font-bold hover:scale-[1.01] active:scale-[0.98] transition-transform"
-                        >
-                          詳細を見る
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setShowChat(true)}
-                          className="mt-2 w-full rounded-lg border border-kiri-gold/40 px-3 py-2 text-xs font-bold text-kiri-gold hover:bg-white/10 transition-colors"
-                        >
-                          開発プレビューでKiriに聞く
-                        </button>
+                {/* 入口カード「Kiriに続けて聞く」（D-30）。購入機能のあるビルド（iOS・開発のモック）か開発用プレビューでだけ出す（Web 本番には無い）。 */}
+                {CHAT_UI_BUILD && talkAvailable && (() => {
+                  const card = entryCardView({
+                    entitled: talkEntitled,
+                    offering: talkOffering,
+                    hasLog: !talkEntitled && loadChatHistory(getStorage()).length > 0,
+                  });
+                  return (
+                    <div className="kiri-card-strong rounded-xl p-4">
+                      <div className="flex items-center gap-3 mb-3">
+                        <Image src="/kiri-avatar-144.png" alt="" width={44} height={44} className="w-11 h-11 rounded-full border border-kiri-gold/25 object-cover" />
+                        <div className="min-w-0">
+                          <h3 className="font-display text-base font-bold text-kiri-gold">Kiriに続けて聞く</h3>
+                          <p className="text-xs text-kiri-lilac mt-0.5">{KIRI_TALK_NAME}（月額）</p>
+                        </div>
                       </div>
+                      <p className="text-sm leading-relaxed text-kiri-fog mb-3">今日の読み解きと記録をふまえて、気になったところをKiriに話しかけられます。</p>
+                      <button
+                        type="button"
+                        onClick={openTalk}
+                        className="w-full min-h-11 rounded-full bg-kiri-gold px-4 text-sm font-bold tracking-wider text-kiri-night hover:brightness-105 active:scale-[0.98] transition-transform"
+                      >
+                        {card.primaryLabel}
+                      </button>
+                      {card.note && <p className="text-xs text-kiri-lilac text-center mt-2">{card.note}</p>}
+                      {card.showReadLog && (
+                        <button
+                          type="button"
+                          onClick={() => openChat(true)}
+                          className="mt-2 w-full min-h-11 rounded-full border border-white/15 px-4 text-sm text-kiri-fog hover:bg-white/10"
+                        >
+                          これまでの会話を読む
+                        </button>
+                      )}
+                      {devPreviewChat && <p className="text-[0.6875rem] text-kiri-lilac text-center mt-2">開発プレビュー（購入なし。サーバーも開発環境だけが通します）</p>}
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 <div className="flex gap-2">
                   <button
