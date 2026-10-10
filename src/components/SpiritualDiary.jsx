@@ -4,7 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useState, useEffect, useReducer, useRef } from 'react';
 import { flushSync } from 'react-dom';
-import { Sparkles, Lock, AlertCircle, X, ChevronRight, ChevronDown, ChevronUp, HelpCircle, Heart, Smile, Frown, Meh, Angry, Star, Sun, Moon, Cloud, Zap, CircleHelp, Palette, Download, Upload, Settings, History, Laugh, Leaf, CloudRain, Droplet, Music, ShieldOff, Timer, EyeOff } from 'lucide-react';
+import { Sparkles, Lock, AlertCircle, X, ChevronRight, ChevronDown, ChevronUp, HelpCircle, Heart, Smile, Frown, Meh, Angry, Star, Sun, Moon, Cloud, Zap, CloudFog, Palette, Download, Upload, Settings, History, Laugh, Leaf, CloudRain, Droplet, Music, ShieldOff, Timer, EyeOff } from 'lucide-react';
 import { deleteHistoryItem, loadHistory, saveHistory, toHistoryRecord, loadProfile, saveProfile, initialStepFor, formatBirthDateJa, isSameReading } from '@/lib/history';
 import { buildBackup, backupFileName, parseBackup, applyBackup } from '@/lib/backup';
 import KiriChatPanel from '@/components/KiriChatPanel';
@@ -233,7 +233,7 @@ export default function SpiritualDiary() {
     }
   };
 
-  const moodIconMap = { Laugh, Heart, Leaf, Sparkles, Music, Sun, Moon, CloudRain, Droplet, Angry, CircleHelp, Meh, Smile, Star, Frown, Cloud };
+  const moodIconMap = { Laugh, Heart, Leaf, Sparkles, Music, Sun, Moon, CloudRain, Droplet, Angry, CloudFog, Meh, Smile, Star, Frown, Cloud };
 
   const MoodIcon = ({ value, className = 'w-7 h-7' }) => {
     const Icon = moodIconMap[findMood(value)?.icon] || Sparkles;
@@ -1538,7 +1538,7 @@ export default function SpiritualDiary() {
 
                     <div>
                       <label className="block text-white text-sm mb-1 font-medium">記録する</label>
-                      <p className="text-xs text-kiri-lilac-ink mb-2">今日の予定や出来事をあなたの言葉で自由に記入して</p>
+                      <p className="text-xs text-kiri-lilac-ink mb-2">今日の予定や出来事を、自由に記録してください</p>
                       {/* 枠と内側の余白は外の箱に持たせ、文字は内側でスクロールさせる（上下の余白が文字で埋まらない。2026-10-09） */}
                       <label className="block w-full px-3 py-2.5 rounded-lg bg-white/10 border border-kiri-lilac/50 focus-within:ring-2 focus-within:ring-kiri-lilac h-32 kiri-dt-event cursor-text">
                         <textarea

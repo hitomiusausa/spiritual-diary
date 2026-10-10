@@ -36,3 +36,9 @@ describe("moods", () => {
     expect(moodLabel("")).toBe("");
   });
 });
+
+describe("もやもやのアイコン（説明の「？」と重ねない）", () => {
+  it("霧の雲を使う", () => {
+    expect(findMood("🤔")).toMatchObject({ label: "もやもや", icon: "CloudFog" });
+  });
+});

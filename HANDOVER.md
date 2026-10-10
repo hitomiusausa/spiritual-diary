@@ -324,3 +324,4 @@ npm run dev
 - main へは `agent/ios-billing` と一緒に入る（push は ひとみうさが `git push origin agent/readability:main`。入れても購入機能はキーが無い間は出ない）
 - 2026-10-10 夜: D-33（バイオリズム・テーマ別運勢は閉じた状態から＋「タップで確認」）を追加。e2e 132/132・test 714・lint 0・build OK
 - 本番: `agent/readability`（2e3bafc）を ひとみうさが main へ push → Workers Builds で反映済み（11:04 UTC）。本番で新しい色・規約の 1,000 件・`/api/chat` 403 not_entitled を確認
+- 2026-10-10 夜: 気分「もやもや」のアイコンを `CircleHelp`（？）→ `CloudFog`（霧の雲。説明の「？」と重ねない）。日記の説明を「今日の予定や出来事を、自由に記録してください」に（375px で1行に収まる）。どちらも ひとみうさの選択

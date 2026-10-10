@@ -13,7 +13,7 @@ export const MOODS = [
   { value: "😰", label: "不安", icon: "CloudRain", bonus: -0.12 },
   { value: "😢", label: "悲しい", icon: "Droplet", bonus: -0.18 },
   { value: "😤", label: "イライラ", icon: "Angry", bonus: -0.15 },
-  { value: "🤔", label: "もやもや", icon: "CircleHelp", bonus: -0.05 },
+  { value: "🤔", label: "もやもや", icon: "CloudFog", bonus: -0.05 },
   { value: "😮", label: "ふつう", icon: "Meh", bonus: 0 },
 ];
 
