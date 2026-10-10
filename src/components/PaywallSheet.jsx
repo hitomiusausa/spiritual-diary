@@ -126,7 +126,7 @@ export default function PaywallSheet({ open, offering, entitled = false, onPurch
                 </span>
                 <div className="min-w-0">
                   <p className="text-[0.9375rem] font-medium leading-normal text-kiri-text">{promise.title}</p>
-                  <p className="text-xs leading-relaxed text-kiri-lilac mt-0.5">{promise.detail}</p>
+                  <p className="text-xs leading-relaxed text-kiri-lilac mt-1">{promise.detail}</p>
                 </div>
               </li>
             );
