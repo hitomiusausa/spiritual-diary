@@ -4,7 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useState, useEffect, useReducer, useRef } from 'react';
 import { flushSync } from 'react-dom';
-import { Sparkles, Lock, AlertCircle, X, ChevronRight, ChevronDown, ChevronUp, HelpCircle, Heart, Smile, Frown, Meh, Angry, Star, Sun, Moon, Cloud, Zap, CircleHelp, Download, Upload, Settings, History, Laugh, Leaf, CloudRain, Droplet, Music, ShieldOff, Timer, EyeOff } from 'lucide-react';
+import { Sparkles, Lock, AlertCircle, X, ChevronRight, ChevronDown, ChevronUp, HelpCircle, Heart, Smile, Frown, Meh, Angry, Star, Sun, Moon, Cloud, Zap, CircleHelp, Palette, Download, Upload, Settings, History, Laugh, Leaf, CloudRain, Droplet, Music, ShieldOff, Timer, EyeOff } from 'lucide-react';
 import { deleteHistoryItem, loadHistory, saveHistory, toHistoryRecord, loadProfile, saveProfile, initialStepFor, formatBirthDateJa, isSameReading } from '@/lib/history';
 import { buildBackup, backupFileName, parseBackup, applyBackup } from '@/lib/backup';
 import KiriChatPanel from '@/components/KiriChatPanel';
@@ -61,6 +61,9 @@ const CHAT_UI_BUILD = IAP_BUILD || CHAT_DEV_PREVIEW;
 const TALK_NOT_ENTITLED = { entitled: false, expiresAt: null, willRenew: false, isTrial: false, managementUrl: null };
 // エラーの帯は画面上部（設定ボタン・見出しの上）に重なるので、読み終えたころに自動で閉じる。
 const ERROR_BANNER_AUTO_DISMISS_MS = 10000;
+// 読み解きの後の霧の画面切り替え: 覆うのにかかる時間・覆ったまま待つ時間（そのあと同じ時間で晴れる）
+const FOG_FADE_MS = 900;
+const FOG_HOLD_MS = 400;
 
 export default function SpiritualDiary() {
   // 'boot' はプロフィール復元前。基本情報画面が一瞬見えないよう背景だけ描く。
@@ -674,14 +677,15 @@ export default function SpiritualDiary() {
         }
         
         // ホワイトアウト遷移
+        // 霧が画面を覆いきってから結果へ切り替える（途中で切り替えると、薄くなった霧ごしに文字が見える）
         setIsTransitioning(true);
         setTimeout(() => {
           setStep('result');
           haptic('success');
           setTimeout(() => {
             setIsTransitioning(false);
-          }, 400);
-        }, 1000);
+          }, FOG_HOLD_MS);
+        }, FOG_FADE_MS);
       } else {
         setStep('input'); // エラー時は入力画面に戻る
         setError(describeAnalyzeFailure({ status: data.status, code: data.code }));
@@ -750,15 +754,15 @@ export default function SpiritualDiary() {
     const opacity = getOpacity(value);
     
     return (
-      <div className="bg-white/10 rounded-lg p-3">
+      <div className="bg-white/[0.055] rounded-lg p-3">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <span className="text-kiri-fog">{icon}</span>
             <span className="text-white font-bold text-sm">{label}</span>
           </div>
-          <span className={`text-lg font-bold ${color}`}>{value}%</span>
+          <span className={`text-xl font-bold ${color}`}>{value}%</span>
         </div>
-        <div className="w-full bg-white/20 rounded-full h-2 overflow-hidden">
+        <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden">
           <div 
             className={`h-full rounded-full ${barColor} transition-all duration-500`}
             style={{ width: `${percentage}%`, opacity: opacity }}
@@ -785,7 +789,7 @@ export default function SpiritualDiary() {
     const opacity = getOpacity(value);
     
     return (
-      <div className="bg-white/5 rounded-lg p-3">
+      <div className="bg-white/[0.03] rounded-lg p-3">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <span className="text-kiri-fog">{icon}</span>
@@ -797,7 +801,7 @@ export default function SpiritualDiary() {
             ))}
           </div>
         </div>
-        <div className="w-full bg-white/20 rounded-full h-2.5 overflow-hidden">
+        <div className="w-full bg-white/10 rounded-full h-2.5 overflow-hidden">
           <div 
             className={`h-full rounded-full ${baseColor} transition-all duration-500`}
             style={{ width: `${value}%`, opacity: opacity }}
@@ -832,7 +836,7 @@ export default function SpiritualDiary() {
 
   const HintItem = ({ icon, title, value, message, bgColor, textColor, onInfoClick }) => {
     return (
-      <div className="bg-white/5 rounded-lg p-3">
+      <div className="bg-white/[0.03] rounded-lg p-3">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1">
             <span className="text-kiri-fog">{icon}</span>
@@ -842,14 +846,14 @@ export default function SpiritualDiary() {
             type="button"
             aria-label={`${title}の説明`}
             onClick={onInfoClick}
-            className="kiri-hit text-kiri-lilac hover:text-kiri-gold transition-colors"
+            className="kiri-hit text-kiri-lilac-ink hover:text-kiri-gold transition-colors"
           >
             <HelpCircle className="w-3 h-3" />
           </button>
         </div>
         
         <div className="relative mb-2 text-center">
-          <p className={`text-2xl font-bold ${textColor}`} style={{textShadow: '0 3px 12px rgba(255,255,255,0.4), 0 0 30px rgba(255,255,255,0.2)'}}>
+          <p className={`text-2xl font-bold ${textColor}`} style={{textShadow: '0 1px 8px rgba(255,255,255,0.12)'}}>
             {value}
           </p>
         </div>
@@ -864,7 +868,7 @@ export default function SpiritualDiary() {
   // 見出し行はdiv+個別ボタン構成にする（button入れ子はHTML違反でhydrationエラーになる）
   // 開いているときは見出し→中身を12px（カード見出し→中身の共通値。D-29）。行の高さは56px（閉じて60px）でタップ範囲は足りる
   const CollapsibleSection = ({ title, isExpanded, onToggle, children, badge, onInfoClick }) => (
-    <div className="bg-white/10 backdrop-blur-md rounded-xl border border-kiri-lilac/30 overflow-hidden">
+    <div className="bg-white/[0.055] backdrop-blur-md rounded-xl border border-kiri-lilac/30 overflow-hidden">
       <div
         onClick={onToggle}
         className={`w-full p-4 ${isExpanded ? 'pb-3' : ''} flex items-center justify-between cursor-pointer active:bg-white/5 transition-colors`}
@@ -872,7 +876,7 @@ export default function SpiritualDiary() {
         <div className="kiri-dt-section-head flex items-center gap-2">
           <h2 className="font-display text-lg font-bold text-kiri-gold">{title}</h2>
           {badge && (
-            <span className="text-xs bg-kiri-gold/20 text-kiri-gold px-2 py-0.5 rounded-full">
+            <span className="text-xs bg-kiri-gold/11 text-kiri-gold px-2 py-0.5 rounded-full">
               {badge}
             </span>
           )}
@@ -884,7 +888,7 @@ export default function SpiritualDiary() {
                 e.stopPropagation();
                 onInfoClick();
               }}
-              className="kiri-hit ml-1 text-kiri-lilac hover:text-kiri-gold transition-colors"
+              className="kiri-hit ml-1 text-kiri-lilac-ink hover:text-kiri-gold transition-colors"
             >
               <HelpCircle className="w-4 h-4" />
             </button>
@@ -898,7 +902,7 @@ export default function SpiritualDiary() {
             e.stopPropagation();
             onToggle();
           }}
-          className="text-kiri-lilac hover:text-white p-1"
+          className="text-kiri-lilac-ink hover:text-white p-1"
         >
           {isExpanded ? (
             <ChevronUp className="w-5 h-5" />
@@ -916,14 +920,16 @@ export default function SpiritualDiary() {
   );
 
   // 霧に包まれる画面遷移（白飛びさせず、薄紫の霧で覆う）
-  const WhiteoutTransition = () => (
+  // 部品として {renderWhiteoutTransition()} で置くと再描画のたびに作り直され、ふわっと出る・晴れるアニメーションが効かないので、関数として呼ぶ。
+  const renderWhiteoutTransition = () => (
     <div
       className={`fixed inset-0 z-50 transition-all ease-in-out ${
         isTransitioning ? 'opacity-100' : 'opacity-0 pointer-events-none'
       }`}
       style={{
-        background: 'radial-gradient(circle, rgba(230,222,240,0.96) 0%, rgba(216,205,232,0.92) 45%, rgba(196,183,218,0.86) 75%, rgba(178,164,204,0.8) 100%)',
-        transitionDuration: '1200ms'
+        // 不透明にする（半透明だと後ろの白い文字が薄紫の上に透けて読めない文字の画面に見えていた。2026-10-10）
+        background: 'radial-gradient(circle, rgb(230,222,240) 0%, rgb(216,205,232) 45%, rgb(196,183,218) 75%, rgb(178,164,204) 100%)',
+        transitionDuration: `${FOG_FADE_MS}ms`
       }}
     />
   );
@@ -952,13 +958,13 @@ export default function SpiritualDiary() {
     const enabled = lockSettings.enabled;
     const description = lockToggleDescription(lockAvailability?.biometryType);
     return (
-      <div className="bg-white/10 rounded-xl p-4 mb-3">
+      <div className="bg-white/[0.055] rounded-xl p-4 mb-3">
         <h4 className="text-sm font-bold text-kiri-gold mb-2">アプリのロック</h4>
         <div className="flex items-center gap-3">
           <Lock className="w-5 h-5 shrink-0 text-kiri-gold" strokeWidth={1.6} aria-hidden="true" />
           <div className="flex-1 min-w-0">
             <p id="kiri-lock-toggle-label" className="text-sm text-white">アプリのロック</p>
-            <p className="text-xs text-kiri-lilac leading-relaxed">
+            <p className="text-xs text-kiri-lilac-ink leading-relaxed">
               {description}
               {enabled && lockState.failOpen && '（端末のパスコードが未設定のため、いまは一時的に外れています）'}
             </p>
@@ -972,7 +978,7 @@ export default function SpiritualDiary() {
                 <Timer className="w-5 h-5 shrink-0 text-kiri-gold" strokeWidth={1.6} aria-hidden="true" />
                 <div className="flex-1 min-w-0">
                   <p id="kiri-autolock-label" className="text-sm text-white">自動ロック</p>
-                  <p className="text-xs text-kiri-lilac leading-relaxed">アプリを閉じたとき・ほかのアプリへ移ったときから数えます。</p>
+                  <p className="text-xs text-kiri-lilac-ink leading-relaxed">アプリを閉じたとき・ほかのアプリへ移ったときから数えます。</p>
                 </div>
               </div>
               <div role="radiogroup" aria-labelledby="kiri-autolock-label" className="grid grid-cols-4 gap-1 p-1 mt-2 rounded-xl bg-black/25">
@@ -985,7 +991,7 @@ export default function SpiritualDiary() {
                       role="radio"
                       aria-checked={selected}
                       onClick={() => updateLockSettings({ autoLockMinutes: option.value })}
-                      className={`min-h-[40px] rounded-[9px] text-sm transition-colors ${selected ? 'bg-kiri-plum text-kiri-gold font-bold ring-1 ring-kiri-gold/25' : 'text-kiri-lilac hover:text-white'}`}
+                      className={`min-h-[40px] rounded-[9px] text-sm transition-colors ${selected ? 'bg-kiri-plum text-kiri-gold font-bold ring-1 ring-kiri-gold/25' : 'text-kiri-lilac-ink hover:text-white'}`}
                     >
                       {option.label}
                     </button>
@@ -997,7 +1003,7 @@ export default function SpiritualDiary() {
               <EyeOff className="w-5 h-5 shrink-0 text-kiri-gold" strokeWidth={1.6} aria-hidden="true" />
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-white">切り替え画面で記録を隠す</p>
-                <p className="text-xs text-kiri-lilac leading-relaxed">ほかのアプリへ移るとき、画面がぼかされます。</p>
+                <p className="text-xs text-kiri-lilac-ink leading-relaxed">ほかのアプリへ移るとき、画面がぼかされます。</p>
               </div>
               <LockSwitch
                 checked={lockSettings.hideInSwitcher}
@@ -1007,7 +1013,7 @@ export default function SpiritualDiary() {
             </div>
           </>
         )}
-        <p className="text-[0.6875rem] text-kiri-lilac/80 mt-3 leading-relaxed">{LOCK_SETTINGS_NOTE}</p>
+        <p className="text-[0.75rem] text-kiri-lilac-ink mt-3 leading-relaxed">{LOCK_SETTINGS_NOTE}</p>
         {lockNotice && <p className="text-xs mt-2 text-kiri-danger" role="status">{lockNotice}</p>}
       </div>
     );
@@ -1023,31 +1029,31 @@ export default function SpiritualDiary() {
       <button type="button" onClick={handleSettingsRestore} disabled={talkBusy} aria-busy={talkBusy} className={`${rowClass} hover:text-kiri-gold disabled:opacity-60`}>
         <span className="min-w-0">
           <span className="block">{talkBusy ? '確認しています…' : '購入を復元'}</span>
-          <span className="block text-xs text-kiri-lilac mt-0.5">機種変更・再インストールのとき</span>
+          <span className="block text-xs text-kiri-lilac-ink mt-0.5">機種変更・再インストールのとき</span>
         </span>
-        <ChevronRight className="w-4 h-4 shrink-0 text-kiri-lilac" aria-hidden="true" />
+        <ChevronRight className="w-4 h-4 shrink-0 text-kiri-lilac-ink" aria-hidden="true" />
       </button>
     );
     return (
-      <div className="bg-white/10 rounded-xl p-4 mb-3">
+      <div className="bg-white/[0.055] rounded-xl p-4 mb-3">
         <h4 className="text-sm font-bold text-kiri-gold mb-1 flex items-center gap-2">
           {KIRI_TALK_NAME}
-          {view.subscribed && <span className="rounded-full border border-kiri-gold/50 px-2 py-0.5 text-[0.6875rem] font-medium text-kiri-gold">{view.status}</span>}
+          {view.subscribed && <span className="rounded-full border border-kiri-gold/50 px-2 py-0.5 text-[0.75rem] font-medium text-kiri-gold">{view.status}</span>}
         </h4>
         {view.subscribed ? (
           <>
             {view.renewalDate && (
               <div className={`${rowClass} border-t-0`}>
                 <span>{view.renewalLabel}</span>
-                <span className="text-xs text-kiri-lilac">{view.renewalDate}</span>
+                <span className="text-xs text-kiri-lilac-ink">{view.renewalDate}</span>
               </div>
             )}
             <button type="button" onClick={manageSubscription} className={`${rowClass} hover:text-kiri-gold${view.renewalDate ? '' : ' border-t-0'}`}>
               <span className="min-w-0">
                 <span className="block">サブスクリプションを管理</span>
-                <span className="block text-xs text-kiri-lilac mt-0.5">解約・変更（App Store）</span>
+                <span className="block text-xs text-kiri-lilac-ink mt-0.5">解約・変更（App Store）</span>
               </span>
-              <ChevronRight className="w-4 h-4 shrink-0 text-kiri-lilac" aria-hidden="true" />
+              <ChevronRight className="w-4 h-4 shrink-0 text-kiri-lilac-ink" aria-hidden="true" />
             </button>
             {restoreRow}
           </>
@@ -1055,7 +1061,7 @@ export default function SpiritualDiary() {
           <>
             <div className={`${rowClass} border-t-0`}>
               <span>いまの状態</span>
-              <span className="text-xs text-kiri-lilac">{view.status}</span>
+              <span className="text-xs text-kiri-lilac-ink">{view.status}</span>
             </div>
             {restoreRow}
           </>
@@ -1082,21 +1088,21 @@ export default function SpiritualDiary() {
           {renderLockSettings()}
           {renderTalkSettings()}
           {/* カードどうしは12px。カードの中は 見出し→説明 4px・説明→ボタン 8px で詰め、ひとまとまりに見せる（D-29） */}
-          <div className="bg-white/10 rounded-xl p-4">
+          <div className="bg-white/[0.055] rounded-xl p-4">
             <h4 className="text-sm font-bold text-kiri-gold mb-1">バックアップ</h4>
-            <p className="text-xs text-kiri-lilac mb-2 leading-relaxed">記録・プロフィール・会話をJSONファイルとして保存/復元できます。読み込みは既存の記録を消しません。バックアップは自動では行われないので、大切な記録は設定アイコンの「バックアップ」を選択して定期的に書き出してください。</p>
+            <p className="text-xs text-kiri-lilac-ink mb-2 leading-relaxed">記録・プロフィール・会話をJSONファイルとして保存/復元できます。読み込みは既存の記録を消しません。バックアップは自動では行われないので、大切な記録は設定アイコンの「バックアップ」を選択して定期的に書き出してください。</p>
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={exportBackup}
-                className="flex-1 flex items-center justify-center gap-1.5 bg-white/10 hover:bg-white/20 text-white text-sm py-2.5 rounded-lg transition-colors"
+                className="flex-1 flex items-center justify-center gap-1.5 bg-white/[0.055] hover:bg-white/20 text-white text-sm py-2.5 rounded-lg transition-colors"
               >
                 <Download className="w-4 h-4" />書き出す
               </button>
               <button
                 type="button"
                 onClick={() => importInputRef.current?.click()}
-                className="flex-1 flex items-center justify-center gap-1.5 bg-white/10 hover:bg-white/20 text-white text-sm py-2.5 rounded-lg transition-colors"
+                className="flex-1 flex items-center justify-center gap-1.5 bg-white/[0.055] hover:bg-white/20 text-white text-sm py-2.5 rounded-lg transition-colors"
               >
                 <Upload className="w-4 h-4" />読み込む
               </button>
@@ -1112,9 +1118,9 @@ export default function SpiritualDiary() {
               <p className={`text-xs mt-2 ${backupNotice.type === 'error' ? 'text-kiri-danger' : 'text-kiri-gold'}`}>{backupNotice.text}</p>
             )}
           </div>
-          <div className="bg-white/10 rounded-xl p-4 mt-3">
+          <div className="bg-white/[0.055] rounded-xl p-4 mt-3">
             <h4 className="text-sm font-bold text-kiri-gold mb-1">AI送信の同意</h4>
-            <p className="text-xs text-kiri-lilac mb-2 leading-relaxed">
+            <p className="text-xs text-kiri-lilac-ink mb-2 leading-relaxed">
               {aiConsent
                 ? '読み解きのため、入力内容をAnthropic社のAI（Claude）へ送ることに同意しています。取り消すと、次の読み解きで改めて確認します。'
                 : '現在は同意していません。次に「読み解く」を押したときに確認します。'}
@@ -1123,13 +1129,13 @@ export default function SpiritualDiary() {
               <button
                 type="button"
                 onClick={withdrawConsent}
-                className="w-full flex items-center justify-center gap-1.5 bg-white/10 hover:bg-white/20 text-white text-sm py-2.5 rounded-lg transition-colors"
+                className="w-full flex items-center justify-center gap-1.5 bg-white/[0.055] hover:bg-white/20 text-white text-sm py-2.5 rounded-lg transition-colors"
               >
                 <ShieldOff className="w-4 h-4" />AI送信の同意を取り消す
               </button>
             )}
           </div>
-          <p className="text-[0.6875rem] text-kiri-lilac/80 mt-3">記録はこの端末内にのみ保存されます。</p>
+          <p className="text-[0.75rem] text-kiri-lilac-ink mt-3">記録はこの端末内にのみ保存されます。</p>
         </div>
       </div>
     );
@@ -1149,12 +1155,12 @@ export default function SpiritualDiary() {
                 <button
                   type="button"
                   onClick={() => setConfirmDelete({ type: 'all' })}
-                  className="text-xs text-kiri-lilac hover:text-white"
+                  className="text-xs text-kiri-lilac-ink hover:text-white"
                 >
                   すべて削除
                 </button>
               )}
-              <button type="button" onClick={() => setShowHistoryList(false)} aria-label="閉じる" className="kiri-hit text-kiri-lilac hover:text-white"><X className="w-5 h-5" /></button>
+              <button type="button" onClick={() => setShowHistoryList(false)} aria-label="閉じる" className="kiri-hit text-kiri-lilac-ink hover:text-white"><X className="w-5 h-5" /></button>
             </div>
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-2">
@@ -1162,7 +1168,7 @@ export default function SpiritualDiary() {
               <p className="text-xs text-kiri-gold" role="status">{deleteNotice}</p>
             )}
             {history.length === 0 && (
-              <p className="text-sm text-kiri-lilac leading-relaxed">まだ記録がありません。今日の記録が、最初のひとつになるよ。</p>
+              <p className="text-sm text-kiri-lilac-ink leading-relaxed">まだ記録がありません。今日の記録が、最初のひとつになるよ。</p>
             )}
             {history.map((item) => (
               <div key={item.id} className="bg-black/15 rounded-lg flex items-stretch">
@@ -1173,7 +1179,7 @@ export default function SpiritualDiary() {
                 >
                   <span className="text-kiri-fog"><MoodIcon value={item.entry?.emoji || '✨'} className="w-5 h-5" /></span>
                   <span className="min-w-0 flex-1 block">
-                    <span className="block text-xs text-kiri-lilac">
+                    <span className="block text-xs text-kiri-lilac-ink">
                       記入日: {item.createdAt ? new Date(item.createdAt).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' }) : '不明'}
                     </span>
                     <span className="block text-sm text-white truncate">{item.entry?.event || '記録なし'}</span>
@@ -1183,14 +1189,14 @@ export default function SpiritualDiary() {
                   type="button"
                   aria-label="この記録を削除"
                   onClick={() => setConfirmDelete({ type: 'one', id: item.id })}
-                  className="text-kiri-lilac hover:text-white px-2.5 rounded-r-lg"
+                  className="text-kiri-lilac-ink hover:text-white px-2.5 rounded-r-lg"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
             ))}
           </div>
-          <p className="px-4 pb-3 text-[0.6875rem] text-kiri-lilac/80">タップすると当時のKiriの読み解きを読み返せます。</p>
+          <p className="px-4 pb-3 text-[0.75rem] text-kiri-lilac-ink">タップすると当時のKiriの読み解きを読み返せます。</p>
         </div>
       </div>
     );
@@ -1206,14 +1212,14 @@ export default function SpiritualDiary() {
           <h3 className="font-display text-lg font-bold text-white mb-2">
             {isAll ? '記録と会話をすべて削除しますか？' : 'この記録を削除しますか？'}
           </h3>
-          <p className="text-sm text-kiri-lilac leading-relaxed mb-4">
+          <p className="text-sm text-kiri-lilac-ink leading-relaxed mb-4">
             {isAll ? '日記の記録・読み解き・Kiriとの会話がすべて消え、元に戻せません。' : '削除した記録は元に戻せません。'}バックアップを取っていない場合、復元はできません（バックアップは設定アイコンの「バックアップ」を選択して書き出せます）。
           </p>
           <div className="flex gap-2">
             <button
               type="button"
               onClick={() => setConfirmDelete(null)}
-              className="flex-1 bg-white/10 hover:bg-white/20 text-white py-2.5 rounded-lg text-sm font-medium transition-colors"
+              className="flex-1 bg-white/[0.055] hover:bg-white/20 text-white py-2.5 rounded-lg text-sm font-medium transition-colors"
             >
               キャンセル
             </button>
@@ -1257,19 +1263,19 @@ export default function SpiritualDiary() {
               <span className="text-kiri-fog"><MoodIcon value={record.entry?.emoji || '✨'} className="w-6 h-6" /></span>
               <div>
                 <h2 className="font-display font-bold text-kiri-gold">{dateLabel}</h2>
-                <p className="text-[0.6875rem] text-kiri-lilac">{entryLabel}の記録</p>
+                <p className="text-[0.75rem] text-kiri-lilac-ink">{entryLabel}の記録</p>
               </div>
             </div>
-            <button type="button" onClick={onClose} aria-label="閉じる" className="kiri-hit text-kiri-lilac hover:text-white p-1"><X className="w-5 h-5" /></button>
+            <button type="button" onClick={onClose} aria-label="閉じる" className="kiri-hit text-kiri-lilac-ink hover:text-white p-1"><X className="w-5 h-5" /></button>
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
-            <div className="bg-white/10 rounded-lg p-3">
-              <p className="text-xs font-bold text-kiri-lilac mb-1">{entryLabel}</p>
+            <div className="bg-white/[0.055] rounded-lg p-3">
+              <p className="text-xs font-bold text-kiri-lilac-ink mb-1">{entryLabel}</p>
               <p className="text-sm text-white leading-relaxed whitespace-pre-line">{record.entry?.event || '記録なし'}</p>
             </div>
             {record.entry?.intuition && (
-              <div className="bg-white/10 rounded-lg p-3">
-                <p className="text-xs font-bold text-kiri-lilac mb-1">ひらめき・直感</p>
+              <div className="bg-white/[0.055] rounded-lg p-3">
+                <p className="text-xs font-bold text-kiri-lilac-ink mb-1">ひらめき・直感</p>
                 <p className="text-sm text-white leading-relaxed">{record.entry.intuition}</p>
               </div>
             )}
@@ -1307,7 +1313,7 @@ export default function SpiritualDiary() {
     if (step === 'start') {
       return (
         <>
-          <WhiteoutTransition />
+          {renderWhiteoutTransition()}
           <ErrorBanner />
           {renderSettingsModal()}
           <div className="min-h-screen kiri-shell p-4 py-8 flex items-center justify-center relative overflow-hidden">
@@ -1323,14 +1329,14 @@ export default function SpiritualDiary() {
                 type="button"
                 aria-label="設定"
                 onClick={() => setShowSettings(true)}
-                className="absolute top-4 right-4 text-kiri-lilac hover:text-white p-1.5 rounded-full hover:bg-white/10 transition-colors"
+                className="absolute top-4 right-4 text-kiri-lilac-ink hover:text-white p-1.5 rounded-full hover:bg-white/10 transition-colors"
               >
                 <Settings className="w-5 h-5" />
               </button>
               <div className="text-center mb-6">
                 <Sparkles className="w-12 h-12 text-kiri-gold mx-auto mb-3" />
                 <h1 className="font-display text-2xl font-bold text-white mb-1">Mind & Energy Note</h1>
-                <p className="text-sm text-kiri-lilac">バイオリズム×四柱推命から読み解く心の分析ノート</p>
+                <p className="text-sm text-kiri-lilac-ink">バイオリズム×四柱推命から読み解く心の分析ノート</p>
               </div>
 
               {/* Kiriの紹介 */}
@@ -1345,7 +1351,7 @@ export default function SpiritualDiary() {
                   />
                   <div>
                     <h2 className="font-display text-lg font-bold text-kiri-gold">Kiri</h2>
-                    <p className="text-xs text-kiri-lilac">わたしはKiri。あなたの心を映す鏡</p>
+                    <p className="text-xs text-kiri-lilac-ink">わたしはKiri。あなたの心を映す鏡</p>
                   </div>
                 </div>
                 <p className="text-sm text-white/90 leading-relaxed">
@@ -1363,9 +1369,9 @@ export default function SpiritualDiary() {
                     value={nickname}
                     onChange={(e) => setNickname(e.target.value)}
                     placeholder="例: さくら、太郎、ミオ"
-                    className="w-full px-3 py-2.5 text-sm rounded-lg bg-white/20 text-white border border-kiri-lilac/50 focus:outline-none focus:ring-2 focus:ring-kiri-lilac placeholder-kiri-lilac/50"
+                    className="w-full px-3 py-2.5 text-sm rounded-lg bg-white/10 text-white border border-kiri-lilac/50 focus:outline-none focus:ring-2 focus:ring-kiri-lilac placeholder-kiri-lilac-ink"
                   />
-                  <p className="text-xs text-kiri-lilac mt-1">Kiriがあなたに語りかける時に使います</p>
+                  <p className="text-xs text-kiri-lilac-ink mt-1">Kiriがあなたに語りかける時に使います</p>
                 </div>
 
                 <div>
@@ -1375,7 +1381,7 @@ export default function SpiritualDiary() {
                       aria-label="生まれた年"
                       value={birthDate.split('-')[0] || ''}
                       onChange={(e) => setBirthPart('year', e.target.value)}
-                      className="w-full px-3 py-2.5 text-sm rounded-lg bg-white/20 text-white border border-kiri-lilac/50 focus:outline-none focus:ring-2 focus:ring-kiri-lilac"
+                      className="w-full px-3 py-2.5 text-sm rounded-lg bg-white/10 text-white border border-kiri-lilac/50 focus:outline-none focus:ring-2 focus:ring-kiri-lilac"
                     >
                       <option value="">年</option>
                       {Array.from({ length: new Date().getFullYear() - 1899 }, (_, index) => new Date().getFullYear() - index).map((year) => (
@@ -1386,7 +1392,7 @@ export default function SpiritualDiary() {
                       aria-label="生まれた月"
                       value={birthDate.split('-')[1] || ''}
                       onChange={(e) => setBirthPart('month', e.target.value)}
-                      className="w-full px-3 py-2.5 text-sm rounded-lg bg-white/20 text-white border border-kiri-lilac/50 focus:outline-none focus:ring-2 focus:ring-kiri-lilac"
+                      className="w-full px-3 py-2.5 text-sm rounded-lg bg-white/10 text-white border border-kiri-lilac/50 focus:outline-none focus:ring-2 focus:ring-kiri-lilac"
                     >
                       <option value="">月</option>
                       {Array.from({ length: 12 }, (_, index) => index + 1).map((month) => (
@@ -1397,7 +1403,7 @@ export default function SpiritualDiary() {
                       aria-label="生まれた日"
                       value={birthDate.split('-')[2] || ''}
                       onChange={(e) => setBirthPart('day', e.target.value)}
-                      className="w-full px-3 py-2.5 text-sm rounded-lg bg-white/20 text-white border border-kiri-lilac/50 focus:outline-none focus:ring-2 focus:ring-kiri-lilac"
+                      className="w-full px-3 py-2.5 text-sm rounded-lg bg-white/10 text-white border border-kiri-lilac/50 focus:outline-none focus:ring-2 focus:ring-kiri-lilac"
                     >
                       <option value="">日</option>
                       {Array.from({ length: daysInSelectedMonth }, (_, index) => index + 1).map((day) => (
@@ -1405,7 +1411,7 @@ export default function SpiritualDiary() {
                       ))}
                     </select>
                   </div>
-                  <p className="text-xs text-kiri-lilac mt-1">年・月・日を順番に選んでください</p>
+                  <p className="text-xs text-kiri-lilac-ink mt-1">年・月・日を順番に選んでください</p>
                 </div>
 
                 <div>
@@ -1415,9 +1421,9 @@ export default function SpiritualDiary() {
                     type="time"
                     value={birthTime}
                     onChange={(e) => setBirthTime(e.target.value)}
-                    className="w-full px-3 py-2.5 text-sm rounded-lg bg-white/20 text-white border border-kiri-lilac/50 focus:outline-none focus:ring-2 focus:ring-kiri-lilac"
+                    className="w-full px-3 py-2.5 text-sm rounded-lg bg-white/10 text-white border border-kiri-lilac/50 focus:outline-none focus:ring-2 focus:ring-kiri-lilac"
                   />
-                  <p className="text-xs text-kiri-lilac mt-1">時運分析に使います（未入力は12:00で概算）</p>
+                  <p className="text-xs text-kiri-lilac-ink mt-1">時運分析に使います（未入力は12:00で概算）</p>
                 </div>
 
                 <div>
@@ -1426,7 +1432,7 @@ export default function SpiritualDiary() {
                     id="kiri-gender"
                     value={gender}
                     onChange={(e) => setGender(e.target.value)}
-                    className="w-full px-3 py-2.5 text-sm rounded-lg bg-white/20 text-white border border-kiri-lilac/50 focus:outline-none focus:ring-2 focus:ring-kiri-lilac"
+                    className="w-full px-3 py-2.5 text-sm rounded-lg bg-white/10 text-white border border-kiri-lilac/50 focus:outline-none focus:ring-2 focus:ring-kiri-lilac"
                   >
                     <option value="">未入力</option>
                     <option value="female">女性</option>
@@ -1445,7 +1451,7 @@ export default function SpiritualDiary() {
                 </button>
               </div>
 
-              <div className="flex items-center justify-center gap-4 mt-5 text-[0.6875rem] text-kiri-lilac/80">
+              <div className="flex items-center justify-center gap-4 mt-5 text-[0.75rem] text-kiri-lilac-ink">
                 <Link href="/privacy" className="hover:text-white">プライバシー</Link>
                 <Link href="/terms" className="hover:text-white">利用規約</Link>
                 <Link href="/support" className="hover:text-white">サポート</Link>
@@ -1459,7 +1465,7 @@ export default function SpiritualDiary() {
     if (step === 'input') {
       return (
         <>
-          <WhiteoutTransition />
+          {renderWhiteoutTransition()}
           <ErrorBanner />
           {renderSettingsModal()}
           <ConsentModal
@@ -1475,7 +1481,7 @@ export default function SpiritualDiary() {
                   type="button"
                   aria-label="設定"
                   onClick={() => setShowSettings(true)}
-                  className="absolute top-0 right-0 text-kiri-lilac hover:text-white p-1.5 rounded-full hover:bg-white/10 transition-colors"
+                  className="absolute top-0 right-0 text-kiri-lilac-ink hover:text-white p-1.5 rounded-full hover:bg-white/10 transition-colors"
                 >
                   <Settings className="w-5 h-5" />
                 </button>
@@ -1483,7 +1489,7 @@ export default function SpiritualDiary() {
                   今日の心のエネルギー
                 </h1>
                 {nickname && <p className="text-kiri-gold text-sm font-medium">{nickname}さん</p>}
-                <p className="text-kiri-lilac text-xs flex items-center justify-center">
+                <p className="text-kiri-lilac-ink text-xs flex items-center justify-center">
                   <span>{formatBirthDateJa(birthDate)}生まれ</span>
                   <span className="mx-1.5" aria-hidden="true">・</span>
                   <button
@@ -1494,7 +1500,7 @@ export default function SpiritualDiary() {
                     変更する
                   </button>
                 </p>
-                <p className="text-kiri-lilac text-xs">{new Date().toLocaleDateString('ja-JP')}</p>
+                <p className="text-kiri-lilac-ink text-xs">{new Date().toLocaleDateString('ja-JP')}</p>
               </div>
 
               <div className="space-y-3">
@@ -1513,10 +1519,10 @@ export default function SpiritualDiary() {
                               haptic('select');
                               setEntry({...entry, emoji: mood.value});
                             }}
-                            className={`flex flex-col items-center gap-1 py-2 rounded-lg transition-all text-kiri-fog ${entry.emoji === mood.value ? 'bg-kiri-lilac/50 text-kiri-gold ring-1 ring-kiri-gold/70' : 'bg-white/10 hover:bg-white/20'} active:scale-95`}
+                            className={`flex flex-col items-center gap-1 py-2 rounded-lg transition-all text-kiri-fog ${entry.emoji === mood.value ? 'bg-kiri-lilac/25 text-kiri-gold ring-1 ring-kiri-gold/70' : 'bg-white/[0.055] hover:bg-white/20'} active:scale-95`}
                           >
                             <MoodIcon value={mood.value} />
-                            <span className="text-[0.6875rem] leading-none">{mood.label}</span>
+                            <span className="text-[0.75rem] leading-none">{mood.label}</span>
                           </button>
                         ))}
                       </div>
@@ -1524,15 +1530,15 @@ export default function SpiritualDiary() {
 
                     <div>
                       <label className="block text-white text-sm mb-1 font-medium">記録する</label>
-                      <p className="text-xs text-kiri-lilac mb-2">今日の予定や出来事をあなたの言葉で自由に記入して</p>
+                      <p className="text-xs text-kiri-lilac-ink mb-2">今日の予定や出来事をあなたの言葉で自由に記入して</p>
                       {/* 枠と内側の余白は外の箱に持たせ、文字は内側でスクロールさせる（上下の余白が文字で埋まらない。2026-10-09） */}
-                      <label className="block w-full px-3 py-2.5 rounded-lg bg-white/20 border border-kiri-lilac/50 focus-within:ring-2 focus-within:ring-kiri-lilac h-32 kiri-dt-event cursor-text">
+                      <label className="block w-full px-3 py-2.5 rounded-lg bg-white/10 border border-kiri-lilac/50 focus-within:ring-2 focus-within:ring-kiri-lilac h-32 kiri-dt-event cursor-text">
                         <textarea
                           value={entry.event}
                           onChange={(e) => setEntry({...entry, event: e.target.value})}
                           placeholder={placeholders.event}
                           aria-label="記録する"
-                          className="block w-full h-full p-0 text-sm bg-transparent text-white border-0 focus:outline-none resize-none placeholder-kiri-lilac/70"
+                          className="block w-full h-full p-0 text-sm bg-transparent text-white border-0 focus:outline-none resize-none placeholder-kiri-lilac-ink"
                         />
                       </label>
                     </div>
@@ -1544,7 +1550,7 @@ export default function SpiritualDiary() {
                         value={entry.intuition}
                         onChange={(e) => setEntry({...entry, intuition: e.target.value})}
                         placeholder={placeholders.intuition}
-                        className="w-full px-3 py-2.5 text-sm rounded-lg bg-white/20 text-white border border-kiri-lilac/50 focus:outline-none focus:ring-2 focus:ring-kiri-lilac placeholder-kiri-lilac/70"
+                        className="w-full px-3 py-2.5 text-sm rounded-lg bg-white/10 text-white border border-kiri-lilac/50 focus:outline-none focus:ring-2 focus:ring-kiri-lilac placeholder-kiri-lilac-ink"
                       />
                     </div>
 
@@ -1585,7 +1591,7 @@ export default function SpiritualDiary() {
     if (step === 'loading') {
       return (
         <>
-          <WhiteoutTransition />
+          {renderWhiteoutTransition()}
           <ErrorBanner />
           <div className="min-h-screen kiri-shell p-4 flex items-center justify-center relative overflow-hidden">
             {/* 霧の谷: 静かに漂う光 */}
@@ -1595,7 +1601,10 @@ export default function SpiritualDiary() {
               <div className="kiri-fog-orb w-72 h-72 bottom-[8%] left-[22%] bg-kiri-rain" style={{'--drift': '58s', '--breathe': '10s', '--delay': '-37s', '--fog-min': 0.1, '--fog-max': 0.22}} />
             </div>
 
-            <div className="relative z-10 text-center kiri-rise">
+            {/* 霧が出始めたら文字を先に消す（霧ごしに白い文字が透けて読めない画面にならないように） */}
+            {/* 外側で消す（内側の kiri-rise のアニメーションが opacity を握っているため） */}
+            <div className={`relative z-10 transition-opacity duration-300 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
+            <div className="text-center kiri-rise">
               {/* 中央の灯り: ゆっくり息をする */}
               <div className="relative mx-auto mb-10 h-28 w-28" aria-hidden="true">
                 <div className="absolute inset-0 rounded-full bg-kiri-gold blur-2xl kiri-ember" style={{'--breathe': '5s', '--fog-min': 0.3, '--fog-max': 0.7}} />
@@ -1603,13 +1612,14 @@ export default function SpiritualDiary() {
               </div>
 
               <h2 className="font-display text-2xl font-bold text-white mb-3">Kiriが読み解いています</h2>
-              <p className="text-kiri-lilac text-sm mb-8">あなたの心のエネルギーを感じ取っています</p>
+              <p className="text-kiri-lilac-ink text-sm mb-8">あなたの心のエネルギーを感じ取っています</p>
 
               <div className="flex justify-center gap-2" aria-hidden="true">
                 <div className="w-1.5 h-1.5 bg-kiri-gold rounded-full kiri-ember" style={{'--breathe': '2.4s', '--fog-min': 0.2, '--fog-max': 0.9}} />
                 <div className="w-1.5 h-1.5 bg-kiri-gold rounded-full kiri-ember" style={{'--breathe': '2.4s', '--delay': '-1.6s', '--fog-min': 0.2, '--fog-max': 0.9}} />
                 <div className="w-1.5 h-1.5 bg-kiri-gold rounded-full kiri-ember" style={{'--breathe': '2.4s', '--delay': '-0.8s', '--fog-min': 0.2, '--fog-max': 0.9}} />
               </div>
+            </div>
             </div>
           </div>
         </>
@@ -1619,7 +1629,7 @@ export default function SpiritualDiary() {
     if (step === 'result') {
       return (
         <>
-          <WhiteoutTransition />
+          {renderWhiteoutTransition()}
           <ErrorBanner />
           <HistoryListModal />
           <ConfirmDeleteModal />
@@ -1656,20 +1666,20 @@ export default function SpiritualDiary() {
           >
             <p>バイオリズムは、人間の身体・感情・知性の状態が一定の周期で変動するという理論です。</p>
             <div className="space-y-2 mt-3">
-              <div className="bg-white/10 p-3 rounded-lg">
-                <p className="font-bold text-kiri-leaf">身体（23日周期）</p>
+              <div className="bg-white/[0.055] p-3 rounded-lg">
+                <p className="font-bold text-kiri-leaf-ink">身体（23日周期）</p>
                 <p className="text-xs mt-1">体力、持久力、免疫力などの身体的な状態</p>
               </div>
-              <div className="bg-white/10 p-3 rounded-lg">
-                <p className="font-bold text-kiri-rain">感情（28日周期）</p>
+              <div className="bg-white/[0.055] p-3 rounded-lg">
+                <p className="font-bold text-kiri-rain-ink">感情（28日周期）</p>
                 <p className="text-xs mt-1">気分、感受性、創造力などの精神的な状態</p>
               </div>
-              <div className="bg-white/10 p-3 rounded-lg">
-                <p className="font-bold text-kiri-lilac">知性（33日周期）</p>
+              <div className="bg-white/[0.055] p-3 rounded-lg">
+                <p className="font-bold text-kiri-lilac-ink">知性（33日周期）</p>
                 <p className="text-xs mt-1">思考力、判断力、記憶力などの知的な状態</p>
               </div>
             </div>
-            <p className="mt-3 text-xs text-kiri-lilac">※本アプリでは生年月日から計算し、参考情報として提示しています。</p>
+            <p className="mt-3 text-xs text-kiri-lilac-ink">※本アプリでは生年月日から計算し、参考情報として提示しています。</p>
           </InfoPopup>
 
           <InfoPopup 
@@ -1679,20 +1689,20 @@ export default function SpiritualDiary() {
           >
             <p>四柱推命は、中国発祥の占術で、生年月日時から人の運命や性格を読み解く東洋占星術です。</p>
             <div className="space-y-2 mt-3">
-              <div className="bg-white/10 p-3 rounded-lg">
+              <div className="bg-white/[0.055] p-3 rounded-lg">
                 <p className="font-bold text-kiri-gold">あなたの本命（生まれた時）</p>
                 <p className="text-xs mt-1">年柱・月柱・日柱・時柱の4つの柱から、あなたの本質を表します</p>
               </div>
-              <div className="bg-white/10 p-3 rounded-lg">
+              <div className="bg-white/[0.055] p-3 rounded-lg">
                 <p className="font-bold text-kiri-gold">日運・時運（今この瞬間の運勢）</p>
                 <p className="text-xs mt-1">日運は毎日変わり、時運は2時間ごとに変わります。このアプリでは特にこの2つを重視しています</p>
               </div>
-              <div className="bg-white/10 p-3 rounded-lg">
-                <p className="font-bold text-kiri-rain">月運・年運・大運（背景の流れ）</p>
+              <div className="bg-white/[0.055] p-3 rounded-lg">
+                <p className="font-bold text-kiri-rain-ink">月運・年運・大運（背景の流れ）</p>
                 <p className="text-xs mt-1">月運は今月、年運は今年、大運は10年周期の大きな流れを示します（参考情報）</p>
               </div>
             </div>
-            <p className="mt-3 text-xs text-kiri-lilac">※本アプリでは lunar-javascript ライブラリを使用して算出しています。</p>
+            <p className="mt-3 text-xs text-kiri-lilac-ink">※本アプリでは lunar-javascript ライブラリを使用して算出しています。</p>
           </InfoPopup>
 
           <InfoPopup 
@@ -1702,26 +1712,26 @@ export default function SpiritualDiary() {
           >
             <p>このスコアは、以下を総合的に判断しています。</p>
             <div className="space-y-2 mt-3">
-              <div className="bg-white/10 p-3 rounded-lg">
+              <div className="bg-white/[0.055] p-3 rounded-lg">
                 <p className="font-bold text-kiri-gold">四柱推命</p>
                 <p className="text-xs mt-1">生まれた日と今日の五行の相性（主要因）</p>
               </div>
-              <div className="bg-white/10 p-3 rounded-lg">
-                <p className="font-bold text-kiri-rain">バイオリズム</p>
+              <div className="bg-white/[0.055] p-3 rounded-lg">
+                <p className="font-bold text-kiri-rain-ink">バイオリズム</p>
                 <p className="text-xs mt-1">身体・感情・知性の周期的な波（主要因）</p>
               </div>
-              <div className="bg-white/10 p-3 rounded-lg">
-                <p className="font-bold text-kiri-rose">今日の気分</p>
+              <div className="bg-white/[0.055] p-3 rounded-lg">
+                <p className="font-bold text-kiri-rose-ink">今日の気分</p>
                 <p className="text-xs mt-1">気分の絵文字から読み取った雰囲気（微調整）</p>
               </div>
               {result.saju?.birth?.hour && (
-                <div className="bg-white/10 p-3 rounded-lg">
-                  <p className="font-bold text-kiri-lilac">時柱の相性</p>
+                <div className="bg-white/[0.055] p-3 rounded-lg">
+                  <p className="font-bold text-kiri-lilac-ink">時柱の相性</p>
                   <p className="text-xs mt-1">出生時刻による精密化</p>
                 </div>
               )}
             </div>
-            <p className="mt-3 text-xs text-kiri-lilac">※これらをKiriの直感で組み合わせています。</p>
+            <p className="mt-3 text-xs text-kiri-lilac-ink">※これらをKiriの直感で組み合わせています。</p>
           </InfoPopup>
 
           <InfoPopup 
@@ -1731,7 +1741,7 @@ export default function SpiritualDiary() {
           >
             <p>この色は、四柱推命の五行論と色彩心理学から導いています。</p>
             <p className="mt-2">五行（木火土金水）にはそれぞれ対応する色があり、今日の運勢（日運）の五行とバイオリズムを組み合わせて、Kiriがイメージした色をお伝えしています。</p>
-            <p className="mt-2 text-kiri-lilac text-xs">感覚的なイメージをKiriからのヒントとして受け取ってください。</p>
+            <p className="mt-2 text-kiri-lilac-ink text-xs">感覚的なイメージをKiriからのヒントとして受け取ってください。</p>
           </InfoPopup>
 
           <InfoPopup 
@@ -1741,7 +1751,7 @@ export default function SpiritualDiary() {
           >
             <p>この数字は、干支の数理とバイオリズムの周期から導いています。</p>
             <p className="mt-2">十二支にはそれぞれ数字が割り当てられていて、今日の運勢とあなたのバイオリズムから、今日のペースに合いそうな数字をKiriが選んでいます。</p>
-            <p className="mt-2 text-kiri-lilac text-xs">迷った時に、ふと思い出してもらえたら、助けになるかもしてません。</p>
+            <p className="mt-2 text-kiri-lilac-ink text-xs">迷った時に、ふと思い出してもらえたら、助けになるかもしてません。</p>
           </InfoPopup>
 
           <InfoPopup 
@@ -1751,7 +1761,7 @@ export default function SpiritualDiary() {
           >
             <p>この方角は、五行の方位論（風水）から導いています。</p>
             <p className="mt-2">五行（木火土金水）にはそれぞれ方角があり、今日の運勢の五行とバイオリズムから、Kiriが感じた方向をお伝えしています。</p>
-            <p className="mt-2 text-kiri-lilac text-xs">気にしなくても大丈夫。気が向いたときだけ、Kiriと視線を合わせてみてください。</p>
+            <p className="mt-2 text-kiri-lilac-ink text-xs">気にしなくても大丈夫。気が向いたときだけ、Kiriと視線を合わせてみてください。</p>
           </InfoPopup>
 
           <InfoPopup 
@@ -1761,7 +1771,7 @@ export default function SpiritualDiary() {
           >
             <p>この距離感は、今日のテーマ別運勢とバイオリズムから導いています。</p>
             <p className="mt-2">あなたの今日のエネルギー状態を、人との距離感やものとの関わり方に例えてみました。</p>
-            <p className="mt-2 text-kiri-lilac text-xs">正解はないので、心地よい距離を自分で選んでくださいね。</p>
+            <p className="mt-2 text-kiri-lilac-ink text-xs">正解はないので、心地よい距離を自分で選んでくださいね。</p>
           </InfoPopup>
 
 
@@ -1787,9 +1797,9 @@ export default function SpiritualDiary() {
                   onInfoClick={() => setShowBioInfo(true)}
                 >
                   <div className="space-y-2">
-                    <BiorhythmBar label="身体" value={result.bio.p} color="text-kiri-leaf" barColor="bg-kiri-leaf" icon={<Zap className="w-6 h-6" />} />
-                    <BiorhythmBar label="感情" value={result.bio.e} color="text-kiri-rain" barColor="bg-kiri-rain" icon={<Heart className="w-6 h-6" />} />
-                    <BiorhythmBar label="知性" value={result.bio.i} color="text-kiri-lilac" barColor="bg-kiri-lilac" icon={<Sparkles className="w-6 h-6" />} />
+                    <BiorhythmBar label="身体" value={result.bio.p} color="text-kiri-leaf-ink" barColor="bg-kiri-leaf" icon={<Zap className="w-6 h-6" />} />
+                    <BiorhythmBar label="感情" value={result.bio.e} color="text-kiri-rain-ink" barColor="bg-kiri-rain" icon={<Heart className="w-6 h-6" />} />
+                    <BiorhythmBar label="知性" value={result.bio.i} color="text-kiri-lilac-ink" barColor="bg-kiri-lilac" icon={<Sparkles className="w-6 h-6" />} />
                   </div>
                 </CollapsibleSection>
 
@@ -1806,23 +1816,23 @@ export default function SpiritualDiary() {
                     {/* グループ（本命／今日の運勢／月運・年運／大運）どうしは16px（大きい文字は14px）、見出し→格子は6px（D-29） */}
                     <div className="space-y-4 kiri-dt-stack">
                       <div>
-                        <h3 className="text-xs font-bold text-kiri-lilac mb-1">あなたの本命</h3>
-                        <p className="text-xs text-kiri-lilac mb-2">自分自身（本質・性格・運勢の根幹）を表す最も重要な要素</p>
+                        <h3 className="text-xs font-bold text-kiri-lilac-ink mb-1">あなたの本命</h3>
+                        <p className="text-xs text-kiri-lilac-ink mb-2">自分自身（本質・性格・運勢の根幹）を表す最も重要な要素</p>
                         <div className="grid grid-cols-2 gap-2">
-                          <div className="bg-white/10 p-2 rounded-lg">
-                            <p className="text-xs text-kiri-lilac">年柱</p>
+                          <div className="bg-white/[0.055] p-2 rounded-lg">
+                            <p className="text-xs text-kiri-lilac-ink">年柱</p>
                             <p className="font-bold text-sm text-white">{result.saju.birth.year}</p>
                           </div>
-                          <div className="bg-white/10 p-2 rounded-lg">
-                            <p className="text-xs text-kiri-lilac">月柱</p>
+                          <div className="bg-white/[0.055] p-2 rounded-lg">
+                            <p className="text-xs text-kiri-lilac-ink">月柱</p>
                             <p className="font-bold text-sm text-white">{result.saju.birth.month}</p>
                           </div>
-                          <div className="bg-white/10 p-2 rounded-lg">
-                            <p className="text-xs text-kiri-lilac">日柱（最重要）</p>
+                          <div className="bg-white/[0.055] p-2 rounded-lg">
+                            <p className="text-xs text-kiri-lilac-ink">日柱（最重要）</p>
                             <p className="font-bold text-sm text-white">{result.saju.birth.day}</p>
                           </div>
-                          <div className="bg-white/10 p-2 rounded-lg">
-                            <p className="text-xs text-kiri-lilac">時柱</p>
+                          <div className="bg-white/[0.055] p-2 rounded-lg">
+                            <p className="text-xs text-kiri-lilac-ink">時柱</p>
                             <p className="font-bold text-sm text-white">{result.saju.birth.hour || '未入力'}</p>
                           </div>
                         </div>
@@ -1831,7 +1841,7 @@ export default function SpiritualDiary() {
                       <div>
                         <h3 className="text-xs font-bold text-kiri-gold mb-1.5">今日の運勢</h3>
                         <div className="grid grid-cols-2 gap-2">
-                          <div className="bg-kiri-gold/20 p-2 rounded-lg">
+                          <div className="bg-kiri-gold/11 p-2 rounded-lg">
                             <p className="text-xs text-kiri-gold">日運（今日）</p>
                             <p className="font-bold text-sm text-white">{result.saju.today.day}</p>
                             {result.saju.today.dayDescription && (
@@ -1839,7 +1849,7 @@ export default function SpiritualDiary() {
                             )}
                           </div>
                           {result.saju.today.hour && (
-                            <div className="bg-kiri-gold/20 p-2 rounded-lg">
+                            <div className="bg-kiri-gold/11 p-2 rounded-lg">
                               <p className="text-xs text-kiri-gold">時運（現在）</p>
                               <p className="font-bold text-sm text-white">{result.saju.today.hour}</p>
                               {result.saju.today.hourDescription && (
@@ -1851,32 +1861,32 @@ export default function SpiritualDiary() {
                       </div>
 
                       <div>
-                        <h3 className="text-xs font-bold text-kiri-rain mb-1.5">月運・年運</h3>
+                        <h3 className="text-xs font-bold text-kiri-rain-ink mb-1.5">月運・年運</h3>
                         <div className="grid grid-cols-2 gap-2">
-                          <div className="bg-kiri-rain/20 p-2 rounded-lg">
-                            <p className="text-xs text-kiri-rain">月運（今月）</p>
+                          <div className="bg-kiri-rain/11 p-2 rounded-lg">
+                            <p className="text-xs text-kiri-rain-ink">月運（今月）</p>
                             <p className="font-bold text-sm text-white">{result.saju.today.month}</p>
                           </div>
-                          <div className="bg-kiri-rain/20 p-2 rounded-lg">
-                            <p className="text-xs text-kiri-rain">年運（今年）</p>
+                          <div className="bg-kiri-rain/11 p-2 rounded-lg">
+                            <p className="text-xs text-kiri-rain-ink">年運（今年）</p>
                             <p className="font-bold text-sm text-white">{result.saju.today.year}</p>
                           </div>
                         </div>
                       </div>
 
                       <div>
-                        <h3 className="text-xs font-bold text-kiri-rain mb-1.5">大運（中長期）</h3>
+                        <h3 className="text-xs font-bold text-kiri-rain-ink mb-1.5">大運（中長期）</h3>
                         <div className="grid grid-cols-2 gap-2">
                           {result.saju.taiun && (
-                            <div className="bg-kiri-rain/20 p-2 rounded-lg">
-                              <p className="text-xs text-kiri-rain">現在の大運</p>
+                            <div className="bg-kiri-rain/11 p-2 rounded-lg">
+                              <p className="text-xs text-kiri-rain-ink">現在の大運</p>
                               <p className="font-bold text-sm text-white">{result.saju.taiun.pillar}</p>
-                              <p className="text-xs text-kiri-rain mt-0.5">{result.saju.taiun.age}歳〜</p>
+                              <p className="text-xs text-kiri-rain-ink mt-0.5">{result.saju.taiun.age}歳〜</p>
                             </div>
                           )}
                           {result.saju.note && (
-                            <div className="bg-kiri-rain/20 p-2 rounded-lg flex items-center">
-                              <p className="text-xs text-kiri-rain">
+                            <div className="bg-kiri-rain/11 p-2 rounded-lg flex items-center">
+                              <p className="text-xs text-kiri-rain-ink">
                                 {result.saju.note}
                               </p>
                             </div>
@@ -1914,7 +1924,7 @@ export default function SpiritualDiary() {
                   >
                     <div className="kiri-dt-hint-grid grid grid-cols-2 gap-2">
                       <HintItem
-                        icon={<CircleHelp className="w-4 h-4" />}
+                        icon={<Palette className="w-4 h-4" />}
                         title="色"
                         value={result.todayHints.color.value}
                         message={result.todayHints.color.message}
@@ -1929,7 +1939,7 @@ export default function SpiritualDiary() {
                         value={result.todayHints.number.value}
                         message={result.todayHints.number.message}
                         bgColor="bg-kiri-lilac"
-                        textColor="text-kiri-lilac"
+                        textColor="text-kiri-lilac-ink"
                         onInfoClick={() => setShowHintInfo({...showHintInfo, number: true})}
                       />
                       
@@ -1939,7 +1949,7 @@ export default function SpiritualDiary() {
                         value={result.todayHints.direction.value}
                         message={result.todayHints.direction.message}
                         bgColor="bg-kiri-rain"
-                        textColor="text-kiri-rain"
+                        textColor="text-kiri-rain-ink"
                         onInfoClick={() => setShowHintInfo({...showHintInfo, direction: true})}
                       />
                       
@@ -1949,7 +1959,7 @@ export default function SpiritualDiary() {
                         value={result.todayHints.distance.value}
                         message={result.todayHints.distance.message}
                         bgColor="bg-kiri-rose"
-                        textColor="text-kiri-rose"
+                        textColor="text-kiri-rose-ink"
                         onInfoClick={() => setShowHintInfo({...showHintInfo, distance: true})}
                       />
                     </div>
@@ -1970,26 +1980,26 @@ export default function SpiritualDiary() {
                 </div>
 
                 {result.innerMessage && (
-                  <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-kiri-lilac/30">
-                    <h2 className="text-base font-bold text-kiri-lilac mb-2">あなたの直感から読み取ったメッセージ</h2>
+                  <div className="bg-white/[0.055] backdrop-blur-md rounded-xl p-4 border border-kiri-lilac/30">
+                    <h2 className="text-base font-bold text-kiri-lilac-ink mb-2">あなたの直感から読み取ったメッセージ</h2>
                     <p className="kiri-voice text-white text-sm">
                       {renderHighlightedText(result.innerMessage)}
                     </p>
                   </div>
                 )}
 
-                <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-kiri-lilac/30">
-                  <h2 className="text-base font-bold text-kiri-leaf mb-2">Kiriからのアドバイス</h2>
+                <div className="bg-white/[0.055] backdrop-blur-md rounded-xl p-4 border border-kiri-lilac/30">
+                  <h2 className="text-base font-bold text-kiri-leaf-ink mb-2">Kiriからのアドバイス</h2>
                   <p className="kiri-voice text-white text-sm whitespace-pre-line">
                     {renderHighlightedText(result.actionAdvice)}
                   </p>
                 </div>
 
 
-                <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-kiri-lilac/30">
+                <div className="bg-white/[0.055] backdrop-blur-md rounded-xl p-4 border border-kiri-lilac/30">
                   <div className="flex items-center justify-between mb-3">
-                    <h2 className="text-base font-bold text-kiri-rain">今日の記録</h2>
-                    <p className="text-xs text-kiri-lilac">
+                    <h2 className="text-base font-bold text-kiri-rain-ink">今日の記録</h2>
+                    <p className="text-xs text-kiri-lilac-ink">
                       {result.timestamp && new Date(result.timestamp).toLocaleString('ja-JP', {
                         year: 'numeric',
                         month: '2-digit',
@@ -2000,28 +2010,28 @@ export default function SpiritualDiary() {
                     </p>
                   </div>
                   <div className="space-y-2">
-                    <div className="bg-white/10 p-3 rounded-lg">
+                    <div className="bg-white/[0.055] p-3 rounded-lg">
                       <div className="flex items-center gap-2">
                         <span className="text-kiri-fog"><MoodIcon value={entry.emoji} className="w-6 h-6" /></span>
                         <span className="font-bold text-sm text-white">今日の気分</span>
                         {findMood(entry.emoji)?.label && <span className="text-sm text-kiri-fog">{findMood(entry.emoji).label}</span>}
                       </div>
                     </div>
-                    <div className="bg-white/10 p-3 rounded-lg">
+                    <div className="bg-white/[0.055] p-3 rounded-lg">
                       <p className="font-bold text-sm mb-1 text-white">{entry.type === 'past' ? '出来事' : '予定'}</p>
-                      <p className="text-sm text-kiri-lilac">{entry.event}</p>
+                      <p className="text-sm text-kiri-lilac-ink">{entry.event}</p>
                     </div>
                     {entry.intuition && (
-                      <div className="bg-white/10 p-3 rounded-lg">
+                      <div className="bg-white/[0.055] p-3 rounded-lg">
                         <p className="font-bold text-sm mb-1 text-white">ひらめき・直感</p>
-                        <p className="text-sm text-kiri-lilac">{entry.intuition}</p>
+                        <p className="text-sm text-kiri-lilac-ink">{entry.intuition}</p>
                       </div>
                     )}
                   </div>
                   <button
                     type="button"
                     onClick={() => setShowHistoryList(true)}
-                    className="mt-3 w-full flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 active:scale-[0.98] text-white py-2.5 rounded-lg font-medium text-sm transition-all"
+                    className="mt-3 w-full flex items-center justify-center gap-2 bg-white/[0.055] hover:bg-white/20 active:scale-[0.98] text-white py-2.5 rounded-lg font-medium text-sm transition-all"
                   >
                     <History className="w-4 h-4" />最近の記録
                   </button>
@@ -2040,7 +2050,7 @@ export default function SpiritualDiary() {
                         <Image src="/kiri-avatar-144.png" alt="" width={44} height={44} className="w-11 h-11 rounded-full border border-kiri-gold/25 object-cover" />
                         <div className="min-w-0">
                           <h3 className="font-display text-base font-bold text-kiri-gold">Kiriに続けて聞く</h3>
-                          <p className="text-xs text-kiri-lilac mt-0.5">{KIRI_TALK_NAME}（月額）</p>
+                          <p className="text-xs text-kiri-lilac-ink mt-0.5">{KIRI_TALK_NAME}（月額）</p>
                         </div>
                       </div>
                       <p className="text-sm leading-relaxed text-kiri-fog mb-3">今日の読み解きと記録をふまえて、気になったところをKiriに話しかけられます。</p>
@@ -2051,7 +2061,7 @@ export default function SpiritualDiary() {
                       >
                         {card.primaryLabel}
                       </button>
-                      {card.note && <p className="text-xs text-kiri-lilac text-center mt-2">{card.note}</p>}
+                      {card.note && <p className="text-xs text-kiri-lilac-ink text-center mt-2">{card.note}</p>}
                       {card.showReadLog && (
                         <button
                           type="button"
@@ -2061,7 +2071,7 @@ export default function SpiritualDiary() {
                           これまでの会話を読む
                         </button>
                       )}
-                      {devPreviewChat && <p className="text-[0.6875rem] text-kiri-lilac text-center mt-2">開発プレビュー（購入なし。サーバーも開発環境だけが通します）</p>}
+                      {devPreviewChat && <p className="text-[0.75rem] text-kiri-lilac-ink text-center mt-2">開発プレビュー（購入なし。サーバーも開発環境だけが通します）</p>}
                     </div>
                   );
                 })()}
@@ -2069,13 +2079,13 @@ export default function SpiritualDiary() {
                 <div className="flex gap-2">
                   <button
                     onClick={() => setStep('input')}
-                    className="flex-1 bg-white/10 hover:bg-white/20 active:scale-[0.98] text-white py-3 rounded-xl font-medium text-sm transition-all"
+                    className="flex-1 bg-white/[0.055] hover:bg-white/20 active:scale-[0.98] text-white py-3 rounded-xl font-medium text-sm transition-all"
                   >
                     前の画面に戻る
                   </button>
                   <button
                     onClick={clearAll}
-                    className="flex-1 bg-white/10 hover:bg-white/20 active:scale-[0.98] text-white py-3 rounded-xl font-medium text-sm transition-all"
+                    className="flex-1 bg-white/[0.055] hover:bg-white/20 active:scale-[0.98] text-white py-3 rounded-xl font-medium text-sm transition-all"
                   >
                     今日の記録をクリアする
                   </button>
@@ -2107,7 +2117,7 @@ export default function SpiritualDiary() {
           <div className="max-w-md mx-auto rounded-xl p-3 flex items-start gap-2 text-sm text-white border border-kiri-gold/30 shadow-lg" style={{ background: 'rgba(40, 35, 58, 0.98)' }}>
             <Lock className="w-4 h-4 mt-0.5 shrink-0 text-kiri-gold" strokeWidth={1.6} aria-hidden="true" />
             <p className="flex-1 leading-relaxed">{lockState.message}</p>
-            <button type="button" onClick={() => setFailOpenDismissedSeq(lockState.failOpenSeq)} aria-label="閉じる" className="kiri-hit text-kiri-lilac hover:text-white p-1 -m-1">
+            <button type="button" onClick={() => setFailOpenDismissedSeq(lockState.failOpenSeq)} aria-label="閉じる" className="kiri-hit text-kiri-lilac-ink hover:text-white p-1 -m-1">
               <X className="w-4 h-4" aria-hidden="true" />
             </button>
           </div>

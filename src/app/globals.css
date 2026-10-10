@@ -36,6 +36,15 @@
   --color-kiri-rain: #9db4dc;
   --color-kiri-rose: #d8a8b8;
 
+  /* 文字用（D-32 見やすさ）: 補助文字だけ一段明るくする。グラフの棒・枠・面は上のデータ色のまま */
+  --color-kiri-lilac-ink: #d6cbe7;
+  --color-kiri-rain-ink: #b4c7e8;
+  --color-kiri-leaf-ink: #afd5bc;
+  --color-kiri-rose-ink: #e3b9c7;
+
+  /* いちばん小さい文字を 12px → 13px に（D-32。行の高さの比率は Tailwind 既定のまま） */
+  --text-xs: 0.8125rem;
+
   --color-kiri-wood: #8fbf9f;
   --color-kiri-fire: #d9a180;
   --color-kiri-earth: #d3b98a;
@@ -180,7 +189,8 @@ input[type="time"]::-webkit-date-and-time-value {
 }
 
 .kiri-card {
-  background: var(--kiri-mist);
+  /* 面は少し暗く（D-32。8% → 5.5%）。文字とのコントラストを上げる */
+  background: rgba(255, 248, 238, 0.055);
   border: 1px solid var(--kiri-line);
   box-shadow: 0 14px 36px rgba(7, 5, 15, 0.18);
 }
@@ -289,4 +299,13 @@ input[type="time"]::-webkit-date-and-time-value {
   width: 44px;
   height: 44px;
   transform: translate(-50%, -50%);
+}
+
+/*
+  文章の折り返し（D-32）: 最後の行が1〜2文字だけになる折り返しを避ける。
+  対応していないブラウザでは従来どおり折り返すだけ（手動の改行は入れない）。
+*/
+p,
+li {
+  text-wrap: pretty;
 }

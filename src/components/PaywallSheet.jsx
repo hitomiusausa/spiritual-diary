@@ -105,7 +105,7 @@ export default function PaywallSheet({ open, offering, entitled = false, onPurch
           type="button"
           onClick={close}
           aria-label="閉じる"
-          className="absolute top-2 right-2 w-11 h-11 grid place-items-center rounded-full text-kiri-lilac hover:text-white hover:bg-white/10"
+          className="absolute top-2 right-2 w-11 h-11 grid place-items-center rounded-full text-kiri-lilac-ink hover:text-white hover:bg-white/10"
         >
           <X className="w-5 h-5" aria-hidden="true" />
         </button>
@@ -113,7 +113,7 @@ export default function PaywallSheet({ open, offering, entitled = false, onPurch
         <div className="flex flex-col items-center text-center mt-1.5">
           <Image src="/kiri-avatar-144.png" alt="" width={72} height={72} className="w-[4.5rem] h-[4.5rem] rounded-full border border-kiri-gold/25 object-cover" />
           <h2 id="kiri-paywall-title" className="font-display text-[1.375rem] tracking-wider text-kiri-text mt-3">{KIRI_TALK_NAME}</h2>
-          <p id="kiri-paywall-kind" className="text-[0.8125rem] text-kiri-lilac mt-1">月額の自動更新サブスクリプション</p>
+          <p id="kiri-paywall-kind" className="text-[0.8125rem] text-kiri-lilac-ink mt-1">月額の自動更新サブスクリプション</p>
         </div>
 
         <ul className="mt-5 space-y-3">
@@ -126,7 +126,7 @@ export default function PaywallSheet({ open, offering, entitled = false, onPurch
                 </span>
                 <div className="min-w-0">
                   <p className="text-[0.9375rem] font-medium leading-normal text-kiri-text">{promise.title}</p>
-                  <p className="text-xs leading-relaxed text-kiri-lilac mt-1">{promise.detail}</p>
+                  <p className="text-xs leading-relaxed text-kiri-lilac-ink mt-1">{promise.detail}</p>
                 </div>
               </li>
             );
@@ -134,7 +134,7 @@ export default function PaywallSheet({ open, offering, entitled = false, onPurch
         </ul>
 
         {view.status === 'error' ? (
-          <div className="mt-5 rounded-2xl border border-white/15 bg-white/5 px-4 py-4 text-center" role="status">
+          <div className="mt-5 rounded-2xl border border-white/15 bg-white/[0.03] px-4 py-4 text-center" role="status">
             <p className="text-sm leading-relaxed text-kiri-fog">いまは購入の情報を読み込めませんでした。通信の状態を確かめて、もう一度お試しください。</p>
             <button
               type="button"
@@ -172,8 +172,8 @@ export default function PaywallSheet({ open, offering, entitled = false, onPurch
 
         {notice && <p className="mt-3 text-center text-sm leading-relaxed text-kiri-gold" role="status">{notice}</p>}
 
-        {view.fine && <p className="mt-3 text-center text-[0.6875rem] leading-relaxed text-kiri-lilac">{view.fine}</p>}
-        <p className="mt-1 text-center text-[0.6875rem] leading-relaxed text-kiri-lilac">{KIRI_TALK_AI_NOTICE}</p>
+        {view.fine && <p className="mt-3 text-center text-[0.75rem] leading-relaxed text-kiri-lilac-ink">{view.fine}</p>}
+        <p className="mt-1 text-center text-[0.75rem] leading-relaxed text-kiri-lilac-ink">{KIRI_TALK_AI_NOTICE}</p>
 
         <div className="mt-2 flex flex-wrap justify-center gap-x-1">
           <button

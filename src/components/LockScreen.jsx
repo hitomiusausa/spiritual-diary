@@ -58,7 +58,7 @@ export default function LockScreen({ view, onUnlock }) {
                 type="button"
                 onClick={() => setShowSupport(false)}
                 aria-label="相談先を閉じる"
-                className="kiri-hit text-kiri-lilac hover:text-white p-2 rounded-full hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-kiri-fog/70"
+                className="kiri-hit text-kiri-lilac-ink hover:text-white p-2 rounded-full hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-kiri-fog/70"
               >
                 <X className="w-5 h-5" aria-hidden="true" />
               </button>
@@ -72,13 +72,13 @@ export default function LockScreen({ view, onUnlock }) {
           <>
             <div className="flex-[3]" />
             <div
-              className={`w-[84px] h-[84px] rounded-full grid place-items-center border border-kiri-gold/25 bg-white/[0.08] ${failed ? 'text-kiri-lilac' : 'text-kiri-gold'}`}
+              className={`w-[84px] h-[84px] rounded-full grid place-items-center border border-kiri-gold/25 bg-white/[0.08] ${failed ? 'text-kiri-lilac-ink' : 'text-kiri-gold'}`}
               aria-hidden="true"
             >
               {failed ? <MethodIcon className="w-9 h-9" strokeWidth={1.6} /> : <Lock className="w-9 h-9" strokeWidth={1.6} />}
             </div>
             <div className="h-[22px]" />
-            <h1 id="kiri-lock-title" className={failed ? 'sr-only' : 'text-sm text-kiri-lilac leading-loose tracking-[0.04em] text-center font-normal'}>
+            <h1 id="kiri-lock-title" className={failed ? 'sr-only' : 'text-sm text-kiri-lilac-ink leading-loose tracking-[0.04em] text-center font-normal'}>
               ロックされています
             </h1>
             <div role="status" aria-live="polite" className="text-center">
@@ -105,13 +105,13 @@ export default function LockScreen({ view, onUnlock }) {
                 {view.busy ? '確認しています' : view.primaryLabel}
               </button>
               {view.note && (
-                <p className="text-xs leading-relaxed text-kiri-lilac/80 text-center px-2">{view.note}</p>
+                <p className="text-xs leading-relaxed text-kiri-lilac-ink text-center px-2">{view.note}</p>
               )}
             </div>
             <button
               type="button"
               onClick={() => setShowSupport(true)}
-              className="mt-[22px] mb-3 min-h-[44px] flex items-center gap-2 px-3.5 text-[0.8125rem] text-kiri-lilac tracking-[0.04em] border-b border-kiri-gold/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-kiri-fog/70"
+              className="mt-[22px] mb-3 min-h-[44px] flex items-center gap-2 px-3.5 text-[0.8125rem] text-kiri-lilac-ink tracking-[0.04em] border-b border-kiri-gold/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-kiri-fog/70"
             >
               <LifeBuoy className="w-4 h-4 text-kiri-gold" strokeWidth={1.6} aria-hidden="true" />
               つらいときの相談先

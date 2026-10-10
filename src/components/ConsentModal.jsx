@@ -29,7 +29,7 @@ export default function ConsentModal({ show, onAccept, onDecline, onReadPolicy }
           <p>
             「読み解く」を押すと、基本情報（生年月日・出生時刻・性別・ニックネーム）と今日の記録（気分・出来事・直感）が、くうが株式会社のサーバーを経由して <strong className="text-kiri-gold">Anthropic社のAI（Claude）</strong> に送られ、Kiriの言葉を生成します。
           </p>
-          <ul className="list-disc pl-5 space-y-1 text-kiri-lilac">
+          <ul className="list-disc pl-5 space-y-1 text-kiri-lilac-ink">
             <li>送信は読み解きのときだけです。サーバーには日記の内容を保存しません。</li>
             <li>Anthropic社での取り扱いは同社の方針に従います。</li>
             <li>同意はいつでも設定から取り消せます（取り消すと読み解きは使えなくなります）。</li>
@@ -42,7 +42,7 @@ export default function ConsentModal({ show, onAccept, onDecline, onReadPolicy }
           <button
             type="button"
             onClick={onDecline}
-            className="flex-1 bg-white/10 hover:bg-white/20 text-white py-2.5 rounded-lg text-sm font-medium transition-colors"
+            className="flex-1 bg-white/[0.055] hover:bg-white/20 text-white py-2.5 rounded-lg text-sm font-medium transition-colors"
           >
             今はやめる
           </button>

@@ -18,7 +18,7 @@ export default function SupportCard({ compact = false }) {
           <li key={line.tel}>
             <a
               href={`tel:${line.tel.replace(/-/g, '')}`}
-              className="flex items-center gap-3 rounded-lg bg-white/10 p-3 hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-kiri-gold"
+              className="flex items-center gap-3 rounded-lg bg-white/[0.055] p-3 hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-kiri-gold"
             >
               <Phone className="w-5 h-5 shrink-0 text-kiri-gold" aria-hidden="true" />
               <span className="flex-1 min-w-0">
@@ -30,7 +30,7 @@ export default function SupportCard({ compact = false }) {
         ))}
       </ul>
       <p className="mt-3 text-xs text-kiri-fog">今すぐ危ないと感じるときは、迷わず119へ。</p>
-      <p className="mt-1 text-[0.6875rem] text-kiri-lilac/70">窓口情報は{SUPPORT_LINES_CHECKED_AT.replace(/-/g, '/')}に厚生労働省の案内で確認しました。</p>
+      <p className="mt-1 text-[0.75rem] text-kiri-lilac-ink">窓口情報は{SUPPORT_LINES_CHECKED_AT.replace(/-/g, '/')}に厚生労働省の案内で確認しました。</p>
     </section>
   );
 }

@@ -315,3 +315,10 @@ npm run dev
 - 実機で確かめる: RC 匿名 ID の形式（`entitlement.js` の定数 1 か所）・`grace_period_expires_date` の実在・トライアル判定・`periodType`・`window.open` で購読管理が開くか
 - 運用: 全体 500 通は「購読者数 × 20」を目安に上げる。Kiri ワークスペースの月 $20 上限も購読者 20 人超で見直す（API 費用は公開前に実測）。TestFlight は招待のみ
 - `@revenuecat/purchases-capacitor` 13.7.x は 10/15 以降に changelog を見て判断
+
+## 2026-10-10 見やすさの調整（D-32・ブランチ `agent/readability` = `agent/ios-billing` の上）
+
+- ひとみうさの選択（文字色＝案1・大きさ＝案2・面＝案3）＋ヒントの光を控えめ＋「色」のアイコンをパレットに＋読み解き後の霧で白い文字が透ける不具合の修正
+- 検証: 再測定で不合格 0/0（最小 5.12）・`npm test` 714・lint 0・build・audit 0・購入まわりの e2e 132/132。調整前後 `docs/plans/2026-10-10/readability-v2/compare.html`
+- 気づいたこと（未対応・判断待ち）: 気分の「もやもや」も `CircleHelp`（？）のアイコン。説明の「？」と重なるので、`CloudFog`（霧の雲）などに替える案。日記の「記録する」の説明「今日の予定や出来事をあなたの言葉で自由に記入して」が 375px で2文字だけ次の行に落ちる（13px 化のため。文言を短くするなら例「今日の予定や出来事を、自由に書いてください」）
+- main へは `agent/ios-billing` と一緒に入る（push は ひとみうさが `git push origin agent/readability:main`。入れても購入機能はキーが無い間は出ない）

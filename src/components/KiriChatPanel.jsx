@@ -134,7 +134,7 @@ export default function KiriChatPanel({ userProfile, entry, result, onClose, rea
     }
   };
 
-  const iconButton = 'w-11 h-11 grid place-items-center rounded-full text-kiri-lilac hover:text-white hover:bg-white/10';
+  const iconButton = 'w-11 h-11 grid place-items-center rounded-full text-kiri-lilac-ink hover:text-white hover:bg-white/10';
 
   return (
     <div ref={panelRef} onKeyDown={onKeyDown} className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-3 pt-[calc(0.75rem+env(safe-area-inset-top))] pb-[calc(0.75rem+env(safe-area-inset-bottom))]" role="dialog" aria-modal="true" aria-label="Kiriとの対話">
@@ -155,17 +155,17 @@ export default function KiriChatPanel({ userProfile, entry, result, onClose, rea
           )}
           {messages.map((message, index) => (
             <div key={`${message.role}-${index}`} className="space-y-2">
-              <div className={`rounded-xl p-3 text-sm whitespace-pre-line ${message.role === 'user' ? 'bg-kiri-lilac/20 ml-8 text-white leading-relaxed' : 'kiri-voice bg-white/10 mr-8 text-kiri-fog'}`}>
+              <div className={`rounded-xl p-3 text-sm whitespace-pre-line ${message.role === 'user' ? 'bg-kiri-lilac/20 ml-8 text-white leading-relaxed' : 'kiri-voice bg-white/[0.055] mr-8 text-kiri-fog'}`}>
                 {message.content}
               </div>
               {message.support && <div className="mr-8"><SupportCard compact /></div>}
             </div>
           ))}
-          {loading && <p className="text-xs text-kiri-lilac">Kiriが言葉を探しています…</p>}
+          {loading && <p className="text-xs text-kiri-lilac-ink">Kiriが言葉を探しています…</p>}
         </div>
         {readOnly ? (
           <div className="p-4 border-t border-white/10">
-            <p className="text-xs text-kiri-lilac leading-relaxed mb-2">{KIRI_TALK_READ_ONLY_NOTE}</p>
+            <p className="text-xs text-kiri-lilac-ink leading-relaxed mb-2">{KIRI_TALK_READ_ONLY_NOTE}</p>
             <button
               type="button"
               onClick={onOpenPaywall}
@@ -176,7 +176,7 @@ export default function KiriChatPanel({ userProfile, entry, result, onClose, rea
           </div>
         ) : (
           <form onSubmit={send} className="p-3 border-t border-white/10 flex gap-2">
-            <textarea value={input} onChange={(event) => setInput(event.target.value.slice(0, 1200))} placeholder="Kiriに聞きたいこと" rows={2} className="flex-1 resize-none rounded-xl bg-white/10 border border-white/15 p-3 text-sm text-white placeholder-kiri-lilac/60 focus:outline-none focus:ring-2 focus:ring-kiri-lilac" />
+            <textarea value={input} onChange={(event) => setInput(event.target.value.slice(0, 1200))} placeholder="Kiriに聞きたいこと" rows={2} className="flex-1 resize-none rounded-xl bg-white/[0.055] border border-white/15 p-3 text-sm text-white placeholder-kiri-lilac-ink focus:outline-none focus:ring-2 focus:ring-kiri-lilac" />
             <button type="submit" disabled={!input.trim() || loading} aria-label="送信" className="self-end kiri-button rounded-xl p-3 disabled:opacity-40"><Send className="w-5 h-5" /></button>
           </form>
         )}
@@ -186,13 +186,13 @@ export default function KiriChatPanel({ userProfile, entry, result, onClose, rea
         <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1rem+env(safe-area-inset-bottom))]" onClick={closeConfirm} role="alertdialog" aria-modal="true" aria-labelledby="kiri-chat-clear-title">
           <div className="kiri-card-strong rounded-2xl w-full max-w-sm p-6 kiri-rise" onClick={(event) => event.stopPropagation()}>
             <h3 id="kiri-chat-clear-title" className="font-display text-lg font-bold text-white mb-2">会話を削除しますか？</h3>
-            <p className="text-sm text-kiri-lilac leading-relaxed mb-4">この端末に残っているKiriとの会話がすべて消え、元に戻せません。日記の記録は消えません。</p>
+            <p className="text-sm text-kiri-lilac-ink leading-relaxed mb-4">この端末に残っているKiriとの会話がすべて消え、元に戻せません。日記の記録は消えません。</p>
             <div className="flex gap-2">
               <button
                 ref={cancelClearRef}
                 type="button"
                 onClick={closeConfirm}
-                className="flex-1 min-h-11 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm font-medium transition-colors"
+                className="flex-1 min-h-11 bg-white/[0.055] hover:bg-white/20 text-white rounded-lg text-sm font-medium transition-colors"
               >
                 キャンセル
               </button>
