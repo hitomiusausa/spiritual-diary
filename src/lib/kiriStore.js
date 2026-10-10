@@ -17,8 +17,11 @@ const DEV_SECRET_BYTES = 32;
 const GUARDED_DEPLOY_ENVS = ["production", "preview"];
 
 // incr(key, ttlSec): キーを1増やして新しい値を返す。TTLは最初の書き込み時だけ付ける。
+// get(key): set した文字列かnull。set(key, value, ttlSec): 値を上書きし、TTLを付け直す（権利のキャッシュ用）。
+// incr のカウンタと get/set の値は別の領域で、キーが同じでも混ざらない。
 export function createMemoryStore({ maxKeys = MEMORY_MAX_KEYS, now = Date.now } = {}) {
   const entries = new Map(); // key -> { count, expiresAt }
+  const values = new Map(); // key -> { value, expiresAt }
 
   async function incr(key, ttlSec) {
     const current = now();
@@ -35,7 +38,25 @@ export function createMemoryStore({ maxKeys = MEMORY_MAX_KEYS, now = Date.now } 
     return 1;
   }
 
-  return { incr };
+  async function get(key) {
+    const entry = values.get(key);
+    if (!entry) return null;
+    if (entry.expiresAt <= now()) {
+      values.delete(key);
+      return null;
+    }
+    return entry.value;
+  }
+
+  async function set(key, value, ttlSec) {
+    values.delete(key);
+    values.set(key, { value: String(value), expiresAt: now() + ttlSec * 1000 });
+    if (values.size > maxKeys) {
+      values.delete(values.keys().next().value);
+    }
+  }
+
+  return { incr, get, set };
 }
 
 // client は @upstash/redis の Redis 互換（テストでは偽クライアントを渡す）。
@@ -53,7 +74,26 @@ export function createUpstashStore({ client, fallback = createMemoryStore() }) {
     }
   }
 
-  return { incr };
+  async function get(key) {
+    try {
+      const value = await client.get(key);
+      return value === null || value === undefined ? null : String(value);
+    } catch (error) {
+      console.warn("[kiri-store] get fell back to memory", error?.name ?? "Error");
+      return fallback.get(key);
+    }
+  }
+
+  async function set(key, value, ttlSec) {
+    try {
+      await client.set(key, value, { ex: ttlSec });
+    } catch (error) {
+      console.warn("[kiri-store] set fell back to memory", error?.name ?? "Error");
+      await fallback.set(key, value, ttlSec);
+    }
+  }
+
+  return { incr, get, set };
 }
 
 export function redisConfigFromEnv(env = process.env) {

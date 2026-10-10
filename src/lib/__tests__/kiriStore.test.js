@@ -61,6 +61,17 @@ function fakeRedis({ fail = false } = {}) {
   return {
     calls,
     data,
+    async get(key) {
+      calls.push(["get", key]);
+      maybeFail();
+      return data.has(key) ? data.get(key) : null;
+    },
+    async set(key, value, options) {
+      calls.push(["set", key, value, options]);
+      maybeFail();
+      data.set(key, value);
+      return "OK";
+    },
     multi() {
       const ops = [];
       const pipe = {
@@ -89,6 +100,45 @@ function fakeRedis({ fail = false } = {}) {
     },
   };
 }
+
+describe("createMemoryStore get/set", () => {
+  it("setした値をgetで返し、期限が切れたらnullを返す", async () => {
+    const c = clock();
+    const store = createMemoryStore({ now: c.now });
+    expect(await store.get("k")).toBeNull();
+    await store.set("k", "v", 60);
+    expect(await store.get("k")).toBe("v");
+    c.advance(60_000);
+    expect(await store.get("k")).toBeNull();
+  });
+
+  it("setは上書きでき、TTLも付け直す", async () => {
+    const c = clock();
+    const store = createMemoryStore({ now: c.now });
+    await store.set("k", "a", 60);
+    c.advance(50_000);
+    await store.set("k", "b", 60);
+    c.advance(50_000);
+    expect(await store.get("k")).toBe("b");
+  });
+
+  it("incrのカウンタとは混ざらない", async () => {
+    const store = createMemoryStore({ now: () => T0 });
+    await store.incr("n", 60);
+    expect(await store.get("n")).toBeNull();
+    await store.set("n", "x", 60);
+    expect(await store.incr("n", 60)).toBe(2);
+  });
+
+  it("キー数が上限を超えたら古い値を破棄する", async () => {
+    const store = createMemoryStore({ maxKeys: 2, now: () => T0 });
+    await store.set("a", "1", 60);
+    await store.set("b", "2", 60);
+    await store.set("c", "3", 60);
+    expect(await store.get("a")).toBeNull();
+    expect(await store.get("c")).toBe("3");
+  });
+});
 
 describe("createUpstashStore", () => {
   afterEach(() => {
@@ -124,6 +174,29 @@ describe("createUpstashStore", () => {
     }
   });
 
+
+  it("get/setはGETとSET EXで送る", async () => {
+    const client = fakeRedis();
+    const store = createUpstashStore({ client });
+    expect(await store.get("kiri:ent:x")).toBeNull();
+    await store.set("kiri:ent:x", '{"a":1}', 600);
+    expect(await store.get("kiri:ent:x")).toBe('{"a":1}');
+    expect(client.calls).toContainEqual(["set", "kiri:ent:x", '{"a":1}', { ex: 600 }]);
+  });
+
+  it("障害時、get/setもメモリへ降格する（ログに値もキーも出さない）", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const store = createUpstashStore({ client: fakeRedis({ fail: true }), fallback: createMemoryStore({ now: () => T0 }) });
+    await store.set("kiri:ent:secretkey", "secretvalue", 600);
+    expect(await store.get("kiri:ent:secretkey")).toBe("secretvalue");
+    expect(warn).toHaveBeenCalled();
+    for (const args of warn.mock.calls) {
+      const line = args.map(String).join(" ");
+      expect(line).not.toContain("secretkey");
+      expect(line).not.toContain("secretvalue");
+      expect(line).not.toContain("network down");
+    }
+  });
 });
 
 describe("redisConfigFromEnv", () => {
