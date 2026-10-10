@@ -7,7 +7,7 @@ export const metadata = {
 
 export default function PrivacyPage() {
   return (
-    <DocPage title="プライバシーポリシー" updatedAt="2026-10-09">
+    <DocPage title="プライバシーポリシー" updatedAt="2026-10-10">
       <p>
         Kiri（Mind & Energy Note、以下「本サービス」）は、利用者のプライバシーを尊重し、
         個人情報を次のとおり取り扱います。
@@ -19,6 +19,7 @@ export default function PrivacyPage() {
           <li>基本情報: ニックネーム、生年月日、出生時刻（任意）、性別（任意）</li>
           <li>日記の記録: 気分、出来事・予定、直感メモ</li>
           <li>Kiriとの対話: チャットで入力したメッセージ</li>
+          <li>購読の状態（iOSアプリで「Kiriと話す」を購読した場合のみ）: 匿名のID（App User ID）とApp Storeの取引情報</li>
         </ul>
         <p className="mt-2">
           アカウント登録はなく、氏名・住所・電話番号・メールアドレスは取得しません。
@@ -63,6 +64,8 @@ export default function PrivacyPage() {
         <ul>
           <li>運営者だけが持つ秘密鍵を使って、元のアドレスがわからない形に変換したIPアドレス（最長2分で自動消去）</li>
           <li>利用回数のカウンタ（2日で自動消去）</li>
+          <li>購読の権利の有無と有効期限（匿名のIDを、運営者だけが持つ秘密鍵を使って元のIDがわからない形に変換した値をキーにして保存し、最長10分で自動消去）</li>
+          <li>購読者ごとの1日の利用回数（同じ変換をした値をキーにして保存し、最長2日で自動消去）</li>
         </ul>
         <p className="mt-2">
           このほか、障害調査・利用量把握のための最小限のログを記録しますが、入力内容は含めません。
@@ -72,7 +75,22 @@ export default function PrivacyPage() {
       </section>
 
       <section>
-        <h2>4. データの削除</h2>
+        <h2>4. 購読の管理（RevenueCat）</h2>
+        <p>
+          iOSアプリで有料機能「Kiriと話す」を購読すると、購読の状態を管理するため、
+          RevenueCat, Inc.（アメリカ）のサービスを利用します。RevenueCat, Inc.に送られるのは、
+          アプリが自動で作る匿名のID（App User ID）と、App Storeの取引情報（購入した商品・期間・状態など）です。
+          日記や会話は送りません。氏名やメールアドレスも送りません。
+          本サービスのサーバーは、対話を送るときにこの匿名のIDを受け取り、購読が有効かどうかをRevenueCat, Inc.に確認します。
+          購読していない方や、ウェブ版では、この送信は行われません。
+        </p>
+        <p className="mt-2">
+          支払いそのものはAppleが処理し、カード情報などを運営者やRevenueCat, Inc.が受け取ることはありません。
+        </p>
+      </section>
+
+      <section>
+        <h2>5. データの削除</h2>
         <p>
           占い履歴とチャット履歴は、アプリ内の削除ボタン（設定の「すべて削除」を含む）でいつでも削除できます。
           記録を削除すると、端末内に一時保存された当日の読み解きの結果もあわせて消去されます。
@@ -82,15 +100,15 @@ export default function PrivacyPage() {
       </section>
 
       <section>
-        <h2>5. 今後の変更</h2>
+        <h2>6. 今後の変更</h2>
         <p>
-          有料機能・アカウント機能・データ同期を導入する場合は、取り扱いの変更内容を
+          アカウント機能・データ同期などを導入する場合や、第三者サービスを追加する場合は、取り扱いの変更内容を
           本ポリシーに反映し、アプリ内で告知します。
         </p>
       </section>
 
       <section>
-        <h2>6. 運営者・連絡先</h2>
+        <h2>7. 運営者・連絡先</h2>
         <p>
           運営者: くうが株式会社（KUGA K.K.）<br />
           お問い合わせ: <a href="mailto:info@kugainc.com" className="underline">info@kugainc.com</a>

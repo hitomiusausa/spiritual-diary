@@ -239,7 +239,7 @@ describe("wording rule on the pages that describe the lock", () => {
       .replace(/\/\*[\s\S]*?\*\//g, "")
       .replace(/(^|[^:])\/\/.*$/gm, "$1");
 
-  it.each(["src/app/privacy/page.js", "src/app/support/page.js", "src/components/LockScreen.jsx", "src/components/SpiritualDiary.jsx"])(
+  it.each(["src/app/privacy/page.js", "src/app/support/page.js", "src/app/terms/page.js", "src/components/LockScreen.jsx", "src/components/SpiritualDiary.jsx"])(
     "%s does not show the forbidden words",
     (file) => {
       const source = readFileSync(join(process.cwd(), file), "utf8");

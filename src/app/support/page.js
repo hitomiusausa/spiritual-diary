@@ -8,7 +8,7 @@ export const metadata = {
 
 export default function SupportPage() {
   return (
-    <DocPage title="サポート" updatedAt="2026-10-09">
+    <DocPage title="サポート" updatedAt="2026-10-10">
       <section>
         <h2>よくある質問</h2>
         <div className="space-y-4 mt-2">
@@ -62,10 +62,42 @@ export default function SupportPage() {
             </p>
           </div>
           <div>
-            <p className="font-bold text-white mb-1">Q. Kiriとの対話が使えません。</p>
+            <p className="font-bold text-white mb-1">Q. Kiriとの対話（Kiriと話す）はどこで使えますか？</p>
             <p>
-              Kiriとの自由な対話は有料機能として準備中で、現在は開発プレビューです。
-              提供が始まるまでお待ちください。
+              iOSアプリで購読すると使えます。ウェブ版では対話は提供していません。
+              料金は、アプリ内の購入画面に表示されます。初めての方には、1週間の無料トライアルがあります
+              （Appleの規定により、初回のみです）。
+            </p>
+          </div>
+          <div>
+            <p className="font-bold text-white mb-1">Q. 購読したのに対話が使えません。</p>
+            <p>
+              まず、購入した時と同じApple IDでサインインしているか確認してください。
+              そのうえで、設定アイコンの「購入を復元」を押してみてください。機種変更や再インストールのあとも、これで戻ります。
+              購入の直後は、確認に数分かかることがあります。
+              「いまは声が届きにくい」と出るときは、少し時間をおいてもう一度お試しください。
+              それでも使えないときは、下のお問い合わせ窓口までご連絡ください。
+            </p>
+          </div>
+          <div>
+            <p className="font-bold text-white mb-1">Q. 購読を解約するには？</p>
+            <p>
+              iPhoneの「設定」でご自身の名前をタップし、「サブスクリプション」から「Kiriと話す」を選んで解約できます。
+              期間の終わりまでは、そのまま使えます。アプリを削除しても、購読は自動では解約されません。
+              解約したあとも、それまでの会話は端末内で読めます（新しく送れるのは、購読中と無料トライアル中だけです）。
+            </p>
+          </div>
+          <div>
+            <p className="font-bold text-white mb-1">Q. 返金してほしいです。</p>
+            <p>
+              購入と請求はAppleが行っているため、返金はAppleの規定に従います。
+              Appleの「問題を報告」（reportaproblem.apple.com）からお申し込みください。
+            </p>
+          </div>
+          <div>
+            <p className="font-bold text-white mb-1">Q. 「今日はここまで」と出て、送れません。</p>
+            <p>
+              対話は1日60通までです。日本時間で日付が変わると、また送れるようになります。
             </p>
           </div>
           <div>
