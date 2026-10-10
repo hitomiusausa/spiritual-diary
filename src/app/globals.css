@@ -221,6 +221,12 @@ input[type="time"]::-webkit-date-and-time-value {
   font-family: var(--font-kiri-display), "Hiragino Mincho ProN", "Yu Mincho", serif;
   line-height: 2;
   letter-spacing: 0.02em;
+  /*
+    Kiriの読み解き（長い明朝の文章）だけは、ふつうの折り返しで行の端まで詰める。
+    D-32 の text-wrap: pretty は Safari の日本語で各行が2〜3文字ぶん早く折り返り、右が空いて左寄りに見えた
+    （2026-10-10 ひとみうさの iPhone で発見・D-34）。短い説明文などは pretty のまま。
+  */
+  text-wrap: wrap;
 }
 
 /*
