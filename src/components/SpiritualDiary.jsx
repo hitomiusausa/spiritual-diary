@@ -22,7 +22,7 @@ import {
   purchaseChat,
   restorePurchases,
 } from '@/lib/purchases';
-import { KIRI_TALK_NAME, entryCardView, purchaseNotice, restoreNotice, talkSettingsView } from '@/lib/kiriTalk';
+import { KIRI_TALK_NAME, entryCardView, purchaseNotice, restoreNotice, talkSettingsView, talkStateAfterPurchase } from '@/lib/kiriTalk';
 import SupportCard from '@/components/SupportCard';
 import { entryNeedsSupport } from '@/lib/kiriSafety';
 import { apiUrl } from '@/lib/apiUrl';
@@ -58,7 +58,7 @@ import { analysisCacheKey, clearCachedAnalyses, loadCachedAnalysis, saveCachedAn
 const IAP_BUILD = process.env.NEXT_PUBLIC_KIRI_IAP === '1';
 const CHAT_DEV_PREVIEW = process.env.NEXT_PUBLIC_KIRI_CHAT_PREVIEW === '1';
 const CHAT_UI_BUILD = IAP_BUILD || CHAT_DEV_PREVIEW;
-const TALK_NOT_ENTITLED = { entitled: false, expiresAt: null, willRenew: false, managementUrl: null };
+const TALK_NOT_ENTITLED = { entitled: false, expiresAt: null, willRenew: false, isTrial: false, managementUrl: null };
 // エラーの帯は画面上部（設定ボタン・見出しの上）に重なるので、読み終えたころに自動で閉じる。
 const ERROR_BANNER_AUTO_DISMISS_MS = 10000;
 
@@ -115,7 +115,6 @@ export default function SpiritualDiary() {
   const [talkOffering, setTalkOffering] = useState(undefined);
   const talkOfferingRequested = useRef(false);
   const [showPaywall, setShowPaywall] = useState(false);
-  const [chatReadOnly, setChatReadOnly] = useState(false);
   const [talkNotice, setTalkNotice] = useState(null);
   const [talkBusy, setTalkBusy] = useState(false);
   const [showConsent, setShowConsent] = useState(false);
@@ -499,33 +498,33 @@ export default function SpiritualDiary() {
     setTalkOffering(await getChatOffering());
   };
 
-  const openChat = (readOnly) => {
-    setChatReadOnly(readOnly);
-    setShowChat(true);
-  };
+  // チャット欄は、権利が無ければ（未購読・解約後・開いている間に期限切れ）読むだけになる（D-28・F-B9）。
+  const openChat = () => setShowChat(true);
 
+  // 購入画面を開くたびに offering を読み直す（トライアル適格は購入・期限切れで変わる。F-B7）。
   const openPaywall = () => {
     setShowPaywall(true);
-    if (talkOffering === null) reloadTalkOffering();
+    reloadTalkOffering();
   };
 
   // 入口カードのボタン: 購読中ならチャット、未購読なら購入画面。
   const openTalk = () => {
-    if (talkEntitled) openChat(false);
+    if (talkEntitled) openChat();
     else openPaywall();
   };
 
   // 購入・復元で権利が付いたら、購入画面を閉じてそのまま話せるようにする。
-  const enterTalkAfterPurchase = async () => {
-    setTalk(await getEntitlementState());
+  // 読み直しが失敗しても購入の結果で上書きしない（F-B8）。
+  const enterTalkAfterPurchase = async (outcome) => {
+    setTalk(talkStateAfterPurchase(await getEntitlementState(), outcome));
     setShowPaywall(false);
-    openChat(false);
+    openChat();
   };
 
   const handlePurchase = async () => {
     const outcome = await purchaseChat();
     if (outcome.entitled) {
-      await enterTalkAfterPurchase();
+      await enterTalkAfterPurchase(outcome);
       return null;
     }
     return purchaseNotice(outcome);
@@ -534,10 +533,16 @@ export default function SpiritualDiary() {
   const handlePaywallRestore = async () => {
     const outcome = await restorePurchases();
     if (outcome.entitled) {
-      await enterTalkAfterPurchase();
+      await enterTalkAfterPurchase(outcome);
       return null;
     }
     return restoreNotice(outcome);
+  };
+
+  // サーバーが「権利なし」（403 not_entitled）と返したら、購読状態を読み直す（期限切れなら読むだけに切り替わる。F-B9）。
+  const refreshTalkState = async () => {
+    if (!IAP_BUILD || !iapActive) return;
+    setTalk(await getEntitlementState());
   };
 
   const handleSettingsRestore = async () => {
@@ -546,7 +551,7 @@ export default function SpiritualDiary() {
     setTalkNotice(null);
     try {
       const outcome = await restorePurchases();
-      setTalk(await getEntitlementState());
+      setTalk(talkStateAfterPurchase(await getEntitlementState(), outcome));
       setTalkNotice(restoreNotice(outcome));
     } finally {
       setTalkBusy(false);
@@ -1580,8 +1585,9 @@ export default function SpiritualDiary() {
               userProfile={{ nickname, birthDate, birthTime, gender }}
               entry={entry}
               result={result}
-              readOnly={chatReadOnly && !talkEntitled}
+              readOnly={!talkEntitled}
               onOpenPaywall={openPaywall}
+              onNotEntitled={refreshTalkState}
               getAppUserId={getAppUserId}
               onClose={() => setShowChat(false)}
             />
@@ -2004,7 +2010,7 @@ export default function SpiritualDiary() {
                       {card.showReadLog && (
                         <button
                           type="button"
-                          onClick={() => openChat(true)}
+                          onClick={openChat}
                           className="mt-2 w-full min-h-11 rounded-full border border-white/15 px-4 text-sm text-kiri-fog hover:bg-white/10"
                         >
                           これまでの会話を読む
