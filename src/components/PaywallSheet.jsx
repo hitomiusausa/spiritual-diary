@@ -4,7 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { BookOpen, MessageCircle, RotateCw, X } from 'lucide-react';
-import { KIRI_TALK_AI_NOTICE, KIRI_TALK_NAME, KIRI_TALK_PROMISES, paywallView } from '@/lib/kiriTalk';
+import { KIRI_TALK_AI_NOTICE, KIRI_TALK_NAME, kiriTalkPromises, paywallView } from '@/lib/kiriTalk';
 
 // 購入画面「Kiriと話す」（D-30 案A: 結果画面の上に下から出るシート）。
 // 上から: アバター → 商品名と「月額の自動更新サブスクリプション」→ 約束2つ → 価格の箱（月額をいちばん大きく）→ ボタン →
@@ -117,7 +117,7 @@ export default function PaywallSheet({ open, offering, entitled = false, onPurch
         </div>
 
         <ul className="mt-5 space-y-3">
-          {KIRI_TALK_PROMISES.map((promise, index) => {
+          {kiriTalkPromises().map((promise, index) => {
             const Icon = PROMISE_ICONS[index] ?? MessageCircle;
             return (
               <li key={promise.title} className="flex items-start gap-3">

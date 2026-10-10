@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, it, expect } from "vitest";
 import {
   KIRI_TALK_NAME,
-  KIRI_TALK_PROMISES,
+  kiriTalkPromises,
   KIRI_TALK_AI_NOTICE,
   KIRI_TALK_READ_ONLY_NOTE,
   KIRI_TALK_START_LABEL,
@@ -30,7 +30,7 @@ describe("商品名と約束（D-30）", () => {
   });
 
   it("約束は2つだけ", () => {
-    expect(KIRI_TALK_PROMISES).toEqual([
+    expect(kiriTalkPromises()).toEqual([
       { title: "Kiriと話せる（1日60通まで）", detail: "今日の読み解きと記録をふまえて返事をします" },
       { title: "会話はこの端末に残ります", detail: "解約したあとも、残っている会話は読めます" },
     ]);
@@ -220,7 +220,7 @@ describe("文言の規律", () => {
       KIRI_TALK_START_LABEL,
       ...[undefined, "not_entitled", "user_daily_limit", "daily_limit", "chat_unavailable"].map(chatErrorMessage),
       ...[{ error: "not_reflected" }, { error: "already_purchased" }, { error: "pending" }, {}].map(purchaseNotice),
-      ...KIRI_TALK_PROMISES.flatMap((p) => [p.title, p.detail]),
+      ...kiriTalkPromises().flatMap((p) => [p.title, p.detail]),
       ...[undefined, null, eligible, ineligible, noTrial].flatMap((o) => Object.values(paywallView(o)).filter((v) => typeof v === "string")),
     ];
     for (const text of views) expect(text).not.toMatch(FORBIDDEN);
@@ -231,14 +231,21 @@ describe("文言の規律", () => {
     expect(source).not.toMatch(FORBIDDEN);
   });
 
-  it("Web の本番バンドルから消えるよう、モジュールの初期化に副作用を置かない（Object.freeze を使わない。F-B6）", () => {
+  it("Web の本番バンドルから消えるよう、モジュール直下は文字列リテラルと関数だけ（F-B6）", () => {
     const source = stripComments(readFileSync(join(process.cwd(), "src/lib/kiriTalk.js"), "utf8"));
-    expect(source).not.toMatch(/Object\.freeze\(/);
+    const topLevel = source.split("\n").filter((line) => /^(export )?(const|let|var) /.test(line));
+    for (const line of topLevel) expect(line).toMatch(/^(export )?const \w+ = "[^"`$]*";$/);
+  });
+
+  it("文言の中の商品名は KIRI_TALK_NAME と一致", () => {
+    expect(KIRI_TALK_READ_ONLY_NOTE).toContain(`『${KIRI_TALK_NAME}』`);
+    expect(KIRI_TALK_START_LABEL.startsWith(KIRI_TALK_NAME)).toBe(true);
+    expect(chatErrorMessage("not_entitled")).toContain(`『${KIRI_TALK_NAME}』`);
   });
 
   it("購入画面は必須要素を持つ（3.1.2: 名前と期間・価格・自動更新・復元・規約・プライバシー）", () => {
     const source = readFileSync(join(process.cwd(), "src/components/PaywallSheet.jsx"), "utf8");
-    for (const text of ["KIRI_TALK_NAME", "月額の自動更新サブスクリプション", "KIRI_TALK_PROMISES", "priceLabel", "購入を復元", 'href="/terms"', 'href="/privacy"', "KIRI_TALK_AI_NOTICE", "サブスクリプションを管理", 'aria-modal="true"']) {
+    for (const text of ["KIRI_TALK_NAME", "月額の自動更新サブスクリプション", "kiriTalkPromises", "priceLabel", "購入を復元", 'href="/terms"', 'href="/privacy"', "KIRI_TALK_AI_NOTICE", "サブスクリプションを管理", 'aria-modal="true"']) {
       expect(source).toContain(text);
     }
   });
