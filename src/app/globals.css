@@ -227,6 +227,9 @@ input[type="time"]::-webkit-date-and-time-value {
     （2026-10-10 ひとみうさの iPhone で発見・D-34）。その後 D-35 で全体の pretty も外した。
   */
   text-wrap: wrap;
+  /* 両端ぞろえ: 行末のガタつきで右が空き、左寄りに見えるのを防ぐ（D-36）。最後の行は左寄せのまま */
+  text-align: justify;
+  text-justify: inter-character;
 }
 
 /*

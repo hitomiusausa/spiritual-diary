@@ -868,17 +868,17 @@ export default function SpiritualDiary() {
 
   // 見出し行はdiv+個別ボタン構成にする（button入れ子はHTML違反でhydrationエラーになる）
   // 開いているときは見出し→中身を12px（カード見出し→中身の共通値。D-29）。行の高さは56px（閉じて60px）でタップ範囲は足りる
-  // collapsedHint: 閉じているときだけ右に小さく出す案内（例「タップで確認」）
+  // collapsedHint: 閉じているときだけ右に小さく出す案内（例「タップで確認」）。案内を出している間はバッジを隠し、1行に収める（D-36）
   const CollapsibleSection = ({ title, isExpanded, onToggle, children, badge, onInfoClick, collapsedHint }) => (
     <div className="bg-white/[0.055] backdrop-blur-md rounded-xl border border-kiri-lilac/30 overflow-hidden">
       <div
         onClick={onToggle}
         className={`w-full p-4 ${isExpanded ? 'pb-3' : ''} flex items-center justify-between cursor-pointer active:bg-white/5 transition-colors`}
       >
-        {/* 見出し・バッジは割らない。入りきらないときは「タップで確認」だけ次の行へ回る */}
+        {/* 見出し・バッジは割らない。入りきらないとき（大きい文字など）は「タップで確認」だけ次の行へ回る */}
         <div className="kiri-dt-section-head flex flex-1 min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
           <h2 className="font-display text-lg font-bold text-kiri-gold whitespace-nowrap">{title}</h2>
-          {badge && (
+          {badge && !(collapsedHint && !isExpanded) && (
             <span className="text-xs bg-kiri-gold/11 text-kiri-gold px-2 py-0.5 rounded-full whitespace-nowrap">
               {badge}
             </span>
