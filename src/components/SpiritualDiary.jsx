@@ -5,11 +5,12 @@ import Link from 'next/link';
 import { useState, useEffect, useReducer, useRef } from 'react';
 import { flushSync } from 'react-dom';
 import { Sparkles, Lock, AlertCircle, X, ChevronRight, ChevronDown, ChevronUp, HelpCircle, Heart, Smile, Frown, Meh, Angry, Star, Sun, Moon, Cloud, Zap, CircleHelp, Download, Upload, Settings, History, Laugh, Leaf, CloudRain, Droplet, Music, ShieldOff, Timer, EyeOff } from 'lucide-react';
-import { clearHistory, deleteHistoryItem, loadHistory, saveHistory, toHistoryRecord, loadProfile, saveProfile, initialStepFor, formatBirthDateJa, isSameReading } from '@/lib/history';
+import { deleteHistoryItem, loadHistory, saveHistory, toHistoryRecord, loadProfile, saveProfile, initialStepFor, formatBirthDateJa, isSameReading } from '@/lib/history';
 import { buildBackup, backupFileName, parseBackup, applyBackup } from '@/lib/backup';
 import KiriChatPanel from '@/components/KiriChatPanel';
 import PaywallSheet from '@/components/PaywallSheet';
 import { loadChatHistory } from '@/lib/chatHistory';
+import { clearAllRecords, hasAnyRecords } from '@/lib/deleteAll';
 import {
   APPLE_SUBSCRIPTIONS_URL,
   configurePurchases,
@@ -21,7 +22,7 @@ import {
   purchaseChat,
   restorePurchases,
 } from '@/lib/purchases';
-import { KIRI_TALK_NAME, entryCardView, purchaseNotice, restoreNotice, talkSettingsView } from '@/lib/kiriTalk';
+import { KIRI_TALK_NAME, entryCardView, purchaseNotice, restoreNotice, talkSettingsView, talkStateAfterPurchase } from '@/lib/kiriTalk';
 import SupportCard from '@/components/SupportCard';
 import { entryNeedsSupport } from '@/lib/kiriSafety';
 import { apiUrl } from '@/lib/apiUrl';
@@ -57,7 +58,7 @@ import { analysisCacheKey, clearCachedAnalyses, loadCachedAnalysis, saveCachedAn
 const IAP_BUILD = process.env.NEXT_PUBLIC_KIRI_IAP === '1';
 const CHAT_DEV_PREVIEW = process.env.NEXT_PUBLIC_KIRI_CHAT_PREVIEW === '1';
 const CHAT_UI_BUILD = IAP_BUILD || CHAT_DEV_PREVIEW;
-const TALK_NOT_ENTITLED = { entitled: false, expiresAt: null, willRenew: false, managementUrl: null };
+const TALK_NOT_ENTITLED = { entitled: false, expiresAt: null, willRenew: false, isTrial: false, managementUrl: null };
 // エラーの帯は画面上部（設定ボタン・見出しの上）に重なるので、読み終えたころに自動で閉じる。
 const ERROR_BANNER_AUTO_DISMISS_MS = 10000;
 
@@ -114,7 +115,6 @@ export default function SpiritualDiary() {
   const [talkOffering, setTalkOffering] = useState(undefined);
   const talkOfferingRequested = useRef(false);
   const [showPaywall, setShowPaywall] = useState(false);
-  const [chatReadOnly, setChatReadOnly] = useState(false);
   const [talkNotice, setTalkNotice] = useState(null);
   const [talkBusy, setTalkBusy] = useState(false);
   const [showConsent, setShowConsent] = useState(false);
@@ -468,6 +468,11 @@ export default function SpiritualDiary() {
     };
   }, []);
 
+  // 購読が付いたら offering を読み直せるようにする（期限切れ後の入口カードは、トライアルなしの価格に。F-B7）。
+  useEffect(() => {
+    if (talk.entitled) talkOfferingRequested.current = false;
+  }, [talk.entitled]);
+
   // 結果画面で未購読なら、入口カードの価格・トライアル表示のために offering を1回だけ読む。
   useEffect(() => {
     if (!IAP_BUILD || !iapActive || talk.entitled || step !== 'result' || talkOfferingRequested.current) return;
@@ -498,33 +503,33 @@ export default function SpiritualDiary() {
     setTalkOffering(await getChatOffering());
   };
 
-  const openChat = (readOnly) => {
-    setChatReadOnly(readOnly);
-    setShowChat(true);
-  };
+  // チャット欄は、権利が無ければ（未購読・解約後・開いている間に期限切れ）読むだけになる（D-28・F-B9）。
+  const openChat = () => setShowChat(true);
 
+  // 購入画面を開くたびに offering を読み直す（トライアル適格は購入・期限切れで変わる。F-B7）。
   const openPaywall = () => {
     setShowPaywall(true);
-    if (talkOffering === null) reloadTalkOffering();
+    reloadTalkOffering();
   };
 
   // 入口カードのボタン: 購読中ならチャット、未購読なら購入画面。
   const openTalk = () => {
-    if (talkEntitled) openChat(false);
+    if (talkEntitled) openChat();
     else openPaywall();
   };
 
   // 購入・復元で権利が付いたら、購入画面を閉じてそのまま話せるようにする。
-  const enterTalkAfterPurchase = async () => {
-    setTalk(await getEntitlementState());
+  // 読み直しが失敗しても購入の結果で上書きしない（F-B8）。
+  const enterTalkAfterPurchase = async (outcome) => {
+    setTalk(talkStateAfterPurchase(await getEntitlementState(), outcome));
     setShowPaywall(false);
-    openChat(false);
+    openChat();
   };
 
   const handlePurchase = async () => {
     const outcome = await purchaseChat();
     if (outcome.entitled) {
-      await enterTalkAfterPurchase();
+      await enterTalkAfterPurchase(outcome);
       return null;
     }
     return purchaseNotice(outcome);
@@ -533,10 +538,16 @@ export default function SpiritualDiary() {
   const handlePaywallRestore = async () => {
     const outcome = await restorePurchases();
     if (outcome.entitled) {
-      await enterTalkAfterPurchase();
+      await enterTalkAfterPurchase(outcome);
       return null;
     }
     return restoreNotice(outcome);
+  };
+
+  // サーバーが「権利なし」（403 not_entitled）と返したら、購読状態を読み直す（期限切れなら読むだけに切り替わる。F-B9）。
+  const refreshTalkState = async () => {
+    if (!IAP_BUILD || !iapActive) return;
+    setTalk(await getEntitlementState());
   };
 
   const handleSettingsRestore = async () => {
@@ -545,7 +556,7 @@ export default function SpiritualDiary() {
     setTalkNotice(null);
     try {
       const outcome = await restorePurchases();
-      setTalk(await getEntitlementState());
+      setTalk(talkStateAfterPurchase(await getEntitlementState(), outcome));
       setTalkNotice(restoreNotice(outcome));
     } finally {
       setTalkBusy(false);
@@ -1096,7 +1107,8 @@ export default function SpiritualDiary() {
           <div className="p-4 border-b border-white/10 flex items-center justify-between">
             <h2 className="font-display font-bold text-kiri-gold">最近の記録</h2>
             <div className="flex items-center gap-3">
-              {history.length > 0 && (
+              {/* 日記の記録が0件でも、会話が残っていれば出す（すべて削除は会話も消す。F-B2） */}
+              {hasAnyRecords(history, getStorage()) && (
                 <button
                   type="button"
                   onClick={() => setConfirmDelete({ type: 'all' })}
@@ -1155,10 +1167,10 @@ export default function SpiritualDiary() {
       <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1rem+env(safe-area-inset-bottom))]" onClick={() => setConfirmDelete(null)} role="alertdialog" aria-modal="true" aria-label="削除の確認">
         <div className="kiri-card-strong rounded-2xl w-full max-w-sm p-6 kiri-rise" onClick={(e) => e.stopPropagation()}>
           <h3 className="font-display text-lg font-bold text-white mb-2">
-            {isAll ? 'すべての記録を削除しますか？' : 'この記録を削除しますか？'}
+            {isAll ? '記録と会話をすべて削除しますか？' : 'この記録を削除しますか？'}
           </h3>
           <p className="text-sm text-kiri-lilac leading-relaxed mb-4">
-            削除した記録は元に戻せません。バックアップを取っていない場合、復元はできません（バックアップは設定アイコンの「バックアップ」を選択して書き出せます）。
+            {isAll ? '日記の記録・読み解き・Kiriとの会話がすべて消え、元に戻せません。' : '削除した記録は元に戻せません。'}バックアップを取っていない場合、復元はできません（バックアップは設定アイコンの「バックアップ」を選択して書き出せます）。
           </p>
           <div className="flex gap-2">
             <button
@@ -1173,14 +1185,15 @@ export default function SpiritualDiary() {
               onClick={() => {
                 haptic('delete');
                 if (isAll) {
-                  setHistory(clearHistory(getStorage()));
+                  // 日記の記録・端末の読み解き（D-18）・Kiriとの会話をまとめて消す（F-B2）
+                  setHistory(clearAllRecords(getStorage()));
                 } else {
                   setHistory(deleteHistoryItem(getStorage(), confirmDelete.id));
+                  // 端末に一時保存した当日の読み解きも一緒に消す（D-18）
+                  clearCachedAnalyses(getStorage());
                 }
-                // 端末に一時保存した当日の読み解きも一緒に消す（D-18）
-                clearCachedAnalyses(getStorage());
                 setConfirmDelete(null);
-                setDeleteNotice(isAll ? 'すべての記録を削除しました' : '記録を削除しました');
+                setDeleteNotice(isAll ? '記録と会話をすべて削除しました' : '記録を削除しました');
               }}
               className="flex-1 bg-kiri-danger text-kiri-night py-2.5 rounded-lg text-sm font-bold hover:opacity-90 transition-opacity"
             >
@@ -1577,8 +1590,9 @@ export default function SpiritualDiary() {
               userProfile={{ nickname, birthDate, birthTime, gender }}
               entry={entry}
               result={result}
-              readOnly={chatReadOnly && !talkEntitled}
+              readOnly={!talkEntitled}
               onOpenPaywall={openPaywall}
+              onNotEntitled={refreshTalkState}
               getAppUserId={getAppUserId}
               onClose={() => setShowChat(false)}
             />
@@ -2001,7 +2015,7 @@ export default function SpiritualDiary() {
                       {card.showReadLog && (
                         <button
                           type="button"
-                          onClick={() => openChat(true)}
+                          onClick={openChat}
                           className="mt-2 w-full min-h-11 rounded-full border border-white/15 px-4 text-sm text-kiri-fog hover:bg-white/10"
                         >
                           これまでの会話を読む

@@ -22,9 +22,9 @@ const offerings = (prod = product()) => ({
   current: { identifier: "default", monthly: { identifier: "$rc_monthly", product: prod }, availablePackages: [{ identifier: "$rc_monthly", product: prod }] },
 });
 
-const customerInfo = ({ active = false, expirationDate = "2026-11-17T00:00:00Z", willRenew = true, managementURL = "https://apps.apple.com/account/subscriptions" } = {}) => ({
+const customerInfo = ({ active = false, expirationDate = "2026-11-17T00:00:00Z", willRenew = true, periodType = "NORMAL", managementURL = "https://apps.apple.com/account/subscriptions" } = {}) => ({
   entitlements: {
-    active: active ? { [KIRI_ENTITLEMENT_ID]: { identifier: KIRI_ENTITLEMENT_ID, isActive: true, expirationDate, willRenew } } : {},
+    active: active ? { [KIRI_ENTITLEMENT_ID]: { identifier: KIRI_ENTITLEMENT_ID, isActive: true, expirationDate, willRenew, periodType } } : {},
     all: {},
   },
   managementURL,
@@ -94,7 +94,7 @@ describe("IAP が無効・Web のとき（すべて未購読・offering なし�
     expect(await iap.getChatOffering()).toBeNull();
     expect(await iap.purchaseChat()).toEqual({ entitled: false, cancelled: false, error: "unavailable" });
     expect(await iap.restorePurchases()).toEqual({ entitled: false, error: "unavailable" });
-    expect(await iap.getEntitlementState()).toEqual({ entitled: false, expiresAt: null, willRenew: false, managementUrl: null });
+    expect(await iap.getEntitlementState()).toEqual({ entitled: false, expiresAt: null, willRenew: false, isTrial: false, managementUrl: null });
     expect(await iap.getAppUserId()).toBeNull();
     const unsubscribe = iap.onEntitlementChange(() => {});
     expect(typeof unsubscribe).toBe("function");
@@ -190,7 +190,7 @@ describe("ネイティブ（RevenueCat プラグイン）", () => {
     const iap = nativeIap(plugin);
     const seen = [];
     iap.onEntitlementChange((state) => seen.push(state.entitled));
-    expect(await iap.purchaseChat()).toEqual({ entitled: true, cancelled: false });
+    expect(await iap.purchaseChat()).toMatchObject({ entitled: true, cancelled: false, state: { entitled: true, expiresAt: "2026-11-17T00:00:00Z" } });
     expect(plugin.methods.purchasePackage).toHaveBeenCalledTimes(1);
     expect(plugin.methods.purchasePackage.mock.calls[0][0].aPackage.product.identifier).toBe(KIRI_PRODUCT_ID);
     expect(seen).toContain(true);
@@ -210,6 +210,16 @@ describe("ネイティブ（RevenueCat プラグイン）", () => {
     expect(await nativeIap(plugin).purchaseChat()).toEqual({ entitled: false, cancelled: false, error: "pending" });
   });
 
+  it("購入は通ったが権利がまだ反映されていない: error: 'not_reflected'（F-B3）", async () => {
+    const plugin = fakePlugin({ purchasePackage: vi.fn(async () => ({ productIdentifier: KIRI_PRODUCT_ID, customerInfo: customerInfo() })) });
+    expect(await nativeIap(plugin).purchaseChat()).toMatchObject({ entitled: false, cancelled: false, error: "not_reflected" });
+  });
+
+  it("すでに購読している（PRODUCT_ALREADY_PURCHASED_ERROR = '6'）: error: 'already_purchased'（F-B3）", async () => {
+    const plugin = fakePlugin({ purchasePackage: vi.fn(async () => { throw Object.assign(new Error("already"), { code: "6" }); }) });
+    expect(await nativeIap(plugin).purchaseChat()).toEqual({ entitled: false, cancelled: false, error: "already_purchased" });
+  });
+
   it("その他の失敗は error: 'failed'（例外を投げない）", async () => {
     const plugin = fakePlugin({ purchasePackage: vi.fn(async () => { throw Object.assign(new Error("x"), { code: "2" }); }) });
     expect(await nativeIap(plugin).purchaseChat()).toEqual({ entitled: false, cancelled: false, error: "failed" });
@@ -222,9 +232,10 @@ describe("ネイティブ（RevenueCat プラグイン）", () => {
   });
 
   it("restorePurchases は権利の有無を返す（失敗は error: 'failed'）", async () => {
-    expect(await nativeIap(fakePlugin()).restorePurchases()).toEqual({ entitled: true });
+    expect(await nativeIap(fakePlugin()).restorePurchases()).toMatchObject({ entitled: true, state: { entitled: true } });
     const none = fakePlugin({ restorePurchases: vi.fn(async () => ({ customerInfo: customerInfo() })) });
-    expect(await nativeIap(none).restorePurchases()).toEqual({ entitled: false });
+    expect(await nativeIap(none).restorePurchases()).toMatchObject({ entitled: false });
+    expect((await nativeIap(none).restorePurchases()).error).toBeUndefined();
     const failing = fakePlugin({ restorePurchases: vi.fn(async () => { throw new Error("x"); }) });
     expect(await nativeIap(failing).restorePurchases()).toEqual({ entitled: false, error: "failed" });
   });
@@ -235,14 +246,20 @@ describe("ネイティブ（RevenueCat プラグイン）", () => {
       entitled: true,
       expiresAt: "2026-11-17T00:00:00Z",
       willRenew: false,
+      isTrial: false,
       managementUrl: "https://apps.apple.com/account/subscriptions",
     });
     const other = fakePlugin({
       getCustomerInfo: vi.fn(async () => ({ customerInfo: { entitlements: { active: { other: { isActive: true } } }, managementURL: null } })),
     });
-    expect(await nativeIap(other).getEntitlementState()).toEqual({ entitled: false, expiresAt: null, willRenew: false, managementUrl: null });
+    expect(await nativeIap(other).getEntitlementState()).toEqual({ entitled: false, expiresAt: null, willRenew: false, isTrial: false, managementUrl: null });
     const failing = fakePlugin({ getCustomerInfo: vi.fn(async () => { throw new Error("x"); }) });
     expect((await nativeIap(failing).getEntitlementState()).entitled).toBe(false);
+  });
+
+  it("トライアル中（periodType 'TRIAL'）は isTrial: true（F-B12）", async () => {
+    const trial = fakePlugin({ getCustomerInfo: vi.fn(async () => ({ customerInfo: customerInfo({ active: true, periodType: "TRIAL" }) })) });
+    expect(await nativeIap(trial).getEntitlementState()).toMatchObject({ entitled: true, isTrial: true });
   });
 
   it("getAppUserId は RevenueCat の App User ID を返す", async () => {
@@ -267,7 +284,7 @@ describe("ネイティブ（RevenueCat プラグイン）", () => {
   it("プラグインが読み込めなければ未設定（画面は止めない）", async () => {
     const iap = createPurchases({ enabled: true, mock: null, native: true, apiKey: "appl_x", load: vi.fn(async () => { throw new Error("missing"); }) });
     expect(await iap.configurePurchases()).toEqual({ configured: false });
-    expect(await iap.getEntitlementState()).toEqual({ entitled: false, expiresAt: null, willRenew: false, managementUrl: null });
+    expect(await iap.getEntitlementState()).toEqual({ entitled: false, expiresAt: null, willRenew: false, isTrial: false, managementUrl: null });
   });
 });
 
@@ -286,14 +303,25 @@ describe("モック（NEXT_PUBLIC_KIRI_IAP_MOCK=1・next dev と ios:build --dev
     expect((await iap.getEntitlementState()).entitled).toBe(false);
     const cb = vi.fn();
     iap.onEntitlementChange(cb);
-    expect(await iap.purchaseChat()).toEqual({ entitled: true, cancelled: false });
+    expect(await iap.purchaseChat()).toMatchObject({ entitled: true, cancelled: false, state: { entitled: true } });
     expect(cb).toHaveBeenCalledWith(expect.objectContaining({ entitled: true }));
     const state = await iap.getEntitlementState();
     expect(state.entitled).toBe(true);
     expect(state.willRenew).toBe(true);
+    expect(state.isTrial).toBe(true);
     expect(state.expiresAt).toBe("2026-10-17T00:00:00.000Z");
-    expect(await iap.restorePurchases()).toEqual({ entitled: true });
+    expect(await iap.restorePurchases()).toMatchObject({ entitled: true });
     expect((await iap.getChatOffering()).trial.eligible).toBe(false);
+  });
+
+  it("無料期間（7日）が過ぎたら権利なし（期限切れの確認用）", async () => {
+    let now = Date.parse("2026-10-10T00:00:00Z");
+    const iap = createPurchases({ enabled: true, mock: createMockBackend, native: false, apiKey: "", load: vi.fn(), now: () => now });
+    await iap.purchaseChat();
+    expect((await iap.getEntitlementState()).entitled).toBe(true);
+    now += 8 * 24 * 60 * 60 * 1000;
+    expect(await iap.getEntitlementState()).toMatchObject({ entitled: false, isTrial: false });
+    expect(await iap.restorePurchases()).toMatchObject({ entitled: false });
   });
 
   it("App User ID はサーバーの形式どおりの固定値", async () => {
@@ -312,5 +340,18 @@ describe("モックの目印（本番の書き出し検査と一致）", () => {
     const { readFileSync } = await import("node:fs");
     const source = readFileSync(new URL("../purchases.js", import.meta.url), "utf8");
     expect(source).toContain(`"${IAP_MOCK_MARKER}"`);
+  });
+});
+
+describe("Web の本番バンドル（F-B6）", () => {
+  it("RevenueCat の動的 import はビルド時定数 NEXT_PUBLIC_KIRI_IAP の分岐の中にある（Web では import ごと消える）", async () => {
+    const { readFileSync } = await import("node:fs");
+    const source = readFileSync(new URL("../purchases.js", import.meta.url), "utf8");
+    expect(source).toMatch(/process\.env\.NEXT_PUBLIC_KIRI_IAP === "1"\s*\?\s*\(\) => import\("@revenuecat\/purchases-capacitor"\)/);
+  });
+
+  it("フラグなし（テスト環境＝Web と同じ）では既定のローダーはプラグインを読まずに失敗し、未設定として扱う", async () => {
+    const iap = createPurchases({ enabled: true, mock: null, native: true, apiKey: "appl_x" });
+    expect(await iap.configurePurchases()).toEqual({ configured: false });
   });
 });

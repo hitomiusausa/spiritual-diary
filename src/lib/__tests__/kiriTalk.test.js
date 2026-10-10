@@ -3,8 +3,10 @@ import { join } from "node:path";
 import { describe, it, expect } from "vitest";
 import {
   KIRI_TALK_NAME,
-  KIRI_TALK_PROMISES,
+  kiriTalkPromises,
   KIRI_TALK_AI_NOTICE,
+  KIRI_TALK_READ_ONLY_NOTE,
+  KIRI_TALK_START_LABEL,
   chatErrorMessage,
   entryCardView,
   formatRenewalDate,
@@ -12,6 +14,7 @@ import {
   purchaseNotice,
   restoreNotice,
   talkSettingsView,
+  talkStateAfterPurchase,
 } from "@/lib/kiriTalk";
 
 const eligible = { priceString: "¥480", productId: "p", trial: { eligible: true, periodLabel: "1週間" } };
@@ -27,9 +30,9 @@ describe("商品名と約束（D-30）", () => {
   });
 
   it("約束は2つだけ", () => {
-    expect(KIRI_TALK_PROMISES).toEqual([
+    expect(kiriTalkPromises()).toEqual([
       { title: "Kiriと話せる（1日60通まで）", detail: "今日の読み解きと記録をふまえて返事をします" },
-      { title: "会話はこの端末に残ります", detail: "解約したあとも、それまでの会話は読めます" },
+      { title: "会話はこの端末に残ります", detail: "解約したあとも、残っている会話は読めます" },
     ]);
   });
 
@@ -103,9 +106,11 @@ describe("entryCardView（結果画面の入口カード）", () => {
 
 describe("chatErrorMessage（Ruling 5）", () => {
   it.each([
-    ["not_entitled", "……この対話は、購読が確認できたときに開くの。設定から『購入を復元』を試してみて。"],
+    // 解約した人にもずれない言い方。「購入を復元」ではなく「Kiriと話す」へ（F-B9）。
+    ["not_entitled", "……いまは続きを話せないみたい。『Kiriと話す』を確かめてみて。"],
     ["user_daily_limit", "……今日はここまでにしておこう。また明日、続きを聞かせて。"],
-    ["daily_limit", "……今日はここまでにしておこう。また明日、続きを聞かせて。"],
+    // 全体の上限は個人の上限と別の文（F-B10）。
+    ["daily_limit", "……今日はたくさんの声が届いて、Kiriも少し休んでいるの。また明日、続きを聞かせて。"],
     ["chat_unavailable", "……いまは声が届きにくいみたい。少ししてから、もう一度聞かせて。"],
     ["rate_limited", "……少し言葉が続きすぎたみたい。ひと呼吸おいてから、また聞かせて。"],
   ])("%s", (code, message) => {
@@ -127,9 +132,16 @@ describe("購入・復元の結果の案内", () => {
     expect(purchaseNotice({ error: "no_offering" })).toMatch(/完了できませんでした/);
   });
 
+  it("purchaseNotice: 購入は通ったが権利がまだ反映されていない・すでに購読している（F-B3）", () => {
+    expect(purchaseNotice({ entitled: false, error: "not_reflected" })).toBe(
+      "購入を受け付けました。反映まで少しかかることがあります。少しして『購入を復元』を試してください。",
+    );
+    expect(purchaseNotice({ entitled: false, error: "already_purchased" })).toBe("すでに購読しています。『購入を復元』を試してください。");
+  });
+
   it("restoreNotice", () => {
     expect(restoreNotice({ entitled: true })).toBe("購入を復元しました。");
-    expect(restoreNotice({ entitled: false })).toBe("復元できる購入が見つかりませんでした。");
+    expect(restoreNotice({ entitled: false })).toBe("有効な購読が見つかりませんでした。");
     expect(restoreNotice({ entitled: false, error: "failed" })).toMatch(/復元できませんでした/);
   });
 });
@@ -159,6 +171,38 @@ describe("talkSettingsView（設定の「Kiriと話す」）", () => {
   it("購読中（解約済み・期間末まで）", () => {
     expect(talkSettingsView({ entitled: true, willRenew: false, expiresAt: "2026-11-16T20:00:00Z" })).toMatchObject({ renewalLabel: "終了予定" });
   });
+  it("トライアル中は「無料期間中」（F-B12）", () => {
+    expect(talkSettingsView({ entitled: true, willRenew: true, isTrial: true, expiresAt: "2026-11-16T20:00:00Z" })).toMatchObject({
+      status: "無料期間中",
+      renewalLabel: "次の更新",
+    });
+  });
+});
+
+describe("talkStateAfterPurchase（購入・復元の直後の状態。F-B8）", () => {
+  const fromPurchase = { entitled: true, expiresAt: "2026-11-16T20:00:00Z", willRenew: true, isTrial: true, managementUrl: null };
+  it("読み直しで権利が見えたら、読み直した状態", () => {
+    const fresh = { ...fromPurchase, managementUrl: "https://apps.apple.com/account/subscriptions" };
+    expect(talkStateAfterPurchase(fresh, { entitled: true, state: fromPurchase })).toBe(fresh);
+  });
+  it("読み直しが失敗した（権利なしに見える）ときは、購入の結果から作る（上書きしない）", () => {
+    const failed = { entitled: false, expiresAt: null, willRenew: false, isTrial: false, managementUrl: null };
+    expect(talkStateAfterPurchase(failed, { entitled: true, state: fromPurchase })).toBe(fromPurchase);
+  });
+  it("購入の結果に状態が無くても、権利ありとして扱う", () => {
+    expect(talkStateAfterPurchase(null, { entitled: true })).toMatchObject({ entitled: true });
+  });
+  it("購入が権利を返していなければ、読み直した状態のまま", () => {
+    const fresh = { entitled: false, expiresAt: null, willRenew: false, isTrial: false, managementUrl: null };
+    expect(talkStateAfterPurchase(fresh, { entitled: false })).toBe(fresh);
+  });
+});
+
+describe("読むだけの欄（F-B12）", () => {
+  it("案内とボタン", () => {
+    expect(KIRI_TALK_READ_ONLY_NOTE).toBe("これまでの会話は、いつでも読めます。続きを話すなら『Kiriと話す』で。");
+    expect(KIRI_TALK_START_LABEL).toBe("Kiriと話すを始める");
+  });
 });
 
 describe("文言の規律", () => {
@@ -172,7 +216,11 @@ describe("文言の規律", () => {
     const views = [
       KIRI_TALK_NAME,
       KIRI_TALK_AI_NOTICE,
-      ...KIRI_TALK_PROMISES.flatMap((p) => [p.title, p.detail]),
+      KIRI_TALK_READ_ONLY_NOTE,
+      KIRI_TALK_START_LABEL,
+      ...[undefined, "not_entitled", "user_daily_limit", "daily_limit", "chat_unavailable"].map(chatErrorMessage),
+      ...[{ error: "not_reflected" }, { error: "already_purchased" }, { error: "pending" }, {}].map(purchaseNotice),
+      ...kiriTalkPromises().flatMap((p) => [p.title, p.detail]),
       ...[undefined, null, eligible, ineligible, noTrial].flatMap((o) => Object.values(paywallView(o)).filter((v) => typeof v === "string")),
     ];
     for (const text of views) expect(text).not.toMatch(FORBIDDEN);
@@ -183,9 +231,21 @@ describe("文言の規律", () => {
     expect(source).not.toMatch(FORBIDDEN);
   });
 
+  it("Web の本番バンドルから消えるよう、モジュール直下は文字列リテラルと関数だけ（F-B6）", () => {
+    const source = stripComments(readFileSync(join(process.cwd(), "src/lib/kiriTalk.js"), "utf8"));
+    const topLevel = source.split("\n").filter((line) => /^(export )?(const|let|var) /.test(line));
+    for (const line of topLevel) expect(line).toMatch(/^(export )?const \w+ = "[^"`$]*";$/);
+  });
+
+  it("文言の中の商品名は KIRI_TALK_NAME と一致", () => {
+    expect(KIRI_TALK_READ_ONLY_NOTE).toContain(`『${KIRI_TALK_NAME}』`);
+    expect(KIRI_TALK_START_LABEL.startsWith(KIRI_TALK_NAME)).toBe(true);
+    expect(chatErrorMessage("not_entitled")).toContain(`『${KIRI_TALK_NAME}』`);
+  });
+
   it("購入画面は必須要素を持つ（3.1.2: 名前と期間・価格・自動更新・復元・規約・プライバシー）", () => {
     const source = readFileSync(join(process.cwd(), "src/components/PaywallSheet.jsx"), "utf8");
-    for (const text of ["KIRI_TALK_NAME", "月額の自動更新サブスクリプション", "KIRI_TALK_PROMISES", "priceLabel", "購入を復元", 'href="/terms"', 'href="/privacy"', "KIRI_TALK_AI_NOTICE", "サブスクリプションを管理", 'aria-modal="true"']) {
+    for (const text of ["KIRI_TALK_NAME", "月額の自動更新サブスクリプション", "kiriTalkPromises", "priceLabel", "購入を復元", 'href="/terms"', 'href="/privacy"', "KIRI_TALK_AI_NOTICE", "サブスクリプションを管理", 'aria-modal="true"']) {
       expect(source).toContain(text);
     }
   });

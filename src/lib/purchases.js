@@ -5,6 +5,8 @@
 // - NEXT_PUBLIC_KIRI_IAP_MOCK=1（next dev と ios:build --dev 限定。本番ビルドはスクリプトが止める）では
 //   メモリ上のモック（¥480・1週間のトライアル適格・購入で entitled）を使う。
 // - 権利の正はサーバー（/api/chat が RevenueCat に問い合わせる）。ここは画面の出し分けのため。
+// - purchaseChat()・restorePurchases() は契約の { entitled, cancelled }／{ entitled } に加えて、権利の状態 state も返す
+//   （購入直後の読み直しが失敗したときに、画面の状態を購入の結果から作るため。F-B8）。
 // - Capacitor のプラグインは Proxy なので、async 関数から返したり await したりしない（storage.js の注意書き参照）。
 
 import { isNativePlatform } from "./native";
@@ -17,7 +19,10 @@ export const APPLE_SUBSCRIPTIONS_URL = "https://apps.apple.com/account/subscript
 
 // RevenueCat のエラーコード（purchases-typescript-internal-esm 19.3.1 の PURCHASES_ERROR_CODE）。
 const PURCHASE_CANCELLED_ERROR = "1";
+const PRODUCT_ALREADY_PURCHASED_ERROR = "6";
 const PAYMENT_PENDING_ERROR = "20";
+// EntitlementInfo.periodType（"NORMAL" | "INTRO" | "TRIAL" | "PREPAID"。customerInfo.d.ts の PeriodType）。
+const TRIAL_PERIOD_TYPE = "TRIAL";
 // INTRO_ELIGIBILITY_STATUS_ELIGIBLE。UNKNOWN(0) は RevenueCat の推奨どおり「通常価格を出す」側に倒す。
 const INTRO_ELIGIBLE = 2;
 
@@ -28,9 +33,11 @@ const MOCK_PRICE_STRING = "¥480";
 const MOCK_TRIAL_DAYS = 7;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-const NOT_ENTITLED = Object.freeze({ entitled: false, expiresAt: null, willRenew: false, managementUrl: null });
+const NOT_ENTITLED = { entitled: false, expiresAt: null, willRenew: false, isTrial: false, managementUrl: null };
 
-const loadRevenueCat = () => import("@revenuecat/purchases-capacitor");
+// Web の本番（NEXT_PUBLIC_KIRI_IAP='0'）では分岐ごと消え、RevenueCat のチャンクも出力されない（F-B6）。
+const loadRevenueCat =
+  process.env.NEXT_PUBLIC_KIRI_IAP === "1" ? () => import("@revenuecat/purchases-capacitor") : () => Promise.reject(new Error("iap disabled"));
 
 // 導入価格の期間を画面の言葉にする（「1週間 無料で試す」の「1週間」）。分からなければ null。
 export function periodLabelFor(intro) {
@@ -57,6 +64,7 @@ function stateFrom(customerInfo) {
     entitled: true,
     expiresAt: entitlement.expirationDate ?? null,
     willRenew: Boolean(entitlement.willRenew),
+    isTrial: entitlement.periodType === TRIAL_PERIOD_TYPE,
     managementUrl: customerInfo?.managementURL ?? null,
   };
 }
@@ -71,8 +79,10 @@ export function createMockBackend(now) {
   let entitled = false;
   let trialUsed = false;
   let expiresAt = null;
+  // 無料期間が過ぎたら権利なし（更新はしない＝開いているチャットの期限切れを確かめるため）。
+  const active = () => entitled && now() < Date.parse(expiresAt);
   const state = () =>
-    entitled ? { entitled: true, expiresAt, willRenew: true, managementUrl: APPLE_SUBSCRIPTIONS_URL } : { ...NOT_ENTITLED };
+    active() ? { entitled: true, expiresAt, willRenew: true, isTrial: true, managementUrl: APPLE_SUBSCRIPTIONS_URL } : { ...NOT_ENTITLED };
   return {
     marker: MOCK_MARKER,
     offering: () => ({
@@ -182,7 +192,7 @@ export function createPurchases({
     if (mockBackend) {
       const state = mockBackend.purchase();
       emit(state);
-      return { entitled: state.entitled, cancelled: false };
+      return { entitled: state.entitled, cancelled: false, state };
     }
     if (!(await ensureConfigured())) return { entitled: false, cancelled: false, error: "unavailable" };
     if (!lastPackage) await getChatOffering();
@@ -191,23 +201,29 @@ export function createPurchases({
       const { customerInfo } = await plugin.Purchases.purchasePackage({ aPackage: lastPackage });
       const state = stateFrom(customerInfo);
       emit(state);
-      return { entitled: state.entitled, cancelled: false };
+      // 購入は通ったが、権利がまだ customerInfo に出ていない（反映待ち。F-B3）。
+      if (!state.entitled) return { entitled: false, cancelled: false, error: "not_reflected", state };
+      return { entitled: true, cancelled: false, state };
     } catch (error) {
       const code = String(error?.code ?? "");
       if (code === PURCHASE_CANCELLED_ERROR || error?.userCancelled === true) return { entitled: false, cancelled: true };
       if (code === PAYMENT_PENDING_ERROR) return { entitled: false, cancelled: false, error: "pending" };
+      if (code === PRODUCT_ALREADY_PURCHASED_ERROR) return { entitled: false, cancelled: false, error: "already_purchased" };
       return { entitled: false, cancelled: false, error: "failed" };
     }
   }
 
   async function restorePurchases() {
-    if (mockBackend) return { entitled: mockBackend.state().entitled };
+    if (mockBackend) {
+      const state = mockBackend.state();
+      return { entitled: state.entitled, state };
+    }
     if (!(await ensureConfigured())) return { entitled: false, error: "unavailable" };
     try {
       const { customerInfo } = await plugin.Purchases.restorePurchases();
       const state = stateFrom(customerInfo);
       emit(state);
-      return { entitled: state.entitled };
+      return { entitled: state.entitled, state };
     } catch {
       return { entitled: false, error: "failed" };
     }

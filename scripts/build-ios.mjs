@@ -6,6 +6,9 @@
 //   NEXT_PUBLIC_REVENUECAT_IOS_KEY=appl_... npm run ios:build … 購入あり。キーが無ければ警告して購入なし（今の挙動）
 //   npm run ios:build -- --require-iap                       … キーが無ければ止める（審査提出用）
 //   NEXT_PUBLIC_KIRI_IAP_MOCK=1 npm run ios:build -- --dev     … モック購入（本番向けでは止める）
+//   RevenueCat の公開キー（NEXT_PUBLIC_REVENUECAT_IOS_KEY）は、上のようにシェルの環境変数で渡す。
+//   このスクリプトは .env.local からキーを読まない（判定 resolveIapBuild はプロセス環境だけを見て、next build へは
+//   決めた値を明示して渡す＝.env.local の値は効かない）。キーを .env* に書かないこと。
 // --dev なしでは NEXT_PUBLIC_KIRI_CHAT_PREVIEW を '0' に固定し、チャット入口・開発者向け文言が
 // 書き出しに無いことも検査する（.env.local の '1' を審査用ビルドに持ち込まない）。
 // 環境変数はプロセス環境として next build に渡す。.env.ios のようなファイルは作らない
