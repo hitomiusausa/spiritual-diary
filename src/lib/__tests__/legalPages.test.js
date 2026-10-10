@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { USER_DAILY_LIMIT_DEFAULT } from "@/lib/apiGuard";
+import { MAX_CHAT_MESSAGES } from "@/lib/chatHistory";
 
 // 法務・サポートページの文言規律（DECISIONS.md D-25 の禁止語、D-28/D-30 の有料機能の約束、設計書 Ruling 11）。
 // JSX の改行・インデントに左右されないよう、空白を全部取り除いてから見る。
@@ -77,5 +79,52 @@ describe("/privacy の第三者提供", () => {
     expect(t).toContain("最長10分で自動消去");
     expect(t).toContain("購読者ごとの1日の利用回数");
     expect(t).toContain("最長2日で自動消去");
+  });
+});
+
+// 法務の数字とコード定数を結ぶ（どちらかだけ変えたらここで落ちる）。
+describe("法務の数字とコード定数", () => {
+  const numbersBefore = (text, unit) => [...text.matchAll(new RegExp(`([0-9,]+)${unit}`, "g"))].map((m) => Number(m[1].replace(/,/g, "")));
+
+  it.each(["terms", "support"])("%s の「1日N通」は USER_DAILY_LIMIT_DEFAULT と同じ", (name) => {
+    const found = numbersBefore(TEXT[name], "通まで");
+    expect(found.length).toBeGreaterThan(0);
+    for (const n of found) expect(n).toBe(USER_DAILY_LIMIT_DEFAULT);
+    expect(TEXT[name]).toContain(`1日${USER_DAILY_LIMIT_DEFAULT}通`);
+  });
+
+  it.each(["terms", "support", "privacy"])("%s の会話の保存件数は MAX_CHAT_MESSAGES と同じ", (name) => {
+    const found = numbersBefore(TEXT[name], "件");
+    expect(found.some((n) => n === MAX_CHAT_MESSAGES)).toBe(true);
+    expect(TEXT[name]).not.toMatch(/最大40メッセージ/);
+  });
+
+  it.each(["terms", "support"])("%s に「新しいものから1,000件まで端末に残る」と書いている", (name) => {
+    expect(TEXT[name]).toContain("この端末に、新しいものから1,000件まで残ります");
+  });
+});
+
+describe("課金の時期（トライアルあり）", () => {
+  it("terms: 無料期間の終了時にApple IDへ課金されると正確に書き、24時間前までの解約も残す", () => {
+    expect(TEXT.terms).toContain("無料期間の終了時にAppleIDへ課金されます");
+    expect(TEXT.terms).toContain("24時間前までに解約");
+  });
+});
+
+describe("/privacy RevenueCat は起動時に送られる", () => {
+  const t = TEXT.privacy;
+  it("購読の有無にかかわらず起動時に匿名IDと端末の基本情報が送られると書き、「購読した場合のみ」を使わない", () => {
+    expect(t).not.toContain("購読した場合のみ");
+    expect(t).toMatch(/購読の有無にかかわらず/);
+    expect(t).toContain("起動時");
+    expect(t).toContain("OS・アプリのバージョン・地域設定");
+  });
+  it("Webでは送らない、日記・会話は送らないと書く", () => {
+    expect(t).toMatch(/ウェブ版では[^。]*送りません|ウェブ版では、この送信は行われません/);
+    expect(t).toMatch(/日記や会話[^。]*送りません/);
+  });
+  it("削除は「最近の記録」の「すべて削除」で日記・読み解き・会話がすべて消えると書く", () => {
+    expect(t).toContain("「最近の記録」の「すべて削除」");
+    expect(t).toMatch(/日記・読み解き・会話/);
   });
 });

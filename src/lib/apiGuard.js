@@ -104,6 +104,10 @@ export function clientKeyFromHeaders(headers, env = process.env) {
   return "unknown";
 }
 
+// 購読者ごとの1日の上限の既定。利用規約・サポートの「60通」と同じ数字（法務テストが照合する）。
+// KIRI_CHAT_USER_DAILY_LIMIT での上書きは開発・検証用。本番では設定しない（設定すると法務の文言とずれる）。
+export const USER_DAILY_LIMIT_DEFAULT = 60;
+
 export function positiveIntEnv(name, fallback) {
   const value = Number.parseInt(process.env[name] ?? "", 10);
   return Number.isInteger(value) && value > 0 ? value : fallback;

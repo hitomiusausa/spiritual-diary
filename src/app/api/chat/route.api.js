@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { preflightResponse, withCors } from "@/lib/cors";
 import { KIRI_PERSONA } from "@/lib/kiriPersonality";
-import { createRateLimiter, createDailyQuota, createUserDailyQuota, clientKeyFromHeaders, positiveIntEnv, rateLimitPerMin } from "@/lib/apiGuard";
+import { createRateLimiter, createDailyQuota, createUserDailyQuota, clientKeyFromHeaders, positiveIntEnv, rateLimitPerMin, USER_DAILY_LIMIT_DEFAULT } from "@/lib/apiGuard";
 import { storeReadiness } from "@/lib/kiriStore";
 import { checkChatEntitlement } from "@/lib/entitlement";
 import { extractReplyText } from "@/lib/claudeResponse";
@@ -11,8 +11,7 @@ const MAX_MESSAGES = 12;
 const MAX_MESSAGE_CHARS = 1200;
 const CHAT_EFFORT = process.env.KIRI_CHAT_EFFORT || "low";
 
-// 購読者ごとの1日の上限。購入画面と利用規約にも同じ数字を書く（変えるときは文言も直す）。
-const USER_DAILY_LIMIT_DEFAULT = 60;
+// 購読者ごとの1日の上限の既定は apiGuard.js の USER_DAILY_LIMIT_DEFAULT（購入画面・規約・サポートと同じ数字）。
 // 全体の1日の上限の既定。本番は wrangler.jsonc の vars で固定する。
 const DAILY_LIMIT_CHAT_DEFAULT = 500;
 
