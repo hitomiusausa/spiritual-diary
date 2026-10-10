@@ -1,6 +1,18 @@
 @import "tailwindcss";
 
 /*
+  日本語の折り返しは「ふつう」（行の端まで詰める）にする。
+  Safari（iOS 26 系）は標準で text-wrap: pretty を使い、日本語では行末に2〜3文字ぶんの空きが残って文章が左に寄って見えた
+  （2026-10-10 ひとみうさの iPhone で発見。シミュレータの Safari で行末 333px→361px を計測）。
+  base レイヤーなので、text-balance などのユーティリティはそのまま効く。
+*/
+@layer base {
+  :where(*) {
+    text-wrap-style: auto;
+  }
+}
+
+/*
   Kiri デザイントークン（D-13）
   役割を固定し、ここにない色を画面に増やさない。
   - 地: night / 面: mist(弱)・plum(強) / 線: line
