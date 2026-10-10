@@ -6,6 +6,14 @@
 // 成果物は実行せず、文字列として読んで JSON 部分だけを解釈する。
 import { existsSync, readFileSync } from "node:fs";
 
+// 秘密として扱う名前（Cloudflare Secrets か .dev.vars だけに置く）。キー名を問わず値が1つでも埋め込まれていれば止まるので、
+// この一覧は「少なくともこれらは必ず止まる」ことをテストで固定するためのもの。
+export const SECRET_ENV_NAMES = [
+  "CLAUDE_API_KEY",
+  "UPSTASH_REDIS_REST_TOKEN",
+  "KIRI_STORE_SECRET",
+  "REVENUECAT_SECRET_KEY",
+];
 export const EXPECTED_MODES = ["production", "development", "test"];
 const LINE = /^export const (\w+) = (\{.*\});$/;
 

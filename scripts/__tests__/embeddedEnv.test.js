@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { findEmbeddedEnv } from "../lib/embeddedEnv.mjs";
+import { findEmbeddedEnv, SECRET_ENV_NAMES } from "../lib/embeddedEnv.mjs";
 
 // OpenNext（compile-env-files.js）が書き出す形をそのまま再現したフィクスチャ。
 const fixture = (modes) =>
@@ -31,6 +31,18 @@ describe("findEmbeddedEnv", () => {
     expect(result.ok).toBe(false);
     expect(result.problems).toEqual(["production: CLAUDE_API_KEY", "development: CLAUDE_API_KEY"]);
     expect(JSON.stringify(result)).not.toContain("dummy-value-xyz");
+  });
+
+  it.each(SECRET_ENV_NAMES)("秘密の %s が埋め込まれていれば止める（REVENUECAT_SECRET_KEY を含む）", (name) => {
+    writeFileSync(file, fixture({ production: { [name]: "dummy-secret-value" }, development: {}, test: {} }));
+    const result = findEmbeddedEnv(file);
+    expect(result.ok).toBe(false);
+    expect(result.problems).toEqual([`production: ${name}`]);
+    expect(JSON.stringify(result)).not.toContain("dummy-secret-value");
+  });
+
+  it("REVENUECAT_SECRET_KEY が秘密の一覧に入っている", () => {
+    expect(SECRET_ENV_NAMES).toContain("REVENUECAT_SECRET_KEY");
   });
 
   it("ファイルが無ければ止める（ビルド前に走らせた・出力先が変わった）", () => {
