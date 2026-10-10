@@ -295,3 +295,23 @@ npm run dev
 - Phase 3 で決めることは残っていない。次の実装（設計書 T3-1〜T3-10、ASC・RevenueCat の作業 T3-12〜14）は Apple の法人登録の完了待ち。ただし T3-1〜T3-5・T3-6b・T3-9 は登録なしでも先に進められる（StoreKit Configuration File でシミュレータ確認まで）
 - **公開前に必ず確認（ひとみうさ 2026-10-10）**: チャットのAPI費用と上限。見積もりは $0.001/通（上限まで使う人で月約$1.8＝約270円）だが実測なし。Kiriワークスペースの月$20上限だと上限まで使う人約11人で止まる→有料ユーザーが途中で止まらないよう、実測ログ（設計書 Ruling 6）→単価確定→ワークスペース上限・`DAILY_LIMIT_CHAT` を購読者数に合わせて見直す
 - 音声入力（2026-10-10）: 当面は iOS キーボードの音声入力に任せる（作業なし）。マイクボタン案（`@capacitor-community/speech-recognition` 7.0.1・Capacitor 8 対応は未確認・音声がAppleのサーバーで処理されうる→端末内のみにするか要判断）は、要望が出たら設計から
+
+## 2026-10-10 Phase 3 の「登録なしで作れる部分」を実装（D-31・ブランチ `agent/ios-billing`、main 未反映）
+
+ひとみうさの一任（外出中・許可不要）で進めた。編成: 司令官（Opus）が裁定 → サーバー便（Sonnet）とアプリ便（Opus）を別ワークツリーで並列 → 統合 → 独立監査 A（サーバー・安全）/ B（アプリ・審査・わかりやすさ）→ 直し便 2 本 → 統合 → 司令官が確認。並行で見やすさの全面テスト（Opus、コード変更なし）。
+
+- できたこと: 購読確認（RC v1・Redis キャッシュ）／`/api/chat` の判定順と 1 日 60 通／購入部品 `src/lib/purchases.js`（モックつき）／購入画面 `PaywallSheet`（D-30 案A）／入口カード「Kiriに続けて聞く」／設定の「Kiriと話す」欄（無料期間中・次の更新・管理・復元）／チャットの読むだけモード（解約後・期限切れで自動切替）／法務 3 ページ／ビルド配線（`--require-iap`・モック混入で失敗・Web バンドル検査）／cap sync で SPM が RevenueCat を解決・シミュレータ向け xcodebuild 成功
+- 監査: P0 なし。P1 6 件（RevenueCat 送信範囲の記述・会話 40 件しか残らない・「すべて削除」で会話が消えない・購入済みなのに失敗表示・ゴミ箱が確認なし）→ すべて直した。P2 の大半も直し、残りは D-31「受け入れたリスク」
+- 検証（統合後）: `npm test` 45 files / 714 passed・lint 0・build 成功・audit 0／`cf:build` 後に `check-embedded-env`・`check-web-bundle` OK（Web に購入の文言・RevenueCat なし）／workerd（`wrangler dev`）で `/api/chat` が ID なし・偽 ID とも 403、危機表現は固定文、CORS 不変／IAP モックの e2e 132/132（375・1280、購入→チャット・読むだけ・期限切れ・すべて削除・135%）、Web 既定で入口が出ない 8/8。スクショ `~/.playwright-mcp/final-integrated/`。実 AI 呼び出しは 0 回
+- 見た目を変えないアクセシビリティ修正も同梱: 基本情報のラベルを入力欄に結ぶ／設定モーダルのフォーカス（開くと中へ・Tab は中で回る・Esc・元へ戻る。部品の作り直しでフォーカスが外れていたのを関数呼び出しに変えて解消）
+
+### ひとみうさに見てほしいもの（判断待ち）
+1. **見やすさの色の案**（`docs/plans/2026-10-10/readability/readability-compare.html`・報告 `report.md`）: 現行は不合格 16 文（375px）。最悪はニックネーム欄の例文 1.83:1。本文・読み解き・設定・法務本文は全部合格。**推奨は案1**（補助文字の色を一段明るく＋入力欄と選んだ気分の面を落ち着かせる。地・カード・金は不変）で不合格 0。案2（小さい文字を 12〜13px に上げる）は案1 に足せる別の改善。**色は未適用**（決めてもらってから実装）
+2. 法務 3 ページの新しい文言（購読・トライアル・解約・RevenueCat・1,000 件）の目視確認
+3. 会話の保存 1,000 件でよいか（最悪ケースの容量は D-31）
+
+### 次（Apple 法人登録の完了後）
+- ASC（設計書 Ruling 12、商品 ID `com.kugainc.kiri.talk.monthly`・グループ「Kiriと話す」）→ RevenueCat（Ruling 13）→ Cloudflare Secrets に `REVENUECAT_SECRET_KEY` → Xcode の In-App Purchase capability と `.storekit` → シミュレータと実機サンドボックスで通し（実 AI 2 回まで）
+- 実機で確かめる: RC 匿名 ID の形式（`entitlement.js` の定数 1 か所）・`grace_period_expires_date` の実在・トライアル判定・`periodType`・`window.open` で購読管理が開くか
+- 運用: 全体 500 通は「購読者数 × 20」を目安に上げる。Kiri ワークスペースの月 $20 上限も購読者 20 人超で見直す（API 費用は公開前に実測）。TestFlight は招待のみ
+- `@revenuecat/purchases-capacitor` 13.7.x は 10/15 以降に changelog を見て判断
