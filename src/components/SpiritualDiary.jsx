@@ -5,11 +5,12 @@ import Link from 'next/link';
 import { useState, useEffect, useReducer, useRef } from 'react';
 import { flushSync } from 'react-dom';
 import { Sparkles, Lock, AlertCircle, X, ChevronRight, ChevronDown, ChevronUp, HelpCircle, Heart, Smile, Frown, Meh, Angry, Star, Sun, Moon, Cloud, Zap, CircleHelp, Download, Upload, Settings, History, Laugh, Leaf, CloudRain, Droplet, Music, ShieldOff, Timer, EyeOff } from 'lucide-react';
-import { clearHistory, deleteHistoryItem, loadHistory, saveHistory, toHistoryRecord, loadProfile, saveProfile, initialStepFor, formatBirthDateJa, isSameReading } from '@/lib/history';
+import { deleteHistoryItem, loadHistory, saveHistory, toHistoryRecord, loadProfile, saveProfile, initialStepFor, formatBirthDateJa, isSameReading } from '@/lib/history';
 import { buildBackup, backupFileName, parseBackup, applyBackup } from '@/lib/backup';
 import KiriChatPanel from '@/components/KiriChatPanel';
 import PaywallSheet from '@/components/PaywallSheet';
 import { loadChatHistory } from '@/lib/chatHistory';
+import { clearAllRecords, hasAnyRecords } from '@/lib/deleteAll';
 import {
   APPLE_SUBSCRIPTIONS_URL,
   configurePurchases,
@@ -1096,7 +1097,8 @@ export default function SpiritualDiary() {
           <div className="p-4 border-b border-white/10 flex items-center justify-between">
             <h2 className="font-display font-bold text-kiri-gold">最近の記録</h2>
             <div className="flex items-center gap-3">
-              {history.length > 0 && (
+              {/* 日記の記録が0件でも、会話が残っていれば出す（すべて削除は会話も消す。F-B2） */}
+              {hasAnyRecords(history, getStorage()) && (
                 <button
                   type="button"
                   onClick={() => setConfirmDelete({ type: 'all' })}
@@ -1155,10 +1157,10 @@ export default function SpiritualDiary() {
       <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1rem+env(safe-area-inset-bottom))]" onClick={() => setConfirmDelete(null)} role="alertdialog" aria-modal="true" aria-label="削除の確認">
         <div className="kiri-card-strong rounded-2xl w-full max-w-sm p-6 kiri-rise" onClick={(e) => e.stopPropagation()}>
           <h3 className="font-display text-lg font-bold text-white mb-2">
-            {isAll ? 'すべての記録を削除しますか？' : 'この記録を削除しますか？'}
+            {isAll ? '記録と会話をすべて削除しますか？' : 'この記録を削除しますか？'}
           </h3>
           <p className="text-sm text-kiri-lilac leading-relaxed mb-4">
-            削除した記録は元に戻せません。バックアップを取っていない場合、復元はできません（バックアップは設定アイコンの「バックアップ」を選択して書き出せます）。
+            {isAll ? '日記の記録・読み解き・Kiriとの会話がすべて消え、元に戻せません。' : '削除した記録は元に戻せません。'}バックアップを取っていない場合、復元はできません（バックアップは設定アイコンの「バックアップ」を選択して書き出せます）。
           </p>
           <div className="flex gap-2">
             <button
@@ -1173,14 +1175,15 @@ export default function SpiritualDiary() {
               onClick={() => {
                 haptic('delete');
                 if (isAll) {
-                  setHistory(clearHistory(getStorage()));
+                  // 日記の記録・端末の読み解き（D-18）・Kiriとの会話をまとめて消す（F-B2）
+                  setHistory(clearAllRecords(getStorage()));
                 } else {
                   setHistory(deleteHistoryItem(getStorage(), confirmDelete.id));
+                  // 端末に一時保存した当日の読み解きも一緒に消す（D-18）
+                  clearCachedAnalyses(getStorage());
                 }
-                // 端末に一時保存した当日の読み解きも一緒に消す（D-18）
-                clearCachedAnalyses(getStorage());
                 setConfirmDelete(null);
-                setDeleteNotice(isAll ? 'すべての記録を削除しました' : '記録を削除しました');
+                setDeleteNotice(isAll ? '記録と会話をすべて削除しました' : '記録を削除しました');
               }}
               className="flex-1 bg-kiri-danger text-kiri-night py-2.5 rounded-lg text-sm font-bold hover:opacity-90 transition-opacity"
             >
