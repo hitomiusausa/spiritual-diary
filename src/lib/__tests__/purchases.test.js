@@ -305,3 +305,12 @@ describe("モック（NEXT_PUBLIC_KIRI_IAP_MOCK=1・next dev と ios:build --dev
     expect(createPurchases({ enabled: false, mock: createMockBackend, native: false }).isIapEnabled()).toBe(false);
   });
 });
+
+describe("モックの目印（本番の書き出し検査と一致）", () => {
+  it("purchases.js の目印は ios:build が探す文字列と同じ", async () => {
+    const { IAP_MOCK_MARKER } = await import("../../../scripts/lib/iosBuild.mjs");
+    const { readFileSync } = await import("node:fs");
+    const source = readFileSync(new URL("../purchases.js", import.meta.url), "utf8");
+    expect(source).toContain(`"${IAP_MOCK_MARKER}"`);
+  });
+});

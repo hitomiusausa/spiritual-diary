@@ -7,11 +7,11 @@ import { parseIosBuildArgs } from "../lib/iosBuild.mjs";
 // 静的書き出しは本番向けのまま黙って同期されていた。フラグは書き出し側へ渡し、知らないフラグでは止める。
 describe("parseIosBuildArgs", () => {
   it("フラグなしは本番向け", () => {
-    expect(parseIosBuildArgs([])).toEqual({ dev: false });
+    expect(parseIosBuildArgs([])).toEqual({ dev: false, requireIap: false });
   });
 
   it("--dev はローカル dev 向け", () => {
-    expect(parseIosBuildArgs(["--dev"])).toEqual({ dev: true });
+    expect(parseIosBuildArgs(["--dev"])).toEqual({ dev: true, requireIap: false });
   });
 
   it.each([["--prod"], ["-d"], ["dev"], ["--dev=1"]])("知らない引数（%s）は止める", (arg) => {
