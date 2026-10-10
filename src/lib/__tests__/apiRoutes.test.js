@@ -10,6 +10,8 @@ vi.mock("@/lib/kiriStore", async (importOriginal) => {
       storeCalls.push(key);
       return inner.incr(key, ttl);
     },
+    get: (key) => inner.get(key),
+    set: (key, value, ttl) => inner.set(key, value, ttl),
   };
   return { ...actual, getKiriStore: () => recording };
 });
@@ -62,35 +64,200 @@ describe("共有ストア未設定の本番・プレビュー", () => {
   });
 });
 
-describe("チャットの日次クォータ", () => {
-  function stubChatEnv() {
+const RC_ID = "$RCAnonymousID:0123456789abcdef0123456789abcdef";
+const RC_ID_2 = "$RCAnonymousID:fedcba9876543210fedcba9876543210";
+const FUTURE = () => new Date(Date.now() + 86_400_000).toISOString();
+
+function chatRequest(content, extra = {}, headers = {}) {
+  return jsonRequest({ messages: [{ role: "user", content }], ...extra }, headers);
+}
+
+function anthropicOk() {
+  return new Response(
+    JSON.stringify({ content: [{ type: "text", text: "霧が少し晴れたね。" }], usage: { input_tokens: 123, output_tokens: 45 } })
+  );
+}
+
+describe("チャットの判定順と上限", () => {
+  // 開発（公開環境でない）＋プレビューのバイパス。
+  function stubDevChatEnv() {
     vi.stubEnv("VERCEL_ENV", "");
     vi.stubEnv("KIRI_DEPLOY_ENV", "");
     vi.stubEnv("KIRI_CHAT_PREVIEW", "1");
     vi.stubEnv("CLAUDE_API_KEY", "test-key");
   }
+  // 本番相当。ストアはモックなので Redis のURLは形だけ。RC は fetch のスタブで答える。
+  function stubProdChatEnv() {
+    vi.stubEnv("VERCEL_ENV", "");
+    vi.stubEnv("KIRI_DEPLOY_ENV", "production");
+    vi.stubEnv("UPSTASH_REDIS_REST_URL", "https://redis.invalid");
+    vi.stubEnv("UPSTASH_REDIS_REST_TOKEN", "t");
+    vi.stubEnv("KIRI_STORE_SECRET", "s".repeat(40));
+    vi.stubEnv("KIRI_CHAT_PREVIEW", "1"); // 本番では無視される
+    vi.stubEnv("REVENUECAT_SECRET_KEY", "sk_test");
+    vi.stubEnv("CLAUDE_API_KEY", "test-key");
+  }
+  // RC には expires を返し、Anthropic には本文を返す。
+  function routedFetch({ entitlements = { kiri_chat: { expires_date: FUTURE() } }, rcStatus = 200 } = {}) {
+    return vi.fn(async (url) =>
+      String(url).startsWith("https://api.revenuecat.com/")
+        ? new Response(JSON.stringify({ subscriber: { entitlements } }), { status: rcStatus })
+        : anthropicOk()
+    );
+  }
+  const anthropicCalls = (fetchMock) => fetchMock.mock.calls.filter(([url]) => String(url).startsWith("https://api.anthropic.com/"));
 
-  it("危機を検出したときはクォータ（kiri:q:）を消費しない", async () => {
-    stubChatEnv();
+  it("危機を検出したときは権利判定もクォータ（kiri:q: / kiri:cu:）も使わず、固定文を返す（開発）", async () => {
+    stubDevChatEnv();
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
-    const response = await chatPOST(jsonRequest({ messages: [{ role: "user", content: "もう死にたい" }] }));
+    const response = await chatPOST(chatRequest("もう死にたい"));
     expect(response.status).toBe(200);
     expect((await response.json()).support).toBe(true);
     expect(fetchMock).not.toHaveBeenCalled();
     expect(storeCalls.some((key) => key.startsWith("kiri:rl:chat:"))).toBe(true);
-    expect(storeCalls.some((key) => key.startsWith("kiri:q:"))).toBe(false);
+    expect(storeCalls.some((key) => key.startsWith("kiri:q:") || key.startsWith("kiri:cu:"))).toBe(false);
   });
 
-  it("通常のメッセージではクォータを消費する（対照）", async () => {
-    stubChatEnv();
+  it("危機の言葉は、権利なし・ID なしの本番でも固定文を返し、RC もAIも呼ばない", async () => {
+    stubProdChatEnv();
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fetchMock = routedFetch({ entitlements: {} });
+    vi.stubGlobal("fetch", fetchMock);
+    const response = await chatPOST(chatRequest("もう死にたい"));
+    expect(response.status).toBe(200);
+    expect((await response.json()).support).toBe(true);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(storeCalls.some((key) => key.startsWith("kiri:q:") || key.startsWith("kiri:cu:"))).toBe(false);
+  });
+
+  it("通常のメッセージでは購読者別と全体のクォータを消費する（対照）", async () => {
+    stubDevChatEnv();
     vi.spyOn(console, "log").mockImplementation(() => {});
     vi.spyOn(console, "error").mockImplementation(() => {});
     vi.stubGlobal("fetch", vi.fn(async () => new Response("upstream error", { status: 500 })));
-    const response = await chatPOST(jsonRequest({ messages: [{ role: "user", content: "今日は海を見た" }] }));
+    const response = await chatPOST(chatRequest("今日は海を見た"));
     expect(response.status).toBe(502);
+    expect(storeCalls.some((key) => key.startsWith("kiri:cu:"))).toBe(true);
     expect(storeCalls.some((key) => key.startsWith("kiri:q:chat:"))).toBe(true);
+  });
+
+  it("本番: 購読が有効なら 200 を返し、トークン実測ログを出す（本文は出さない）", async () => {
+    stubProdChatEnv();
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const fetchMock = routedFetch();
+    vi.stubGlobal("fetch", fetchMock);
+    const response = await chatPOST(chatRequest("今日は海を見た", { appUserId: RC_ID }));
+    expect(response.status).toBe(200);
+    expect((await response.json()).reply).toBe("霧が少し晴れたね。");
+    const lines = log.mock.calls.map((args) => args.join(" "));
+    expect(lines).toContain("[kiri-usage] chat tokens 123 45");
+    expect(lines.join("\n")).not.toContain("今日は海を見た");
+    expect(lines.join("\n")).not.toContain("RCAnonymousID");
+  });
+
+  it("本番: Redis に入るキーに ID の平文を含めない", async () => {
+    stubProdChatEnv();
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.stubGlobal("fetch", routedFetch());
+    await chatPOST(chatRequest("やあ", { appUserId: RC_ID }));
+    expect(storeCalls.some((key) => key.startsWith("kiri:cu:"))).toBe(true);
+    expect(storeCalls.join("\n")).not.toContain("RCAnonymousID");
+  });
+
+  it("本番: appUserId が無いと 403 not_entitled（KIRI_CHAT_PREVIEW=1 でも）。RC も AI も呼ばない", async () => {
+    stubProdChatEnv();
+    const fetchMock = routedFetch();
+    vi.stubGlobal("fetch", fetchMock);
+    const response = await chatPOST(chatRequest("やあ"));
+    expect(response.status).toBe(403);
+    expect((await response.json()).code).toBe("not_entitled");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("本番: 期限切れの購読は 403 not_entitled で、AI を呼ばず、クォータも消費しない", async () => {
+    stubProdChatEnv();
+    const fetchMock = routedFetch({ entitlements: { kiri_chat: { expires_date: new Date(Date.now() - 1000).toISOString() } } });
+    vi.stubGlobal("fetch", fetchMock);
+    const response = await chatPOST(chatRequest("やあ", { appUserId: RC_ID_2 }));
+    expect(response.status).toBe(403);
+    expect((await response.json()).code).toBe("not_entitled");
+    expect(anthropicCalls(fetchMock)).toHaveLength(0);
+    expect(storeCalls.some((key) => key.startsWith("kiri:cu:") || key.startsWith("kiri:q:"))).toBe(false);
+  });
+
+  it("本番: RC が落ちていて古いキャッシュも無ければ 503 chat_unavailable", async () => {
+    stubProdChatEnv();
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fetchMock = routedFetch({ rcStatus: 500 });
+    vi.stubGlobal("fetch", fetchMock);
+    const response = await chatPOST(chatRequest("やあ", { appUserId: "$RCAnonymousID:00000000000000000000000000000001" }));
+    expect(response.status).toBe(503);
+    expect((await response.json()).code).toBe("chat_unavailable");
+    expect(anthropicCalls(fetchMock)).toHaveLength(0);
+  });
+
+  it("本番: REVENUECAT_SECRET_KEY が未設定なら 403（フェイルクローズ）", async () => {
+    stubProdChatEnv();
+    vi.stubEnv("REVENUECAT_SECRET_KEY", "");
+    const fetchMock = routedFetch();
+    vi.stubGlobal("fetch", fetchMock);
+    const response = await chatPOST(chatRequest("やあ", { appUserId: RC_ID }));
+    expect(response.status).toBe(403);
+    expect((await response.json()).code).toBe("not_entitled");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("購読者ごとの日次上限を超えると 429 user_daily_limit。AI は呼ばず、別の購読者は通る", async () => {
+    stubProdChatEnv();
+    vi.stubEnv("KIRI_CHAT_USER_DAILY_LIMIT", "2");
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fetchMock = routedFetch();
+    vi.stubGlobal("fetch", fetchMock);
+    const send = (id) => chatPOST(chatRequest("やあ", { appUserId: id }));
+    expect((await send("$RCAnonymousID:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1")).status).toBe(200);
+    expect((await send("$RCAnonymousID:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1")).status).toBe(200);
+    const denied = await send("$RCAnonymousID:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1");
+    expect(denied.status).toBe(429);
+    expect((await denied.json()).code).toBe("user_daily_limit");
+    expect(anthropicCalls(fetchMock)).toHaveLength(2);
+    expect((await send("$RCAnonymousID:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa2")).status).toBe(200);
+  });
+
+  it("全体の日次上限（DAILY_LIMIT_CHAT）は購読者別の後に判定し、429 daily_limit を返す", async () => {
+    stubProdChatEnv();
+    vi.stubEnv("DAILY_LIMIT_CHAT", "1");
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const POST = chatPOST;
+    const fetchMock = routedFetch();
+    vi.stubGlobal("fetch", fetchMock);
+    const id = "$RCAnonymousID:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb1";
+    // このファイルのテストは同じ日のカウンタを共有するので、先に十分な上限で1回通してから1に絞る。
+    vi.stubEnv("DAILY_LIMIT_CHAT", "100000");
+    const probe = await POST(chatRequest("やあ", { appUserId: id }));
+    expect(probe.status).toBe(200);
+    vi.stubEnv("DAILY_LIMIT_CHAT", "1");
+    const denied = await POST(chatRequest("やあ", { appUserId: id }));
+    expect(denied.status).toBe(429);
+    expect((await denied.json()).code).toBe("daily_limit");
+    expect(anthropicCalls(fetchMock)).toHaveLength(1); // 2回目はAIを呼ばない
+  });
+
+  it("IP のレート制限は body の解析・権利判定より前に効く（権利なしの人にも 429 rate_limited）", async () => {
+    stubProdChatEnv();
+    const fetchMock = routedFetch({ entitlements: {} });
+    vi.stubGlobal("fetch", fetchMock);
+    const headers = { "x-real-ip": "198.51.100.200" };
+    let response;
+    for (let i = 0; i < rateLimitPerMin("chat") + 1; i += 1) {
+      response = await chatPOST(chatRequest("やあ", {}, headers));
+    }
+    expect(response.status).toBe(429);
+    expect((await response.json()).code).toBe("rate_limited");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
 
@@ -167,7 +334,7 @@ describe("CORS（iOS アプリ capacitor://localhost）", () => {
     expectCors(response);
   });
 
-  it("/api/chat の 403（チャット無効）にもヘッダが乗る", async () => {
+  it("/api/chat の 403（権利なし）にもヘッダが乗る", async () => {
     stubDevEnv();
     vi.stubEnv("KIRI_CHAT_PREVIEW", "");
     const response = await chatPOST(jsonRequest({ messages: [{ role: "user", content: "やあ" }] }, { Origin: APP_ORIGIN }));

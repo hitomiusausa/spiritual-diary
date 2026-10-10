@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { createRateLimiter, createDailyQuota, clientKeyFromHeaders, rateLimitPerMin } from "../apiGuard";
+import { createRateLimiter, createDailyQuota, createUserDailyQuota, clientKeyFromHeaders, rateLimitPerMin } from "../apiGuard";
 import { createMemoryStore } from "../kiriStore";
 
 const T0 = Date.UTC(2026, 6, 28, 3, 0, 0); // 2026-07-28 12:00 JST（分の境界ちょうど）
@@ -101,6 +101,32 @@ describe("createDailyQuota", () => {
     expect((await quota.consume(nextDay)).allowed).toBe(true);
   });
 
+});
+
+describe("createUserDailyQuota", () => {
+  it("購読者ごとに数え、上限を超えたら拒否する。他の購読者には影響しない", async () => {
+    const quota = createUserDailyQuota({ limit: 2, store: recordingStore() });
+    expect((await quota.consume("u1", T0)).allowed).toBe(true);
+    expect((await quota.consume("u1", T0)).allowed).toBe(true);
+    const denied = await quota.consume("u1", T0);
+    expect(denied).toEqual({ allowed: false, used: 2, limit: 2 });
+    expect((await quota.consume("u2", T0)).allowed).toBe(true);
+  });
+
+  it("キーは kiri:cu:{hash}:{JST日付}、TTL は2日", async () => {
+    const store = recordingStore();
+    await createUserDailyQuota({ limit: 5, store }).consume("abc", T0);
+    expect(store.calls[0]).toEqual(["kiri:cu:abc:2026-07-28", 172_800]);
+  });
+
+  it("limit が関数なら呼び出しごとに評価する", async () => {
+    let limit = 1;
+    const quota = createUserDailyQuota({ limit: () => limit, store: recordingStore() });
+    expect((await quota.consume("u", T0)).allowed).toBe(true);
+    expect((await quota.consume("u", T0)).allowed).toBe(false);
+    limit = 5;
+    expect((await quota.consume("u", T0)).allowed).toBe(true);
+  });
 });
 
 describe("clientKeyFromHeaders", () => {

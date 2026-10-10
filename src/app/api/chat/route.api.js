@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { preflightResponse, withCors } from "@/lib/cors";
 import { KIRI_PERSONA } from "@/lib/kiriPersonality";
-import { createRateLimiter, createDailyQuota, clientKeyFromHeaders, positiveIntEnv, rateLimitPerMin } from "@/lib/apiGuard";
+import { createRateLimiter, createDailyQuota, createUserDailyQuota, clientKeyFromHeaders, positiveIntEnv, rateLimitPerMin } from "@/lib/apiGuard";
 import { storeReadiness } from "@/lib/kiriStore";
 import { checkChatEntitlement } from "@/lib/entitlement";
 import { extractReplyText } from "@/lib/claudeResponse";
@@ -11,6 +11,11 @@ const MAX_MESSAGES = 12;
 const MAX_MESSAGE_CHARS = 1200;
 const CHAT_EFFORT = process.env.KIRI_CHAT_EFFORT || "low";
 
+// 購読者ごとの1日の上限。購入画面と利用規約にも同じ数字を書く（変えるときは文言も直す）。
+const USER_DAILY_LIMIT_DEFAULT = 60;
+// 全体の1日の上限の既定。本番は wrangler.jsonc の vars で固定する。
+const DAILY_LIMIT_CHAT_DEFAULT = 500;
+
 const RATE_LIMITER = createRateLimiter({
   route: "chat",
   windowMs: 60_000,
@@ -18,7 +23,11 @@ const RATE_LIMITER = createRateLimiter({
 });
 const DAILY_QUOTA = createDailyQuota({
   route: "chat",
-  limit: positiveIntEnv("DAILY_LIMIT_CHAT", 600),
+  limit: () => positiveIntEnv("DAILY_LIMIT_CHAT", DAILY_LIMIT_CHAT_DEFAULT),
+});
+// 環境変数の上書きはリクエスト時に読む。
+const USER_DAILY_QUOTA = createUserDailyQuota({
+  limit: () => positiveIntEnv("KIRI_CHAT_USER_DAILY_LIMIT", USER_DAILY_LIMIT_DEFAULT),
 });
 
 const CHAT_MODE = `
@@ -68,14 +77,6 @@ async function handlePost(request) {
       return NextResponse.json({ success: false, error: "Service unavailable" }, { status: 503 });
     }
 
-    const entitlement = checkChatEntitlement();
-    if (!entitlement.allowed) {
-      return NextResponse.json(
-        { success: false, error: "Chat is not available", code: "chat_disabled" },
-        { status: 403 }
-      );
-    }
-
     const rate = await RATE_LIMITER.check(clientKeyFromHeaders(request.headers));
     if (!rate.allowed) {
       return NextResponse.json(
@@ -92,14 +93,38 @@ async function handlePost(request) {
 
     const lastUserMessage = [...messages].reverse().find((message) => message.role === "user");
     if (lastUserMessage && detectCrisis(lastUserMessage.content)) {
-      // 危機の言葉にはAIを呼ばず、固定文で窓口へつなぐ。クォータも消費しない。
+      // 危機の言葉には権利判定もAIも使わず、固定文で窓口へつなぐ。クォータも消費しない（D-15）。
       console.warn("[kiri-safety] crisis detected in chat");
       return NextResponse.json({ success: true, reply: CRISIS_CHAT_MESSAGE, support: true });
+    }
+
+    const entitlement = await checkChatEntitlement({ appUserId: body?.appUserId });
+    if (!entitlement.allowed) {
+      if (entitlement.reason === "unavailable") {
+        return NextResponse.json(
+          { success: false, error: "Chat is temporarily unavailable", code: "chat_unavailable" },
+          { status: 503 }
+        );
+      }
+      return NextResponse.json(
+        { success: false, error: "Chat is not available", code: "not_entitled" },
+        { status: 403 }
+      );
     }
 
     const apiKey = process.env.CLAUDE_API_KEY;
     if (!apiKey) {
       return NextResponse.json({ success: false, error: "Chat is not configured" }, { status: 503 });
+    }
+
+    const userQuota = await USER_DAILY_QUOTA.consume(entitlement.userHash);
+    if (!userQuota.allowed) {
+      // 購読者を特定できる値（ハッシュ含む）はログに出さない。
+      console.warn("[kiri-usage] chat user daily limit reached", userQuota.limit);
+      return NextResponse.json(
+        { success: false, error: "Daily limit reached", code: "user_daily_limit" },
+        { status: 429 }
+      );
     }
 
     const quota = await DAILY_QUOTA.consume();
@@ -142,6 +167,8 @@ async function handlePost(request) {
     if (data?.stop_reason === "refusal" || data?.stop_reason === "max_tokens") {
       console.error("[kiri-chat] no usable text", data.stop_reason);
     }
+    // 単価の実測用（本文は出さない）。公開後1週間の値で上限を見直す。
+    console.log("[kiri-usage] chat tokens", data?.usage?.input_tokens ?? 0, data?.usage?.output_tokens ?? 0);
     const reply = extractReplyText(data).slice(0, 1800);
     return NextResponse.json({ success: true, reply: reply || "……" });
   } catch (error) {

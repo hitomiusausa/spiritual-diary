@@ -25,10 +25,12 @@
 	],
 	// 本番判定（src/lib/kiriStore.js の storeReadiness）。デプロイ時の設定漏れを防ぐためコミットで固定する。
 	// Redis か KIRI_STORE_SECRET が欠けていれば /api/analyze と /api/chat は503になる。
-	// DAILY_LIMIT_ANALYZE: 1日の読み解き回数の上限。ダッシュボードの平文変数はデプロイで上書きされるためここで固定する。
+	// DAILY_LIMIT_ANALYZE / DAILY_LIMIT_CHAT: 1日の読み解き・チャット回数の全体の上限。ダッシュボードの平文変数はデプロイで上書きされるためここで固定する。
+	// チャットの 500 は設計書 Ruling 6（最悪でも約 $0.5/日）。購読者ごとの上限（既定60）はコード側の定数。
 	"vars": {
 		"KIRI_DEPLOY_ENV": "production",
-		"DAILY_LIMIT_ANALYZE": "30"
+		"DAILY_LIMIT_ANALYZE": "30",
+		"DAILY_LIMIT_CHAT": "500"
 	},
 	// 運用ログ（console.log/warn/error。日記本文・IP・秘密は出さない実装）だけを残す。
 	// 呼び出しログ（invocation logs）はリクエストのメタデータ（接続元など）を含むため無効にする。

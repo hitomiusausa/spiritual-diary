@@ -42,11 +42,35 @@ export function createDailyQuota({ route, limit, timeZone = "Asia/Tokyo", store 
   });
 
   // 上限を超えた呼び出しもカウンタは進むが、usedは上限で頭打ちにして返す。
+  // limit は数値か、呼び出しごとに値を返す関数（環境変数の上書きをリクエスト時に読むため）。
   async function consume(now = Date.now()) {
+    const max = typeof limit === "function" ? limit() : limit;
     const key = `kiri:q:${route}:${formatter.format(now)}`;
     const count = await resolveStore().incr(key, DAILY_QUOTA_TTL_SECONDS);
-    if (count > limit) return { allowed: false, used: limit, limit };
-    return { allowed: true, used: count, limit };
+    if (count > max) return { allowed: false, used: max, limit: max };
+    return { allowed: true, used: count, limit: max };
+  }
+
+  return { consume };
+}
+
+// 購読者ごとの1日の上限。キーは hashAppUserId の値（IDの平文は使わない）と日本時間の日付。
+// limit は数値か、呼び出しごとに値を返す関数（環境変数の上書きをリクエスト時に読むため）。
+export function createUserDailyQuota({ limit, timeZone = "Asia/Tokyo", store = defaultStore }) {
+  const resolveStore = typeof store === "function" ? store : () => store;
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+
+  async function consume(userHash, now = Date.now()) {
+    const max = typeof limit === "function" ? limit() : limit;
+    const key = `kiri:cu:${userHash}:${formatter.format(now)}`;
+    const count = await resolveStore().incr(key, DAILY_QUOTA_TTL_SECONDS);
+    if (count > max) return { allowed: false, used: max, limit: max };
+    return { allowed: true, used: count, limit: max };
   }
 
   return { consume };
