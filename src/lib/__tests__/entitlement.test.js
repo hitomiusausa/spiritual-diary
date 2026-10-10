@@ -73,6 +73,29 @@ describe("checkChatEntitlement (RevenueCat)", () => {
     expect(await check()).toMatchObject({ allowed: true, reason: "active" });
   });
 
+  it("期限切れでも grace_period_expires_date が未来なら有効（遅い方を期限にする）", async () => {
+    const grace = new Date(NOW + 2 * 24 * 3600 * 1000).toISOString();
+    const body = { kiri_chat: { expires_date: PAST, grace_period_expires_date: grace, product_identifier: "p" } };
+    const { check, store } = setup({ fetchImpl: vi.fn(async () => rcResponse(body)) });
+    expect(await check()).toMatchObject({ allowed: true, reason: "active" });
+    // キャッシュの期限も猶予側（遅い方）になる
+    const cached = JSON.parse(await store.get(`kiri:ent:${hashAppUserId(SECRET, ID)}`));
+    expect(cached.e).toBe(Date.parse(grace));
+  });
+
+  it("grace_period_expires_date が過去・null・壊れていれば expires_date だけで判定する", async () => {
+    for (const grace of [PAST, null, "not-a-date"]) {
+      const body = { kiri_chat: { expires_date: PAST, grace_period_expires_date: grace } };
+      const { check } = setup({ fetchImpl: vi.fn(async () => rcResponse(body)) });
+      expect(await check()).toMatchObject({ allowed: false, reason: "inactive" });
+    }
+    const early = new Date(NOW + 1000).toISOString();
+    const body = { kiri_chat: { expires_date: FUTURE, grace_period_expires_date: early } };
+    const { check, store } = setup({ fetchImpl: vi.fn(async () => rcResponse(body)) });
+    expect((await check()).allowed).toBe(true);
+    expect(JSON.parse(await store.get(`kiri:ent:${hashAppUserId(SECRET, ID)}`)).e).toBe(Date.parse(FUTURE));
+  });
+
   it("サンドボックス購入も有効として扱う", async () => {
     const body = { subscriber: { entitlements: activeBody(), subscriptions: { p: { is_sandbox: true } } } };
     const { check } = setup({ fetchImpl: vi.fn(async () => new Response(JSON.stringify(body))) });
@@ -149,6 +172,22 @@ describe("checkChatEntitlement (RevenueCat)", () => {
         expect(await check()).toMatchObject({ allowed: false, reason: "unavailable" });
       }
       expect(await store.get(`kiri:ent:${hashAppUserId(SECRET, ID)}`)).toBeNull();
+    });
+
+    it("401/403 は挙動は unavailable のまま、キー違いと分かる error ログを別に出す", async () => {
+      warn();
+      const err = vi.spyOn(console, "error").mockImplementation(() => {});
+      for (const status of [401, 403]) {
+        const { check } = setup({ fetchImpl: vi.fn(async () => new Response("x", { status })) });
+        expect(await check()).toMatchObject({ allowed: false, reason: "unavailable" });
+      }
+      expect(err).toHaveBeenCalledTimes(2);
+      expect(err.mock.calls[0][0]).toBe("[kiri-entitlement] revenuecat auth failed");
+      expect(err.mock.calls.flat().join(" ")).not.toMatch(/RCAnonymousID|sk_test/);
+      err.mockClear();
+      const { check } = setup({ fetchImpl: vi.fn(async () => new Response("x", { status: 429 })) });
+      await check();
+      expect(err).not.toHaveBeenCalled();
     });
 
     it("タイムアウト・通信エラーでキャッシュも無ければ unavailable、再試行しない", async () => {

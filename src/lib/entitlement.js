@@ -53,7 +53,10 @@ function readEntitlement(data, now) {
   const entitlement = data?.subscriber?.entitlements?.[ENTITLEMENT_ID];
   if (!entitlement) return { active: false };
   if (entitlement.expires_date === null) return { active: true };
-  const expires = Date.parse(entitlement.expires_date);
+  // grace period（支払い失敗の猶予）: RC v1 のこのフィールド名・位置は実物で未確認。
+  // あれば expires_date と遅い方を期限にする。無い・読めない場合は expires_date だけで判定する。
+  const dates = [entitlement.expires_date, entitlement.grace_period_expires_date].map((d) => Date.parse(d)).filter(Number.isFinite);
+  const expires = dates.length ? Math.max(...dates) : NaN;
   if (Number.isFinite(expires) && expires > now) return { active: true, expiresAt: expires };
   return { active: false };
 }
@@ -66,6 +69,8 @@ async function fetchFromRevenueCat({ appUserId, secretKey, fetchImpl, now }) {
       signal: AbortSignal.timeout(REVENUECAT_TIMEOUT_MS),
     });
     if (!response.ok) {
+      // キー違い・権限不足は運営側の設定ミス。購読者には 503 のままだが、運営が気づけるよう別に出す。
+      if (response.status === 401 || response.status === 403) console.error("[kiri-entitlement] revenuecat auth failed");
       console.warn("[kiri-entitlement] revenuecat status", response.status);
       return null;
     }
