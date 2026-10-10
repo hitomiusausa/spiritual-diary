@@ -492,6 +492,42 @@ export default function SpiritualDiary() {
     };
   }, [iapActive, showSettings]);
 
+  // 設定はモーダルなので、開いたら中へフォーカスを移し、Tab は中で回し、Esc で閉じ、閉じたら元の場所へ戻す（見やすさテスト 2026-10-10）。
+  useEffect(() => {
+    if (!showSettings) return undefined;
+    const opener = document.activeElement;
+    const dialog = () => document.querySelector('[data-kiri-settings]');
+    const focusables = () => Array.from(dialog()?.querySelectorAll('button, [href], input:not([type="hidden"]):not(.hidden), select, textarea, [tabindex]:not([tabindex="-1"])') || [])
+      .filter((el) => !el.disabled && el.offsetParent !== null);
+    focusables()[0]?.focus();
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setShowSettings(false);
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const items = focusables();
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (!dialog()?.contains(document.activeElement)) {
+        event.preventDefault();
+        first.focus();
+      } else if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      if (opener && typeof opener.focus === 'function' && document.contains(opener)) opener.focus();
+    };
+  }, [showSettings]);
+
   // 開発用プレビュー（購入なし）では購読中と同じに扱う。それ以外は RevenueCat の状態。
   const devPreviewChat = CHAT_DEV_PREVIEW && !iapActive;
   const talkEntitled = devPreviewChat || talk.entitled;
@@ -1033,7 +1069,7 @@ export default function SpiritualDiary() {
   const SettingsModal = () => {
     if (!showSettings) return null;
     return (
-      <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1rem+env(safe-area-inset-bottom))]" onClick={() => setShowSettings(false)} role="dialog" aria-modal="true" aria-label="設定">
+      <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1rem+env(safe-area-inset-bottom))]" onClick={() => setShowSettings(false)} role="dialog" aria-modal="true" aria-label="設定" data-kiri-settings>
         {/* iOS アプリではロックの項目で縦に長くなるので、画面に収まらないときは中でスクロールする（Web は従来どおり。監査 P2-5） */}
         <div className={`kiri-card-strong rounded-2xl w-full max-w-md p-6 kiri-rise${lockNative || iapActive ? ' max-h-full overflow-y-auto' : ''}`} onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center justify-between mb-4">
@@ -1319,8 +1355,9 @@ export default function SpiritualDiary() {
               {/* 項目どうしは16px（大きい文字は14px）。見出し→入力欄6px・入力欄→補足4pxより広く空けて、項目の切れ目を見せる（D-29） */}
               <div className="space-y-4 kiri-dt-stack">
                 <div>
-                  <label className="block text-white text-sm mb-1.5 font-medium">ニックネーム（任意）</label>
+                  <label htmlFor="kiri-nickname" className="block text-white text-sm mb-1.5 font-medium">ニックネーム（任意）</label>
                   <input
+                    id="kiri-nickname"
                     type="text"
                     value={nickname}
                     onChange={(e) => setNickname(e.target.value)}
@@ -1371,8 +1408,9 @@ export default function SpiritualDiary() {
                 </div>
 
                 <div>
-                  <label className="block text-white text-sm mb-1.5 font-medium">出生時刻（任意）</label>
+                  <label htmlFor="kiri-birth-time" className="block text-white text-sm mb-1.5 font-medium">出生時刻（任意）</label>
                   <input
+                    id="kiri-birth-time"
                     type="time"
                     value={birthTime}
                     onChange={(e) => setBirthTime(e.target.value)}
@@ -1382,8 +1420,9 @@ export default function SpiritualDiary() {
                 </div>
 
                 <div>
-                  <label className="block text-white text-sm mb-1.5 font-medium">性別（任意）</label>
+                  <label htmlFor="kiri-gender" className="block text-white text-sm mb-1.5 font-medium">性別（任意）</label>
                   <select
+                    id="kiri-gender"
                     value={gender}
                     onChange={(e) => setGender(e.target.value)}
                     className="w-full px-3 py-2.5 text-sm rounded-lg bg-white/20 text-white border border-kiri-lilac/50 focus:outline-none focus:ring-2 focus:ring-kiri-lilac"
