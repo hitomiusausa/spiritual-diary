@@ -1066,7 +1066,8 @@ export default function SpiritualDiary() {
   };
 
   // 設定（バックアップの書き出し/読み込み）
-  const SettingsModal = () => {
+  // 部品として <SettingsModal /> で置くと再描画のたびに作り直されてフォーカスが外れるので、関数として呼ぶ。
+  const renderSettingsModal = () => {
     if (!showSettings) return null;
     return (
       <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1rem+env(safe-area-inset-bottom))]" onClick={() => setShowSettings(false)} role="dialog" aria-modal="true" aria-label="設定" data-kiri-settings>
@@ -1308,7 +1309,7 @@ export default function SpiritualDiary() {
         <>
           <WhiteoutTransition />
           <ErrorBanner />
-          <SettingsModal />
+          {renderSettingsModal()}
           <div className="min-h-screen kiri-shell p-4 py-8 flex items-center justify-center relative overflow-hidden">
             {/* 霧の谷: トップページの静かな光 */}
             <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
@@ -1460,7 +1461,7 @@ export default function SpiritualDiary() {
         <>
           <WhiteoutTransition />
           <ErrorBanner />
-          <SettingsModal />
+          {renderSettingsModal()}
           <ConsentModal
             show={showConsent}
             onAccept={acceptConsent}
