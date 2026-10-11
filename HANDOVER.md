@@ -1,15 +1,25 @@
 # HANDOVER.md — Kiri 現在地
 
-最終更新: 2026-10-09
+最終更新: 2026-10-11
 
-新しいセッションでは、まず`CLAUDE.md` → `DECISIONS.md` → `HANDOVER.md`の順に読む。詳細な履歴は`docs/HANDOFF-2026-07-28.md`と`docs/PROJECT_STATUS.md`にある。
+新しいセッションでは、まず`CLAUDE.md` → `DECISIONS.md` → `HANDOVER.md`の順に読む。詳細な履歴は`docs/HANDOFF-2026-07-28.md`と`docs/PROJECT_STATUS.md`にある。**このファイルの正本は main 上のもの**（作業ツリーごとに古い版が残っていることがある。`git show origin/main:HANDOVER.md` で確かめる）。
 
-## 現在の場所
+## 現在の場所（2026-10-11 未明）
 
-- 正規リポジトリ: `/Users/usausagi/Documents/AI_Playground/spiritual-diary`
-- ブランチ: `agent/consolidate-spiritual-diary`
+- 本番: `kiri.kugainc.com`（Cloudflare Workers・OpenNext、D-19）。**main=`b53dc95`（D-36 まで）を本番反映済み**。main への push は ひとみうさ（Workers Builds が main だけを約1〜2分でデプロイ）
 - GitHub: `https://github.com/hitomiusausa/spiritual-diary`
-- 最新状態: 2026-07-28分まではGitHubへpush済み。2026-10-08のリリース準備 Phase 0（D-14〜D-16）もpush済み。
+- 決定は D-36 まで（D-30 購入画面＝下から出るシート・商品名「Kiriと話す」／D-31 課金の登録なし部分／D-32 見やすさ／D-33・D-35 結果画面の折りたたみ／D-34・D-35 折り返し／D-36 読み解きの両端ぞろえ・閉じた見出しのバッジを隠す）
+- **main に入っていない作業ブランチはない**。`agent/ios-lock` に残る2コミット（`12e05d4`・`f56b463`）は修正とその取り消しで、差分はゼロ
+- 作業ツリー（どれも main に取り込み済み。次の作業は main から新しいブランチを切る）:
+  - `spiritual-diary`（元のフォルダ）… `agent/consolidate-spiritual-diary`＝`5330a55`（10/08 時点で止まっている。中の HANDOVER も古い）
+  - `spiritual-diary-wt-a` … `agent/ios-lock`（アプリのロック D-25）
+  - `spiritual-diary-wt-b` … `agent/voice-wrap`（D-34）
+  - `spiritual-diary-wt-c` … `agent/readability`（D-32〜D-36。10/11 未明の作業はここ）
+  - `spiritual-diary-wt-d` … `agent/billing-client`（D-31 の課金クライアント）
+- 折り返し・余白を変えたら、Playwright の **WebKit** で 375px（iPhone SE）・402px（iPhone 17）・1280px を測る（Chromium では Safari の折り返しの癖が出ない。D-35）。`/api/analyze` を Playwright の route で差し替えれば AI を呼ばずに結果画面を出せる（命式は `calculateSaju` で本物を作れる）
+- 2026-10-10 夜にターミナルが落ちた。復旧時に確認した事実: D-34（読み解きの折り返し）は本番反映済み、readability の D-34 は番号が重なっていたので D-35 に振り直して main へ
+- 待ち: Apple Developer Program（くうが株式会社）の法人登録の完了 → TestFlight・課金（Phase 3）・App Store 提出。公開前にチャットのAPI費用を実測して上限を見直す（下の「2026-10-10 購入画面の型と商品名」）
+- 残りの小さな課題: 今日のヒントの「?」・折りたたみ見出しの「?」・履歴一覧の閉じるボタンのタップ範囲が44px未満／iOS アプリの Dynamic Type（大きい文字）で D-35・D-36 の見出しと両端ぞろえは未確認
 
 ## 2026-10-09 仕上げ（ブランチ`agent/ios-polish`・`agent/ios-lock`の上・mainへ未マージ）
 
