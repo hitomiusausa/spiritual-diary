@@ -1,10 +1,27 @@
 # HANDOVER.md — Kiri 現在地
 
-最終更新: 2026-10-11
+最終更新: 2026-10-16
 
 新しいセッションでは、まず`CLAUDE.md` → `DECISIONS.md` → `HANDOVER.md`の順に読む。詳細な履歴は`docs/HANDOFF-2026-07-28.md`と`docs/PROJECT_STATUS.md`にある。**このファイルの正本は main 上のもの**（作業ツリーごとに古い版が残っていることがある。`git show origin/main:HANDOVER.md` で確かめる）。
 
-## 現在の場所（2026-10-11 未明）
+## 2026-10-16 TestFlight 内部配布（1.0 / build 1 テスト中・実機確認待ち）
+
+- ひちゃんの今回の目標: **TestFlightでiPhone実機テスト → App Store公開**。
+- 最新 `origin/main=55933a2` から `agent/testflight-release-20261016` を作成。作業場所は `/Users/usausagi/Documents/AI_Playground/spiritual-diary-release`。元フォルダは古い `5330a55` のままなので、そこでiOSを作り直さない。
+- Apple Developer の法人加入は完了していることをライブ画面で確認（組織 KUGA K.K.・Account Holder）。App Store Connect のアプリ一覧は空。
+- Developer Program の更新契約の警告が最初に出た。その後のDeveloper画面では警告が消え、ASCには **Paid Applications Schedule の確認・同意が必要**と表示された。契約の操作は本人に依頼中。完了と決めつけず、次回も画面で確認する。
+- **Bundle ID問題は解消（D-37）**: 元の `com.kugainc.kiri` は再試行・Xcode自動署名とも利用不可。ローカルにPersonal Teamの同IDのprofileがあり、予約が残っている可能性が高い（所有情報は未確認）。ひちゃんの「対応して欲しい」を受け、配布用を `com.kugainc.kiri.ios` へ変更。Capacitor / Xcode Debug / Releaseを一致させ、KUGA法人チームのApp Store配布用profile・署名入りIPAの作成まで成功した。元のテストアプリと記録は削除していない。課金の商品IDは `com.kugainc.kiri.talk.monthly` のまま。
+- RevenueCatキーは既存ワークツリーの `.env.local` / `.dev.vars` に見つからなかった（値は出力していない）。公開キー・サーバー秘密キーとストア接続は未確認・未完了。今回の確認ビルドは**課金なし**。
+- **ASCアプリ作成済み（D-38）**: ひちゃんがSafariでログイン完了。名前 `Kiri` は使用済みで拒否されたため、`Kiri - Mind & Energy Note` で作成できた。日本語 / 会社名「くうが株式会社」/ SKU `kiri-ios` / Bundle ID `com.kugainc.kiri.ios`。Apple ID `6823251374`、ページ `https://appstoreconnect.apple.com/apps/6823251374/distribution`。
+- **アップロード・処理完了**: 2026-10-16 01:13 JST、1.0 / build 1。CLI再試行ログ `/tmp/kiri-testflight-20261016-upload-retry.log` に `Upload succeeded` / `Uploaded App` / `EXPORT SUCCEEDED`。Apple側の処理後、アイコンとビルド1が表示された。
+- **暗号化の確認を保存**: ASCの質問「どんな種類の暗号化アルゴリズムが実装されていますか？」に「上記のアルゴリズムのどれでもない」を保存し、提出準備完了→テスト準備完了となった。根拠: HTTPSはOS機能、分析キャッシュはWeb Crypto SHA-256、同梱RevenueCatの署名検証・チェックサムはAppleのCryptoKit/CommonCryptoを使用。Apple公式のOS内暗号機能の説明と照合。独自暗号実装のないこのビルドに対する回答。SDKや実装を変える場合は再確認する。Info.plistの `ITSAppUsesNonExemptEncryption` はまだ未追加（次のビルドでも質問が出る）。
+- **内部グループへ配布開始**: 「Kiri 内部テスト」、自動配信オフ（手動選択）。本人のASCアカウント1人のみ。ビルド1を追加し、画面で **「1人のテスター・1個のビルド」「1.0 (1) テスト中」** を確認済み。再読み込み後、本人のステータスも **「招待済み」** を確認。**次: 本人のiPhoneでTestFlightインストール→招待メールからKiriを入れる→実機検収**。インストール済みとはまだ確認していない。外部テスト・App Store審査提出は未実施。
+- 配布上の不足を修正: `ios/App/App/PrivacyInfo.xcprivacy` に Preferences（UserDefaults / CA92.1）・Filesystem（FileTimestamp / C617.1）の利用理由を追加し、Xcode Resources に登録。In-App Purchase capability も Xcode project に追加。署名チームはコマンドでKUGAを指定（Personal Teamをコミットしない）。
+- 検証: `npm ci`、715 tests / 45 files、lint、Web build、`npm audit --omit=dev` 0件。ID変更後もiOS関連63 testsと `npm run ios:sync` が成功。Xcode 26.3 / iOS 26.2 SDK の Release archive → App Store Connect向け署名export成功。IPAで法人チーム・新ID・配布profile（開発用フラグfalse、デバイス一覧なし）・署名・manifest・本番API向けHTMLを確認。`codesign --verify --deep --strict` も合格。アップロード成功は実機QA合格とは別。
+- 成果物: `build/testflight-20261016/Kiri-1.0-1.ipa`（Git管理外、1.0 / build 1、SHA-256 `5b71e741d795b5cf8cdaabb072f81a3c3d633946a191083648e6830720f6ffb0`）。元の未署名archiveは `/Users/usausagi/Library/Developer/Xcode/Archives/2026-10-16/Kiri-TestFlight-20261016.xcarchive`。GUIの推奨配布はこの未署名archiveだと `No Team Found in Archive` になるので、成功済みのCLI export経路を使う。詳細・コマンド・ログは `docs/releases/testflight-2026-10-16.md`。
+- Apple側では新ID・署名profileを作成済み。mainへのpush・Web本番デプロイはしていない。
+
+## 前回までの場所（2026-10-11 未明）
 
 - 本番: `kiri.kugainc.com`（Cloudflare Workers・OpenNext、D-19）。**main=`b53dc95`（D-36 まで）を本番反映済み**。main への push は ひとみうさ（Workers Builds が main だけを約1〜2分でデプロイ）
 - GitHub: `https://github.com/hitomiusausa/spiritual-diary`

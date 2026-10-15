@@ -8,7 +8,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
 const NIGHT_COLOR = "#171522";
 
 const config: CapacitorConfig = {
-  appId: "com.kugainc.kiri",
+  appId: "com.kugainc.kiri.ios",
   appName: "Kiri",
   webDir: "out",
   backgroundColor: NIGHT_COLOR,

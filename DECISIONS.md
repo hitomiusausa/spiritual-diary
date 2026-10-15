@@ -378,3 +378,18 @@
 - **決定2（S1）**: 「タップで確認」を出している（閉じている）間は、見出しのバッジ（四柱推命の「日運・月運・年運」）を隠す。開くとバッジが出る
 - **理由**: 402px・375px とも「タップで確認」だけが2行目に落ち、ほかの閉じた見出し（バイオリズム・テーマ別運勢）と形がそろわなかった。隠すと1行に収まる
 - **見送り**: 今日のヒントの説明文は今のまま（中央ぞろえ・通常の折り返し）。`text-wrap: balance`（H2）は文字数が行数で割り切れないと1行だけ長くなり、途中から余白が増えて見える。両端ぞろえ＋最後の行だけ中央（H3/H4）は SE で「今 日 の 数 字 は」のように字間が開く行が出た
+
+## D-37 法人配布用のBundle IDを `com.kugainc.kiri.ios` にする
+
+- **Status**: リリース作業中（2026-10-16）。ひちゃんの「対応して欲しい」を受け、うさこが実装判断。D-20のBundle IDを置き換える。
+- **理由**: `com.kugainc.kiri` は法人チームのDeveloperサイトで登録を再試行しても利用不可。Xcodeの自動署名でも同じエラーを確認した。ローカルには元のIDを使ったPersonal Teamの開発プロファイルが存在するため、その予約が原因の有力候補だが、Apple側の所有情報は未確認。Apple DTSも同種の状況ではIDの小変更を案内している（[回答](https://developer.apple.com/forums/thread/836097)）。
+- **実装**: Capacitorの `appId` とXcodeのDebug/Releaseの `PRODUCT_BUNDLE_IDENTIFIER` を一致させる。アプリ名はKiri。課金の商品ID `com.kugainc.kiri.talk.monthly` は別の識別子なので維持。法人チームの署名はコマンドの `DEVELOPMENT_TEAM` で指定し、Personal Teamをコミットしない。
+- **影響**: 元のテスト版とは別アプリ。元アプリをアンインストールせず、必要な記録はJSONバックアップで移す。自動で過去のPreferencesを読み出せるとは扱わない。
+- **配布上の状態**: 新しいIDでXcodeの処理は旧IDの「利用不可」を通過し、「法人チームに開発用デバイスがない」段階へ進んだ。未署名archiveから `method=app-store-connect` / `signingStyle=automatic` / `teamID=JQU8USCS8L` でexportすると成功。IPAの実物で `JQU8USCS8L.com.kugainc.kiri.ios`・`get-task-allow=false`・登録デバイス一覧なし・署名ありを確認した。端末登録を増やさずに法人配布用のIDとprofileを準備できた。アップロードは別工程（HANDOVER参照）。
+
+## D-38 App Storeの表示名は `Kiri - Mind & Energy Note`
+
+- **Status**: ASCに登録済み（2026-10-16、Apple ID `6823251374`）。
+- **理由**: D-20の名前 `Kiri` はASCで「すでに使用されています」と拒否された。リリース作業の範囲で、確定済みの名前とサブタイトルを組み合わせた `Kiri - Mind & Energy Note` を採用し、登録できた。ホーム画面の名前はKiriを維持。
+- **登録値**: iOS / 日本語 / 会社名「くうが株式会社」（D-14）/ SKU `kiri-ios` / Bundle ID `com.kugainc.kiri.ios`（D-37）。
+- **注意**: App Storeでのサブタイトル欄・説明文・スクリーンショットは未入力。旧Phase 4ドラフトのアプリ名はこの決定に読み替える。
