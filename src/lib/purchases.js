@@ -71,7 +71,8 @@ function stateFrom(customerInfo) {
 
 function packageOf(offerings) {
   const current = offerings?.current;
-  return current?.monthly ?? current?.availablePackages?.[0] ?? null;
+  const packages = [current?.monthly, ...(current?.availablePackages ?? [])];
+  return packages.find((pkg) => pkg?.product?.identifier === KIRI_PRODUCT_ID && pkg.product.subscriptionPeriod === "P1M") ?? null;
 }
 
 // モックの中身。createPurchases の mock に渡す（既定のインスタンスはフラグが '1' のときだけ渡す＝本番では参照が消える）。
@@ -114,7 +115,8 @@ export function createPurchases({
   const listeners = new Set();
   let configuring = null;
   let plugin = null; // プラグインのモジュール（Proxy そのものは返さない・await しない）
-  let lastPackage = null;
+  let offeringRequest = 0;
+  let acceptedOffering = null;
 
   const emit = (state) => {
     for (const listener of listeners) {
@@ -175,30 +177,44 @@ export function createPurchases({
   }
 
   async function getChatOffering() {
-    if (mockBackend) return mockBackend.offering();
+    const request = ++offeringRequest;
+    acceptedOffering = null; // A failed refresh must never leave an old package purchasable.
+    const adopt = (view, pkg) => {
+      if (request !== offeringRequest) return acceptedOffering?.view ?? null;
+      const snapshot = { ...view, purchaseToken: `kiri-offering-${request}` };
+      acceptedOffering = { view: snapshot, pkg };
+      return snapshot;
+    };
+    if (mockBackend) return adopt(mockBackend.offering(), null);
     if (!(await ensureConfigured())) return null;
     try {
       const pkg = packageOf(await plugin.Purchases.getOfferings());
       const product = pkg?.product;
-      if (!product?.priceString) return null;
-      lastPackage = pkg;
-      return { priceString: product.priceString, productId: product.identifier, trial: await trialFor(product) };
+      if (!product?.priceString) return request === offeringRequest ? null : acceptedOffering?.view ?? null;
+      const trial = await trialFor(product);
+      return adopt({ priceString: product.priceString, productId: product.identifier, trial }, pkg);
     } catch {
-      return null;
+      return request === offeringRequest ? null : acceptedOffering?.view ?? null;
     }
   }
 
-  async function purchaseChat() {
+  async function purchaseChat(displayedOffering) {
+    if (!isIapEnabled()) return { entitled: false, cancelled: false, error: "unavailable" };
+    const accepted = acceptedOffering;
+    if (!accepted || !displayedOffering || displayedOffering.purchaseToken !== accepted.view.purchaseToken
+      || displayedOffering.productId !== accepted.view.productId || displayedOffering.priceString !== accepted.view.priceString) {
+      return { entitled: false, cancelled: false, error: "offering_changed" };
+    }
+    // Capture the exact displayed package before any await can refresh offerings.
+    const selectedPackage = accepted.pkg;
     if (mockBackend) {
       const state = mockBackend.purchase();
       emit(state);
       return { entitled: state.entitled, cancelled: false, state };
     }
     if (!(await ensureConfigured())) return { entitled: false, cancelled: false, error: "unavailable" };
-    if (!lastPackage) await getChatOffering();
-    if (!lastPackage) return { entitled: false, cancelled: false, error: "no_offering" };
     try {
-      const { customerInfo } = await plugin.Purchases.purchasePackage({ aPackage: lastPackage });
+      const { customerInfo } = await plugin.Purchases.purchasePackage({ aPackage: selectedPackage });
       const state = stateFrom(customerInfo);
       emit(state);
       // 購入は通ったが、権利がまだ customerInfo に出ていない（反映待ち。F-B3）。
@@ -287,7 +303,7 @@ function purchases() {
 export const isIapEnabled = () => purchases().isIapEnabled();
 export const configurePurchases = () => purchases().configurePurchases();
 export const getChatOffering = () => purchases().getChatOffering();
-export const purchaseChat = () => purchases().purchaseChat();
+export const purchaseChat = (displayedOffering) => purchases().purchaseChat(displayedOffering);
 export const restorePurchases = () => purchases().restorePurchases();
 export const getEntitlementState = () => purchases().getEntitlementState();
 export const getAppUserId = () => purchases().getAppUserId();

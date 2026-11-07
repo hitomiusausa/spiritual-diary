@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
-import { CONSENT_STORAGE_KEY, CONSENT_VERSION, hasConsent, recordConsent, revokeConsent } from "@/lib/consent";
+import { afterEach, describe, expect, it } from "vitest";
+import { CONSENT_STORAGE_KEY, CONSENT_VERSION, hasConsent, recordConsent, revokeConsent, resetConsentSessionForTests } from "@/lib/consent";
 import { createMemoryStorage } from "@/lib/storage";
+afterEach(resetConsentSessionForTests);
 
 describe("consent", () => {
   it("is false when nothing is recorded", () => {
@@ -32,6 +33,16 @@ describe("consent", () => {
   it("is false for corrupt data", () => {
     expect(hasConsent(createMemoryStorage({ [CONSENT_STORAGE_KEY]: "{oops" }))).toBe(false);
     expect(hasConsent(createMemoryStorage({ [CONSENT_STORAGE_KEY]: "null" }))).toBe(false);
+    expect(hasConsent(createMemoryStorage({ [CONSENT_STORAGE_KEY]: JSON.stringify({ version: CONSENT_VERSION }) }))).toBe(false);
+    expect(hasConsent(createMemoryStorage({ [CONSENT_STORAGE_KEY]: JSON.stringify({ version: CONSENT_VERSION, acceptedAt: "invalid" }) }))).toBe(false);
+  });
+
+  it("requires the v2 explanation on a real v1 record while keeping the same storage key", () => {
+    const s = createMemoryStorage({ [CONSENT_STORAGE_KEY]: JSON.stringify({ version: 1, acceptedAt: "2026-10-09T00:00:00Z" }) });
+    expect(hasConsent(s)).toBe(false);
+    recordConsent(s);
+    expect(hasConsent(s)).toBe(true);
+    expect(s.getItem("spiritual-diary.consent.v1")).not.toBeNull();
   });
 
   it("is false after revoking", () => {
@@ -40,6 +51,17 @@ describe("consent", () => {
     revokeConsent(s);
     expect(hasConsent(s)).toBe(false);
     expect(s.getItem(CONSENT_STORAGE_KEY)).toBeNull();
+  });
+
+  it("stops session transmission even when removing the persisted consent fails", () => {
+    const s = createMemoryStorage(); recordConsent(s);
+    const failing = { ...s, removeItem() { throw new Error("quota failure"); } };
+    expect(() => revokeConsent(failing)).toThrow();
+    expect(s.getItem(CONSENT_STORAGE_KEY)).not.toBeNull();
+    expect(hasConsent(failing)).toBe(false);
+    expect(hasConsent(s)).toBe(false);
+    recordConsent(s);
+    expect(hasConsent(s)).toBe(true);
   });
 
   it("is not part of the backup keys", async () => {

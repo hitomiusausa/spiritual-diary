@@ -1,0 +1,50 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { createProbeFetch, sha256 } from "./handler.mjs";
+const token = "a".repeat(64);
+const key = "SYNTHETIC_API_KEY_DO_NOT_LOG";
+const at = 1000;
+const configuration = { tokenHash: await sha256(token), expectedKeyHash: await sha256(key), expiresAtMs: at + 10 };
+function probe(config = configuration, env = { CLAUDE_API_KEY: key }, method = "POST", authorization = `Bearer ${token}`, clock = at) {
+  const original = { fetch() { throw new Error("Probe must not fall through"); } };
+  const request = new Request("https://qa.invalid/__kiri-diagnostics/key-match", { method, headers: authorization ? { authorization } : {} });
+  return createProbeFetch(original, config, () => clock)(request, env, {});
+}
+test("only the expected key reports a match; payload contains booleans only", async () => {
+  const response = await probe();
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("Cache-Control"), "no-store");
+  const text = await response.text();
+  assert.deepEqual(JSON.parse(text), { keyConfigured: true, matchesExpected: true });
+  for (const forbidden of [key, token, configuration.tokenHash, configuration.expectedKeyHash]) assert.ok(!text.includes(forbidden));
+});
+test("a different key and absent/mistyped binding never match", async () => {
+  for (const env of [{ CLAUDE_API_KEY: "different" }, {}, { CLAUDE_API_KEY: 123 }]) {
+    assert.deepEqual(await (await probe(configuration, env)).json(), { keyConfigured: typeof env.CLAUDE_API_KEY === "string" && !!env.CLAUDE_API_KEY, matchesExpected: false });
+  }
+});
+test("missing, malformed, wrong and suffix-varied credentials are hidden", async () => {
+  for (const auth of ["", "Bearer x", `Bearer ${"b".repeat(64)}`, `Bearer ${"a".repeat(63)}b`, token]) {
+    assert.equal((await probe(configuration, undefined, "POST", auth)).status, 404);
+  }
+});
+test("all non-POST methods are hidden even with valid credentials", async () => {
+  for (const method of ["GET", "OPTIONS", "PUT", "DELETE"]) assert.equal((await probe(configuration, undefined, method)).status, 404);
+});
+test("expiration boundary and invalid expiry deny access", async () => {
+  assert.equal((await probe(configuration, undefined, "POST", undefined, at + 10)).status, 404);
+  assert.equal((await probe(configuration, undefined, "POST", undefined, at + 11)).status, 404);
+  assert.equal((await probe({ ...configuration, expiresAtMs: NaN })).status, 404);
+});
+test("ordinary routes pass the exact request, bindings, context and receiver through", async () => {
+  const request = new Request("https://qa.invalid/api/analyze", { method: "POST", body: "synthetic" });
+  const env = { CLAUDE_API_KEY: key }; const ctx = {};
+  const original = { marker: 1, fetch(r, e, c) { assert.equal(this.marker, 1); assert.equal(r, request); assert.equal(e, env); assert.equal(c, ctx); return new Response("unchanged"); } };
+  assert.equal(await (await createProbeFetch(original, configuration, () => at)(request, env, ctx)).text(), "unchanged");
+});
+test("probe makes no outbound request and exposes no CORS permission", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = () => { throw new Error("No outbound traffic allowed"); };
+  try { const response = await probe(); assert.equal(response.status, 200); assert.equal(response.headers.get("Access-Control-Allow-Origin"), null); }
+  finally { globalThis.fetch = originalFetch; }
+});

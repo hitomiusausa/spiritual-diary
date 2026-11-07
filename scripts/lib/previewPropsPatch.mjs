@@ -10,6 +10,9 @@ const countQuoted = (source, glob) => source.split(`"${glob}"`).length - 1;
 export function applyPreviewPropsPatch(source) {
   const after = countQuoted(source, PATCH_AFTER);
   const before = countQuoted(source, PATCH_BEFORE);
+  // OpenNext 1.20.16は独立したパスとして上流で対応済み。重複パッチを当てない。
+  const nativeManifest = 'join(dotNextDir, "server/preview-props.json")';
+  if (before === 1 && after === 0 && source.split(nativeManifest).length - 1 === 1) return { status: "already", source };
   if (after === 1 && before === 0) return { status: "already", source };
   if (before === 1 && after === 0) {
     return { status: "patched", source: source.replace(`"${PATCH_BEFORE}"`, `"${PATCH_AFTER}"`) };

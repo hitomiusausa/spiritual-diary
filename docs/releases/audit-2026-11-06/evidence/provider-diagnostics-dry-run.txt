@@ -1,0 +1,16 @@
+
+ ⛅️ wrangler 4.158.0
+────────────────────
+
+Cloudflare collects anonymous telemetry about your usage of Wrangler. Learn more at https://github.com/cloudflare/workers-sdk/tree/main/packages/wrangler/telemetry.md
+✨ Read 652 files from the assets directory /Users/usausagi/Documents/AI_Playground/spiritual-diary-qa/release-audit-20261106-132743/candidate/.open-next/assets
+Total Upload: 6380.92 KiB / gzip: 1456.62 KiB
+Your Worker has access to the following bindings:
+Binding                                       Resource                  
+env.WORKER_SELF_REFERENCE (kiri)              Worker                    
+env.ASSETS                                    Assets                    
+env.KIRI_DEPLOY_ENV ("production")            Environment Variable      
+env.DAILY_LIMIT_ANALYZE ("30")                Environment Variable      
+env.DAILY_LIMIT_CHAT ("500")                  Environment Variable      
+
+--dry-run: exiting now.

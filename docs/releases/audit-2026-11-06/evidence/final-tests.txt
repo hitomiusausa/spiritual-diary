@@ -1,0 +1,13 @@
+
+> spiritual-diary@0.1.0 test
+> vitest run
+
+
+ RUN  v4.1.11 /Users/usausagi/Documents/AI_Playground/spiritual-diary-qa/release-audit-20261106-132743/candidate
+
+
+ Test Files  50 passed (50)
+      Tests  789 passed (789)
+   Start at  11:34:37
+   Duration  2.08s (transform 2.06s, setup 0ms, import 3.83s, tests 1.54s, environment 19ms)
+

@@ -14,6 +14,7 @@ const APP_USER_ID = "$RCAnonymousID:0123456789abcdef0123456789abcdef";
 const product = (overrides = {}) => ({
   identifier: KIRI_PRODUCT_ID,
   priceString: "¥480",
+  subscriptionPeriod: "P1M",
   introPrice: { price: 0, priceString: "¥0", cycles: 1, period: "P1W", periodUnit: "WEEK", periodNumberOfUnits: 1 },
   ...overrides,
 });
@@ -52,6 +53,8 @@ function fakePlugin(overrides = {}) {
   const Purchases = capacitorLikeProxy("Purchases", methods);
   return { Purchases, methods, listeners, load: vi.fn(async () => ({ Purchases })) };
 }
+
+const purchase = async (iap) => iap.purchaseChat(await iap.getChatOffering());
 
 const nativeIap = (plugin, extra = {}) =>
   createPurchases({ enabled: true, mock: null, native: true, apiKey: "appl_test_key", load: plugin.load, ...extra });
@@ -92,7 +95,7 @@ describe("IAP が無効・Web のとき（すべて未購読・offering なし�
     expect(iap.isIapEnabled()).toBe(false);
     expect(await iap.configurePurchases()).toEqual({ configured: false });
     expect(await iap.getChatOffering()).toBeNull();
-    expect(await iap.purchaseChat()).toEqual({ entitled: false, cancelled: false, error: "unavailable" });
+    expect(await purchase(iap)).toEqual({ entitled: false, cancelled: false, error: "unavailable" });
     expect(await iap.restorePurchases()).toEqual({ entitled: false, error: "unavailable" });
     expect(await iap.getEntitlementState()).toEqual({ entitled: false, expiresAt: null, willRenew: false, isTrial: false, managementUrl: null });
     expect(await iap.getAppUserId()).toBeNull();
@@ -140,7 +143,7 @@ describe("ネイティブ（RevenueCat プラグイン）", () => {
   it("getChatOffering: 価格は StoreKit の文字列、トライアル適格なら期間ラベルつき", async () => {
     const plugin = fakePlugin();
     const iap = nativeIap(plugin);
-    expect(await iap.getChatOffering()).toEqual({
+    expect(await iap.getChatOffering()).toMatchObject({
       priceString: "¥480",
       productId: KIRI_PRODUCT_ID,
       trial: { eligible: true, periodLabel: "1週間" },
@@ -190,7 +193,7 @@ describe("ネイティブ（RevenueCat プラグイン）", () => {
     const iap = nativeIap(plugin);
     const seen = [];
     iap.onEntitlementChange((state) => seen.push(state.entitled));
-    expect(await iap.purchaseChat()).toMatchObject({ entitled: true, cancelled: false, state: { entitled: true, expiresAt: "2026-11-17T00:00:00Z" } });
+    expect(await purchase(iap)).toMatchObject({ entitled: true, cancelled: false, state: { entitled: true, expiresAt: "2026-11-17T00:00:00Z" } });
     expect(plugin.methods.purchasePackage).toHaveBeenCalledTimes(1);
     expect(plugin.methods.purchasePackage.mock.calls[0][0].aPackage.product.identifier).toBe(KIRI_PRODUCT_ID);
     expect(seen).toContain(true);
@@ -202,32 +205,32 @@ describe("ネイティブ（RevenueCat プラグイン）", () => {
         throw Object.assign(new Error("cancelled"), { code: "1", userCancelled: true });
       }),
     });
-    expect(await nativeIap(plugin).purchaseChat()).toEqual({ entitled: false, cancelled: true });
+    expect(await purchase(nativeIap(plugin))).toEqual({ entitled: false, cancelled: true });
   });
 
   it("承認待ち（ファミリー共有の承認など）は error: 'pending'", async () => {
     const plugin = fakePlugin({ purchasePackage: vi.fn(async () => { throw Object.assign(new Error("pending"), { code: "20" }); }) });
-    expect(await nativeIap(plugin).purchaseChat()).toEqual({ entitled: false, cancelled: false, error: "pending" });
+    expect(await purchase(nativeIap(plugin))).toEqual({ entitled: false, cancelled: false, error: "pending" });
   });
 
   it("購入は通ったが権利がまだ反映されていない: error: 'not_reflected'（F-B3）", async () => {
     const plugin = fakePlugin({ purchasePackage: vi.fn(async () => ({ productIdentifier: KIRI_PRODUCT_ID, customerInfo: customerInfo() })) });
-    expect(await nativeIap(plugin).purchaseChat()).toMatchObject({ entitled: false, cancelled: false, error: "not_reflected" });
+    expect(await purchase(nativeIap(plugin))).toMatchObject({ entitled: false, cancelled: false, error: "not_reflected" });
   });
 
   it("すでに購読している（PRODUCT_ALREADY_PURCHASED_ERROR = '6'）: error: 'already_purchased'（F-B3）", async () => {
     const plugin = fakePlugin({ purchasePackage: vi.fn(async () => { throw Object.assign(new Error("already"), { code: "6" }); }) });
-    expect(await nativeIap(plugin).purchaseChat()).toEqual({ entitled: false, cancelled: false, error: "already_purchased" });
+    expect(await purchase(nativeIap(plugin))).toEqual({ entitled: false, cancelled: false, error: "already_purchased" });
   });
 
   it("その他の失敗は error: 'failed'（例外を投げない）", async () => {
     const plugin = fakePlugin({ purchasePackage: vi.fn(async () => { throw Object.assign(new Error("x"), { code: "2" }); }) });
-    expect(await nativeIap(plugin).purchaseChat()).toEqual({ entitled: false, cancelled: false, error: "failed" });
+    expect(await purchase(nativeIap(plugin))).toEqual({ entitled: false, cancelled: false, error: "failed" });
   });
 
   it("offering が取れないと購入しない", async () => {
     const plugin = fakePlugin({ getOfferings: vi.fn(async () => ({ current: null })) });
-    expect(await nativeIap(plugin).purchaseChat()).toEqual({ entitled: false, cancelled: false, error: "no_offering" });
+    expect(await purchase(nativeIap(plugin))).toEqual({ entitled: false, cancelled: false, error: "offering_changed" });
     expect(plugin.methods.purchasePackage).not.toHaveBeenCalled();
   });
 
@@ -299,11 +302,11 @@ describe("モック（NEXT_PUBLIC_KIRI_IAP_MOCK=1・next dev と ios:build --dev
 
   it("¥480・1週間のトライアル適格、購入で entitled", async () => {
     const iap = mockIap();
-    expect(await iap.getChatOffering()).toEqual({ priceString: "¥480", productId: KIRI_PRODUCT_ID, trial: { eligible: true, periodLabel: "1週間" } });
+    expect(await iap.getChatOffering()).toMatchObject({ priceString: "¥480", productId: KIRI_PRODUCT_ID, trial: { eligible: true, periodLabel: "1週間" } });
     expect((await iap.getEntitlementState()).entitled).toBe(false);
     const cb = vi.fn();
     iap.onEntitlementChange(cb);
-    expect(await iap.purchaseChat()).toMatchObject({ entitled: true, cancelled: false, state: { entitled: true } });
+    expect(await purchase(iap)).toMatchObject({ entitled: true, cancelled: false, state: { entitled: true } });
     expect(cb).toHaveBeenCalledWith(expect.objectContaining({ entitled: true }));
     const state = await iap.getEntitlementState();
     expect(state.entitled).toBe(true);
@@ -317,7 +320,7 @@ describe("モック（NEXT_PUBLIC_KIRI_IAP_MOCK=1・next dev と ios:build --dev
   it("無料期間（7日）が過ぎたら権利なし（期限切れの確認用）", async () => {
     let now = Date.parse("2026-10-10T00:00:00Z");
     const iap = createPurchases({ enabled: true, mock: createMockBackend, native: false, apiKey: "", load: vi.fn(), now: () => now });
-    await iap.purchaseChat();
+    await purchase(iap);
     expect((await iap.getEntitlementState()).entitled).toBe(true);
     now += 8 * 24 * 60 * 60 * 1000;
     expect(await iap.getEntitlementState()).toMatchObject({ entitled: false, isTrial: false });
@@ -353,5 +356,54 @@ describe("Web の本番バンドル（F-B6）", () => {
   it("フラグなし（テスト環境＝Web と同じ）では既定のローダーはプラグインを読まずに失敗し、未設定として扱う", async () => {
     const iap = createPurchases({ enabled: true, mock: null, native: true, apiKey: "appl_x" });
     expect(await iap.configurePurchases()).toEqual({ configured: false });
+  });
+});
+
+
+describe("displayed offering purchase boundary (release E-01/E-02)", () => {
+  it.each([
+    product({ identifier: "different.monthly" }),
+    product({ subscriptionPeriod: "P1Y" }),
+    product({ subscriptionPeriod: null }),
+  ])("never buys an unexpected product or period: %o", async (prod) => {
+    const plugin = fakePlugin({ getOfferings: vi.fn(async () => offerings(prod)) });
+    const iap = nativeIap(plugin);
+    expect(await iap.getChatOffering()).toBeNull();
+    expect((await iap.purchaseChat()).error).toBe("offering_changed");
+    expect(plugin.methods.purchasePackage).not.toHaveBeenCalled();
+  });
+
+  it("requires the exact displayed snapshot, and invalidates it when a refresh fails", async () => {
+    let fail = false;
+    const plugin = fakePlugin({ getOfferings: vi.fn(async () => { if (fail) throw new Error("offline"); return offerings(); }) });
+    const iap = nativeIap(plugin);
+    const first = await iap.getChatOffering();
+    expect((await iap.purchaseChat({ ...first, priceString: "¥1" })).error).toBe("offering_changed");
+    const second = await iap.getChatOffering();
+    expect((await iap.purchaseChat(first)).error).toBe("offering_changed");
+    fail = true;
+    expect(await iap.getChatOffering()).toBeNull();
+    expect((await iap.purchaseChat(second)).error).toBe("offering_changed");
+    expect(plugin.methods.purchasePackage).not.toHaveBeenCalled();
+  });
+
+  it("a slow old trial lookup cannot replace the displayed price or purchase package", async () => {
+    let resolveTrial;
+    const trial = new Promise(resolve => { resolveTrial = resolve; });
+    let calls = 0;
+    const first = product({ priceString: "¥480" });
+    const latest = product({ priceString: "¥600", introPrice: null });
+    const plugin = fakePlugin({
+      getOfferings: vi.fn(async () => offerings(calls++ === 0 ? first : latest)),
+      checkTrialOrIntroductoryPriceEligibility: vi.fn(() => trial),
+    });
+    const iap = nativeIap(plugin);
+    const pending = iap.getChatOffering();
+    await vi.waitFor(() => expect(plugin.methods.checkTrialOrIntroductoryPriceEligibility).toHaveBeenCalled());
+    const shown = await iap.getChatOffering();
+    resolveTrial({ [KIRI_PRODUCT_ID]: { status: 2 } });
+    expect(await pending).toEqual(shown);
+    expect((await iap.purchaseChat(shown)).entitled).toBe(true);
+    expect(plugin.methods.purchasePackage.mock.calls[0][0].aPackage.product.priceString).toBe(shown.priceString);
   });
 });

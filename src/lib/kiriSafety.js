@@ -3,12 +3,12 @@
 
 // 窓口は厚生労働省「まもろうよ こころ」の電話相談ページで確認した。
 // https://www.mhlw.go.jp/mamorouyokokoro/soudan/tel/
-export const SUPPORT_LINES_CHECKED_AT = "2026-10-08";
+export const SUPPORT_LINES_CHECKED_AT = "2026-11-06";
 export const SUPPORT_LINES_SOURCE_URL = "https://www.mhlw.go.jp/mamorouyokokoro/soudan/tel/";
 export const SUPPORT_LINES = [
   { name: "#いのちSOS", tel: "0120-061-338", hours: "24時間・毎日（無料）" },
   { name: "よりそいホットライン", tel: "0120-279-338", hours: "24時間（無料）" },
-  { name: "いのちの電話", tel: "0570-783-556", hours: "毎日10時〜22時" },
+  { name: "いのちの電話", tel: "0570-783-556", hours: "毎日10時〜22時（通話料有料）" },
 ];
 
 // normalizeForSafety() を通した文字列（ひらがな化・空白除去済み）に当てる。

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
+import { ANALYZE_UPSTREAM_TIMEOUT_MS, CHAT_UPSTREAM_TIMEOUT_MS } from "@/lib/inputContract";
 
 // ルートが使う共有ストアを、incr の呼び出しを記録するメモリ実装に差し替える。
 const storeCalls = vi.hoisted(() => []);
@@ -33,6 +34,7 @@ function jsonRequest(body, extraHeaders = {}) {
 }
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
@@ -372,5 +374,138 @@ describe("CORS（iOS アプリ capacitor://localhost）", () => {
     const response = await analyzePOST(jsonRequest({}, { Origin: "https://evil.example" }));
     expect(response.status).toBe(400);
     expect(response.headers.get("Access-Control-Allow-Origin")).toBeNull();
+  });
+});
+
+describe("release audit API boundaries", () => {
+  const analysisInput = () => ({
+    userProfile: { birthDate: "1990-04-01", birthTime: "", gender: "", nickname: "" },
+    biorhythm: { p: 10, e: -20, i: 30 },
+    entry: { event: "今日は静かに過ごした", intuition: "", emoji: "😌", type: "past" },
+  });
+  function env() {
+    vi.stubEnv("KIRI_DEPLOY_ENV", ""); vi.stubEnv("VERCEL_ENV", "");
+    vi.stubEnv("CLAUDE_API_KEY", "test-key"); vi.stubEnv("KIRI_CHAT_PREVIEW", "1");
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    return vi.spyOn(console, "error").mockImplementation(() => {});
+  }
+  it.each([["analyze", analyzePOST], ["chat", chatPOST]])("%s logs only a fixed provider reason, preserving the generic client error", async (name, POST) => {
+    const errors = env();
+    vi.stubEnv("CLAUDE_API_KEY", "PRIVATE_API_KEY_MARKER");
+    const body = name === "analyze" ? analysisInput() : { messages: [{ role: "user", content: "PRIVATE_DIARY_MARKER" }] };
+    if (name === "analyze") body.entry.event = "PRIVATE_DIARY_MARKER";
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      error: { type: "invalid_request_error", message: "You have reached your specified API usage limits. PRIVATE_UPSTREAM_MARKER" },
+      prompt: "PRIVATE_PROMPT_MARKER", request_id: "PRIVATE_REQUEST_ID_MARKER",
+    }), { status: 400 })));
+    const res = await POST(jsonRequest(body));
+    expect(res.status).toBe(502);
+    expect(await res.json()).toEqual({ success: false, error: name === "analyze" ? "Fortune analysis failed" : "Chat request failed" });
+    expect(errors.mock.calls).toEqual([[`[kiri-${name}] upstream status`, 400, "provider_spend_limit"]]);
+    expect(JSON.stringify([console.log.mock.calls, console.warn.mock.calls, errors.mock.calls])).not.toContain("PRIVATE_");
+  });
+  it.each([["analyze", analyzePOST], ["chat", chatPOST]])("%s does not log arbitrary upstream error types or non-JSON error bodies", async (name, POST) => {
+    const errors = env();
+    const body = name === "analyze" ? analysisInput() : { messages: [{ role: "user", content: "今日は静かだった" }] };
+    for (const content of [JSON.stringify({ error: { type: "PRIVATE_TYPE_MARKER", message: "PRIVATE_MESSAGE_MARKER" } }), "PRIVATE_NOT_JSON_MARKER"]) {
+      vi.stubGlobal("fetch", vi.fn(async () => new Response(content, { status: 400 })));
+      const res = await POST(jsonRequest(body));
+      expect(res.status).toBe(502);
+    }
+    expect(errors.mock.calls).toEqual(Array.from({ length: 2 }, () => [`[kiri-${name}] upstream status`, 400, "provider_request_invalid"]));
+    expect(JSON.stringify(errors.mock.calls)).not.toContain("PRIVATE_");
+  });
+  it.each([["analyze", analyzePOST, ANALYZE_UPSTREAM_TIMEOUT_MS], ["chat", chatPOST, CHAT_UPSTREAM_TIMEOUT_MS]])("%s preserves the received provider status when its error body reaches the deadline", async (name, POST, timeoutMs) => {
+    const errors = env();
+    vi.useFakeTimers();
+    const body = name === "analyze" ? analysisInput() : { messages: [{ role: "user", content: "今日は静かだった" }] };
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(new ReadableStream({
+      start(controller) { controller.enqueue(new TextEncoder().encode("PRIVATE_PARTIAL_MARKER")); },
+    }), { status: 400 })));
+    const pending = POST(jsonRequest(body));
+    await vi.advanceTimersByTimeAsync(timeoutMs);
+    const res = await pending;
+    expect(res.status).toBe(502);
+    expect(await res.json()).not.toHaveProperty("code", "upstream_timeout");
+    expect(errors.mock.calls).toEqual([[`[kiri-${name}] upstream status`, 400, "provider_request_invalid"]]);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+  it.each(["refusal", "max_tokens", "PRIVATE_STOP_REASON_MARKER"])("analysis never logs raw stop_reason (%s)", async (stopReason) => {
+    const errors = env();
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ stop_reason: stopReason, content: [] }))));
+    const res = await analyzePOST(jsonRequest(analysisInput()));
+    expect(res.status).toBe(502);
+    expect(JSON.stringify(errors.mock.calls)).not.toContain(stopReason);
+    if (stopReason !== "PRIVATE_STOP_REASON_MARKER") {
+      expect(errors.mock.calls).toContainEqual(["[kiri-analyze] no usable text", "upstream_unusable"]);
+    }
+  });
+  it.each([["analyze", analyzePOST], ["chat", chatPOST]])("%s rejects invalid JSON without logging its content", async (_name, POST) => {
+    const errors = env();
+    const res = await POST(new Request("http://localhost/api/test", { method: "POST", body: "PRIVATE_DIARY_MARKER", headers: { "x-real-ip": `invalid-${_name}` } }));
+    expect(res.status).toBe(400);
+    expect(JSON.stringify(await res.json())).not.toContain("PRIVATE_DIARY_MARKER");
+    expect(JSON.stringify(errors.mock.calls)).not.toContain("PRIVATE_DIARY_MARKER");
+    expect(storeCalls.some((key) => key.startsWith("kiri:q:") || key.startsWith("kiri:cu:"))).toBe(false);
+  });
+  it.each([["birthDate", "2000-02-31"], ["birthDate", "not-a-date"], ["birthTime", "99:99"]])("rejects invalid %s before global quota or AI", async (field, value) => {
+    env(); const body = analysisInput(); body.userProfile[field] = value;
+    const upstream = vi.fn(); vi.stubGlobal("fetch", upstream);
+    const res = await analyzePOST(jsonRequest(body));
+    expect(res.status).toBe(400);
+    expect(storeCalls.some((key) => key.startsWith("kiri:q:"))).toBe(false);
+    expect(upstream).not.toHaveBeenCalled();
+  });
+  it("does not coerce string biorhythms into numeric input", async () => {
+    env(); const body = analysisInput(); body.biorhythm.p = "10";
+    expect((await analyzePOST(jsonRequest(body))).status).toBe(400);
+    expect(storeCalls.some((key) => key.startsWith("kiri:q:"))).toBe(false);
+  });
+  it.each([["analyze", analyzePOST, 33 * 1024], ["chat", chatPOST, 193 * 1024]])("%s rejects oversized requests even with a false length before quota/rights/AI", async (_name, POST, size) => {
+    env(); const upstream = vi.fn(); vi.stubGlobal("fetch", upstream);
+    const res = await POST(new Request("http://localhost/api/test", { method: "POST", body: " ".repeat(size), headers: { "content-length": "1", "x-real-ip": `large-${_name}` } }));
+    expect(res.status).toBe(413);
+    expect(storeCalls.some((key) => key.startsWith("kiri:q:") || key.startsWith("kiri:cu:"))).toBe(false);
+    expect(upstream).not.toHaveBeenCalled();
+  });
+  it("rejects an overlong latest chat message without truncating away a crisis expression", async () => {
+    env(); const upstream = vi.fn(); vi.stubGlobal("fetch", upstream);
+    const res = await chatPOST(jsonRequest({ messages: [{ role: "user", content: "あ".repeat(1200) + "死にたい" }] }));
+    expect(res.status).toBe(400);
+    expect(upstream).not.toHaveBeenCalled();
+    expect(storeCalls.some((key) => key.startsWith("kiri:q:") || key.startsWith("kiri:cu:"))).toBe(false);
+  });
+  it.each(["refusal", "max_tokens", "empty", "thinking"])("chat treats %s output as a failure", async (reason) => {
+    env(); vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ stop_reason: reason, content: reason === "thinking" ? [{ type: "thinking", thinking: "private" }] : [] }))));
+    const res = await chatPOST(jsonRequest({ messages: [{ role: "user", content: "今日は静かだった" }] }));
+    expect(res.status).toBe(502);
+    expect(await res.json()).toMatchObject({ success: false, code: "upstream_unusable" });
+  });
+  it("keeps arbitrary nickname/diary/result data out of chat system instructions and preserves roles", async () => {
+    env(); const upstream = vi.fn(async () => anthropicOk()); vi.stubGlobal("fetch", upstream);
+    const res = await chatPOST(jsonRequest({ messages: [{ role: "user", content: "ひとこと" }, { role: "assistant", content: "返事" }, { role: "user", content: "続けて" }], userProfile: { nickname: "PRIVATE_NICKNAME" }, context: { entry: { event: "PRIVATE_EVENT" }, result: { deepMessage: "PRIVATE_RESULT" } } }));
+    expect(res.status).toBe(200);
+    const sent = JSON.parse(upstream.mock.calls[0][1].body);
+    expect(sent.system).not.toMatch(/PRIVATE_NICKNAME|PRIVATE_EVENT|PRIVATE_RESULT/);
+    expect(sent.system).toContain("安全について");
+    expect(sent.messages.map((m) => m.role)).toEqual(["user", "user", "assistant", "user"]);
+    expect(sent.messages[0].content).toMatch(/PRIVATE_NICKNAME/);
+    expect(sent.messages[0].content).toMatch(/PRIVATE_EVENT/);
+    expect(sent.messages[0].content).toMatch(/PRIVATE_RESULT/);
+  });
+  it("analysis returns original time and precision metadata; crisis guidance stays in system", async () => {
+    env(); const body = analysisInput(); body.entry.event = "死にたい";
+    const fortune = { deepMessage: "ここにいるよ。", innerMessage: "言葉を急がなくていい。", actionAdvice: "人の声に頼っていいよ。" };
+    const upstream = vi.fn(async () => new Response(JSON.stringify({ content: [{ type: "text", text: JSON.stringify(fortune) }] }))); vi.stubGlobal("fetch", upstream);
+    const res = await analyzePOST(jsonRequest(body));
+    expect(res.status).toBe(200);
+    const output = (await res.json()).data;
+    expect(Number.isFinite(Date.parse(output.analyzedAt))).toBe(true);
+    expect(output.saju.birth.hasBirthTime).toBe(false);
+    const sent = JSON.parse(upstream.mock.calls[0][1].body);
+    expect(sent.system).toContain("今回の最優先事項：寄り添いモード");
+    expect(sent.messages[0].content).not.toContain("今回の最優先事項：寄り添いモード");
+    expect(sent.system).not.toContain("人格を持たない観測存在");
   });
 });

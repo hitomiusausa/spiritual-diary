@@ -93,6 +93,7 @@ export function chatErrorMessage(code) {
 // purchaseChat() の結果 → 購入画面に出す案内（成功・キャンセルは何も出さない）。
 export function purchaseNotice(result) {
   if (result?.entitled || result?.cancelled) return null;
+  if (result?.error === "offering_changed") return "購入の情報が変わりました。価格を再読み込みして、内容を確かめてください。";
   if (result?.error === "pending") return "購入の承認を待っています。承認されると、Kiriと話せるようになります。";
   if (result?.error === "not_reflected") return "購入を受け付けました。反映まで少しかかることがあります。少しして『購入を復元』を試してください。";
   if (result?.error === "already_purchased") return "すでに購読しています。『購入を復元』を試してください。";
@@ -132,3 +133,6 @@ export function talkStateAfterPurchase(fresh, outcome) {
   if (!outcome?.entitled || fresh?.entitled) return fresh;
   return outcome.state?.entitled ? outcome.state : { entitled: true, expiresAt: null, willRenew: false, isTrial: false, managementUrl: null };
 }
+
+// 購入直後もサーバーの権利検証を優先する。入力を残し、利用者の操作で再試行する。
+export const PURCHASE_REFLECTION_NOTICE = "購入の情報がまだ反映されていないかもしれません。少し時間をおいて、残っている入力でもう一度送ってください。購入し直す必要はありません。";

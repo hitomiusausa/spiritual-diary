@@ -40,8 +40,8 @@ export function validateFortuneText(fortune) {
   if (/頑張って|元気を出して|無理しないで|リフレッシュ|〜すべき|しましょう/.test(allText)) {
     warnings.push("励まし・断定定型");
   }
-  if ((allText.match(/🐰|🌙/g) ?? []).length > 3) {
-    warnings.push("絵文字過多");
+  if (/\p{Extended_Pictographic}/u.test(allText)) {
+    warnings.push("絵文字");
   }
 
   return warnings;

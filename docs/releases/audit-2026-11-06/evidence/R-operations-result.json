@@ -1,0 +1,17 @@
+{
+  "checks": [
+    "v1 requires consent; Escape sends nothing",
+    "explicit v2 acceptance sends once",
+    "v2 persisted",
+    "overlong crisis not sent; local support visible",
+    "local support clears for general entry",
+    "cancel retains input",
+    "late analysis cannot write history",
+    "503 returns input with local support",
+    "corrupt chat original retained; recovery downloadable",
+    "import at capacity preserves all 30 originals and reports skipped",
+    "invalid object import cannot change originals"
+  ],
+  "passed": 11,
+  "realAIRequests": 0
+}

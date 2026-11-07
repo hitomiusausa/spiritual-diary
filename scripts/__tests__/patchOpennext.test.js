@@ -21,3 +21,9 @@ describe("applyPreviewPropsPatch", () => {
     expect(applyPreviewPropsPatch(wrap(PATCH_BEFORE) + wrap(PATCH_BEFORE)).status).toBe("unexpected");
   });
 });
+
+// 実際の上流版が独立したpreview-propsパスを持つ場合も、不要な書換えをしない。
+it('recognizes the upstream separate preview-props manifest', () => {
+  const source = `await glob([join(dotNextDir, "${PATCH_BEFORE}"), join(dotNextDir, "server/preview-props.json")])`;
+  expect(applyPreviewPropsPatch(source)).toEqual({ status: 'already', source });
+});

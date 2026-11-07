@@ -1,0 +1,42 @@
+{
+  "aiCalls": 0,
+  "syntheticBindingOnly": true,
+  "tests": [
+    {
+      "path": "/__kiri-diagnostics/key-match",
+      "method": "POST",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "path": "/__kiri-diagnostics/key-match",
+      "method": "POST",
+      "status": 404,
+      "passed": true
+    },
+    {
+      "path": "/__kiri-diagnostics/key-match",
+      "method": "POST",
+      "status": 404,
+      "passed": true
+    },
+    {
+      "path": "/__kiri-diagnostics/key-match",
+      "method": "GET",
+      "status": 404,
+      "passed": true
+    },
+    {
+      "path": "/",
+      "method": "GET",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "path": "/api/analyze",
+      "method": "POST",
+      "status": 503,
+      "passed": true
+    }
+  ]
+}

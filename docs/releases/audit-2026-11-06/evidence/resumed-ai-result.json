@@ -1,0 +1,35 @@
+{
+  "test": "approved single physical AI retry",
+  "appBuild": 3,
+  "workerVersion": "cf45f762-b4d7-4269-a580-398ed865e095",
+  "additionalAttempts": 1,
+  "upstreamHttpStatus": 400,
+  "fixedReason": "provider_request_invalid",
+  "fixedLogs": [
+    {
+      "timestamp": 1794056113655,
+      "message": [
+        "[kiri-analyze] upstream status",
+        400,
+        "provider_request_invalid"
+      ],
+      "version": "cf45f762-b4d7-4269-a580-398ed865e095"
+    }
+  ],
+  "ui": "failure notice; synthetic input retained",
+  "restoration": {
+    "verifiedAt": "2026-11-07T13:00:30.536740+00:00",
+    "profileRestoredExactly": true,
+    "existingHistoryRestoredExactly": true,
+    "historyCount": 3,
+    "lockSettingsUnchanged": true,
+    "consentRevoked": true,
+    "additionalAiAttempts": 1,
+    "upstreamStatus": 400,
+    "fixedReason": "provider_request_invalid",
+    "successSaveRestartPath": "not_passed"
+  },
+  "afterRestart": "Kiri lock screen observed",
+  "requestBodyReadSuccess": "not_distinguishable_from_fixed_reason",
+  "cause": "not_confirmed"
+}

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Fingerprint, KeyRound, LifeBuoy, Lock, RotateCw, ScanFace, X } from 'lucide-react';
 import SupportCard from '@/components/SupportCard';
+import ModalFrame from '@/components/ModalFrame';
 
 // アプリのロック画面（iOS のみ。見た目は比較案 A「静かな扉」、2026-10-09 オーナー選択）。
 // - スプラッシュ「静かな霧」と地続きの夜色・霧の地平・上からの薄紫の光。ゴールドは 1 色だけ。
@@ -33,8 +34,8 @@ export default function LockScreen({ view, onUnlock }) {
   }, [showSupport, view.mode]);
 
   return (
-    <div
-      className="fixed inset-0 z-[90] overflow-hidden text-kiri-text"
+    <ModalFrame
+      className="fixed inset-0 z-[90] overflow-y-auto text-kiri-text"
       style={BACKGROUND}
       role="dialog"
       aria-modal="true"
@@ -119,6 +120,6 @@ export default function LockScreen({ view, onUnlock }) {
           </>
         )}
       </div>
-    </div>
+    </ModalFrame>
   );
 }

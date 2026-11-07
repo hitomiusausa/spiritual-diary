@@ -138,3 +138,22 @@ describe("clearCachedAnalyses", () => {
     expect(() => clearCachedAnalyses(undefined)).not.toThrow();
   });
 });
+
+describe("B-04 malformed current-result cache", () => {
+  it.each([
+    { deepMessage: { not: "text" } },
+    { deepMessage: "ok", todayHints: {} },
+    { deepMessage: "ok", todayHints: { color: { value: "red", message: {} } } },
+    { deepMessage: "ok", saju: { birth: null, today: {} } },
+    { deepMessage: "ok", themeScores: { love: 50 } },
+    { deepMessage: "ok", analyzedAt: "invalid-date" },
+  ])("drops only an invalid optimization payload, leaving history untouched", (payload) => {
+    const original = '[{"id":"preserve"}]';
+    const storage = memoryStorage({
+      [ANALYSIS_CACHE_STORAGE_KEY]: JSON.stringify({ bad: { date: "2026-10-08", payload } }),
+      "spiritual-diary.history.v1": original,
+    });
+    expect(loadCachedAnalysis(storage, "bad", T0)).toBeNull();
+    expect(storage.data.get("spiritual-diary.history.v1")).toBe(original);
+  });
+});

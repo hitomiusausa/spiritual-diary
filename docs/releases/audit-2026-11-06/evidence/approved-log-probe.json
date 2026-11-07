@@ -1,0 +1,14 @@
+{
+  "aiCalls": 0,
+  "tailConnected": true,
+  "logs": [
+    {
+      "timestamp": 1794055591778,
+      "message": [
+        "[kiri-analyze] request failed",
+        "invalid_json"
+      ],
+      "version": "cf45f762-b4d7-4269-a580-398ed865e095"
+    }
+  ]
+}

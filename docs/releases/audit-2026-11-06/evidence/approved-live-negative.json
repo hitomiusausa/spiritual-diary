@@ -1,0 +1,105 @@
+{
+  "checkedAt": "2026-11-07T12:42:48.201981+00:00",
+  "aiRequests": 0,
+  "results": [
+    {
+      "path": "/api/analyze",
+      "method": "OPTIONS",
+      "origin": "capacitor://localhost",
+      "status": 204,
+      "allowOrigin": "capacitor://localhost",
+      "allowMethods": "POST, OPTIONS",
+      "body": null
+    },
+    {
+      "path": "/api/analyze",
+      "method": "OPTIONS",
+      "origin": "https://qa-untrusted.invalid",
+      "status": 204,
+      "allowOrigin": null,
+      "allowMethods": null,
+      "body": null
+    },
+    {
+      "path": "/api/chat",
+      "method": "OPTIONS",
+      "origin": "capacitor://localhost",
+      "status": 204,
+      "allowOrigin": "capacitor://localhost",
+      "allowMethods": "POST, OPTIONS",
+      "body": null
+    },
+    {
+      "path": "/api/chat",
+      "method": "OPTIONS",
+      "origin": "https://qa-untrusted.invalid",
+      "status": 204,
+      "allowOrigin": null,
+      "allowMethods": null,
+      "body": null
+    },
+    {
+      "path": "/api/analyze",
+      "method": "POST",
+      "origin": "capacitor://localhost",
+      "status": 400,
+      "allowOrigin": "capacitor://localhost",
+      "allowMethods": null,
+      "body": {
+        "success": false,
+        "error": "Invalid analysis input"
+      }
+    },
+    {
+      "path": "/api/analyze",
+      "method": "POST",
+      "origin": "capacitor://localhost",
+      "status": 400,
+      "allowOrigin": "capacitor://localhost",
+      "allowMethods": null,
+      "body": {
+        "success": false,
+        "error": "Analysis failed",
+        "code": "invalid_json"
+      }
+    },
+    {
+      "path": "/api/analyze",
+      "method": "POST",
+      "origin": "capacitor://localhost",
+      "status": 413,
+      "allowOrigin": "capacitor://localhost",
+      "allowMethods": null,
+      "body": {
+        "success": false,
+        "error": "Analysis failed",
+        "code": "body_too_large"
+      }
+    },
+    {
+      "path": "/api/chat",
+      "method": "POST",
+      "origin": "capacitor://localhost",
+      "status": 400,
+      "allowOrigin": "capacitor://localhost",
+      "allowMethods": null,
+      "body": {
+        "success": false,
+        "error": "Chat message is required"
+      }
+    },
+    {
+      "path": "/api/chat",
+      "method": "POST",
+      "origin": "capacitor://localhost",
+      "status": 403,
+      "allowOrigin": "capacitor://localhost",
+      "allowMethods": null,
+      "body": {
+        "success": false,
+        "error": "Chat is not available",
+        "code": "not_entitled"
+      }
+    }
+  ]
+}

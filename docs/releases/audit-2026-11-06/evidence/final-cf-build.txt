@@ -1,0 +1,68 @@
+
+> spiritual-diary@0.1.0 cf:build
+> node scripts/patch-opennext.mjs && opennextjs-cloudflare build
+
+[patch-opennext] preview-props.json は既に対象です（変更なし）
+
+┌─────────────────────────────┐
+│ OpenNext — Cloudflare build │
+└─────────────────────────────┘
+
+App directory: /Users/usausagi/Documents/AI_Playground/spiritual-diary-qa/release-audit-20261106-132743/candidate
+Next.js version : 16.4.5
+@opennextjs/cloudflare version: 1.20.16
+@opennextjs/aws version: 4.1.15
+workerd compatibility_date: 2026-09-21
+
+┌─────────────────────────────────┐
+│ OpenNext — Building Next.js app │
+└─────────────────────────────────┘
+
+
+> spiritual-diary@0.1.0 build
+> next build
+
+▲ Next.js 16.4.5 (Turbopack)
+✓ Running next.config.mjs took 23ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 5.8s
+  Running TypeScript ...
+  Finished TypeScript in 15ms ...
+  Collecting page data using 7 workers ...
+  Generating static pages using 7 workers (0/9) ...
+  Generating static pages using 7 workers (2/9) 
+  Generating static pages using 7 workers (4/9) 
+  Generating static pages using 7 workers (6/9) 
+✓ Generating static pages using 7 workers (9/9) in 472ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ƒ /api/analyze
+├ ƒ /api/chat
+├ ○ /privacy
+├ ○ /support
+└ ○ /terms
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+
+┌──────────────────────────────┐
+│ OpenNext — Generating bundle │
+└──────────────────────────────┘
+
+Bundling middleware function...
+Bundling static assets...
+Bundling cache assets...
+Building server function: default...
+Applying code patches: 2.417s
+# copyPackageTemplateFiles
+[35m⚙️ Bundling the OpenNext server...
+[0m
+[35mWorker saved in `.open-next/worker.js` 🚀
+[0m
+OpenNext build complete.

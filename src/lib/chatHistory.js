@@ -1,24 +1,22 @@
+import { assertDataWritable, clearDataIssue, readStoredData, validChatMessage } from "./dataIntegrity";
+
 export const CHAT_HISTORY_STORAGE_KEY = "spiritual-diary.chat.v1";
 export const MAX_CHAT_MESSAGES = 1000;
 
 export function loadChatHistory(storage) {
-  try {
-    const parsed = JSON.parse(storage?.getItem(CHAT_HISTORY_STORAGE_KEY) ?? "[]");
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .filter((message) => message && (message.role === "user" || message.role === "assistant") && typeof message.content === "string")
-      .slice(-MAX_CHAT_MESSAGES);
-  } catch {
-    return [];
-  }
+  return readStoredData(storage, CHAT_HISTORY_STORAGE_KEY, {
+    fallback: [], validate: validChatMessage, array: true, maxItems: MAX_CHAT_MESSAGES, keepLast: true,
+  });
 }
 
 export function saveChatHistory(storage, messages) {
+  loadChatHistory(storage);
+  assertDataWritable(storage, CHAT_HISTORY_STORAGE_KEY);
   const safeMessages = (Array.isArray(messages) ? messages : [])
-    .filter((message) => message && (message.role === "user" || message.role === "assistant"))
+    .filter(validChatMessage)
     .map((message) => ({
       role: message.role,
-      content: String(message.content || "").slice(0, 1800),
+      content: message.content,
       ...(message.support ? { support: true } : {}),
     }))
     .slice(-MAX_CHAT_MESSAGES);
@@ -28,5 +26,6 @@ export function saveChatHistory(storage, messages) {
 
 export function clearChatHistory(storage) {
   storage?.removeItem(CHAT_HISTORY_STORAGE_KEY);
+  clearDataIssue(storage, CHAT_HISTORY_STORAGE_KEY);
   return [];
 }

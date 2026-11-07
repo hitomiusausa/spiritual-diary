@@ -1,0 +1,333 @@
+{
+  "auditReportVersion": 2,
+  "vulnerabilities": {
+    "@capacitor/cli": {
+      "name": "@capacitor/cli",
+      "severity": "moderate",
+      "isDirect": true,
+      "via": [
+        "xcode"
+      ],
+      "effects": [],
+      "range": "8.5.0 - 8.5.3 || 8.6.1-nightly-20261029T150938.0 - 9.0.0-alpha.8",
+      "nodes": [
+        "node_modules/@capacitor/cli"
+      ],
+      "fixAvailable": {
+        "name": "@capacitor/cli",
+        "version": "8.6.0",
+        "isSemVerMajor": false
+      }
+    },
+    "@typescript-eslint/eslint-plugin": {
+      "name": "@typescript-eslint/eslint-plugin",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@typescript-eslint/parser",
+        "@typescript-eslint/type-utils",
+        "@typescript-eslint/utils"
+      ],
+      "effects": [],
+      "range": ">=6.16.0",
+      "nodes": [
+        "node_modules/@typescript-eslint/eslint-plugin"
+      ],
+      "fixAvailable": true
+    },
+    "@typescript-eslint/parser": {
+      "name": "@typescript-eslint/parser",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@typescript-eslint/typescript-estree"
+      ],
+      "effects": [
+        "@typescript-eslint/eslint-plugin",
+        "typescript-eslint"
+      ],
+      "range": ">=6.16.0",
+      "nodes": [
+        "node_modules/@typescript-eslint/parser"
+      ],
+      "fixAvailable": {
+        "name": "eslint-config-next",
+        "version": "15.5.29",
+        "isSemVerMajor": true
+      }
+    },
+    "@typescript-eslint/type-utils": {
+      "name": "@typescript-eslint/type-utils",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@typescript-eslint/typescript-estree",
+        "@typescript-eslint/utils"
+      ],
+      "effects": [
+        "@typescript-eslint/eslint-plugin"
+      ],
+      "range": ">=6.16.0",
+      "nodes": [
+        "node_modules/@typescript-eslint/type-utils"
+      ],
+      "fixAvailable": true
+    },
+    "@typescript-eslint/typescript-estree": {
+      "name": "@typescript-eslint/typescript-estree",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "minimatch"
+      ],
+      "effects": [
+        "@typescript-eslint/parser",
+        "@typescript-eslint/type-utils",
+        "@typescript-eslint/utils",
+        "typescript-eslint"
+      ],
+      "range": ">=6.16.0",
+      "nodes": [
+        "node_modules/@typescript-eslint/typescript-estree"
+      ],
+      "fixAvailable": {
+        "name": "eslint-config-next",
+        "version": "15.5.29",
+        "isSemVerMajor": true
+      }
+    },
+    "@typescript-eslint/utils": {
+      "name": "@typescript-eslint/utils",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@typescript-eslint/typescript-estree"
+      ],
+      "effects": [
+        "typescript-eslint"
+      ],
+      "range": ">=6.16.0",
+      "nodes": [
+        "node_modules/@typescript-eslint/utils"
+      ],
+      "fixAvailable": {
+        "name": "eslint-config-next",
+        "version": "15.5.29",
+        "isSemVerMajor": true
+      }
+    },
+    "@vitest/mocker": {
+      "name": "@vitest/mocker",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1242767,
+          "name": "@vitest/mocker",
+          "dependency": "@vitest/mocker",
+          "title": "Vitest: Code injection via unauthenticated manual mock registration",
+          "url": "https://github.com/advisories/GHSA-qxg6-89mg-rqv8",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-94",
+            "CWE-116",
+            "CWE-306"
+          ],
+          "cvss": {
+            "score": 4.7,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:C/C:L/I:L/A:N"
+          },
+          "range": ">=2.1.0-beta.7 <4.1.12"
+        },
+        {
+          "source": 1242769,
+          "name": "@vitest/mocker",
+          "dependency": "@vitest/mocker",
+          "title": "Vitest: Windows backslash traversal bypasses the @vitest/mocker redirect allowlist fix",
+          "url": "https://github.com/advisories/GHSA-xp26-3454-mjgp",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-22"
+          ],
+          "cvss": {
+            "score": 5.9,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N"
+          },
+          "range": ">=4.1.11 <4.1.12"
+        }
+      ],
+      "effects": [
+        "vitest"
+      ],
+      "range": "<=4.1.11",
+      "nodes": [
+        "node_modules/@vitest/mocker"
+      ],
+      "fixAvailable": true
+    },
+    "eslint-config-next": {
+      "name": "eslint-config-next",
+      "severity": "moderate",
+      "isDirect": true,
+      "via": [
+        "typescript-eslint"
+      ],
+      "effects": [],
+      "range": ">=15.6.0-canary.0",
+      "nodes": [
+        "node_modules/eslint-config-next"
+      ],
+      "fixAvailable": {
+        "name": "eslint-config-next",
+        "version": "15.5.29",
+        "isSemVerMajor": true
+      }
+    },
+    "minimatch": {
+      "name": "minimatch",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1244623,
+          "name": "minimatch",
+          "dependency": "minimatch",
+          "title": "minimatch has potential denial of service via globparts amplification",
+          "url": "https://github.com/advisories/GHSA-g3hv-75wg-m249",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-405"
+          ],
+          "cvss": {
+            "score": 0,
+            "vectorString": null
+          },
+          "range": ">=7.0.0 <11.0.1"
+        }
+      ],
+      "effects": [
+        "@typescript-eslint/typescript-estree"
+      ],
+      "range": "7.0.0 - 11.0.0",
+      "nodes": [
+        "node_modules/@typescript-eslint/typescript-estree/node_modules/minimatch"
+      ],
+      "fixAvailable": {
+        "name": "eslint-config-next",
+        "version": "15.5.29",
+        "isSemVerMajor": true
+      }
+    },
+    "typescript-eslint": {
+      "name": "typescript-eslint",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "@typescript-eslint/eslint-plugin",
+        "@typescript-eslint/parser",
+        "@typescript-eslint/typescript-estree",
+        "@typescript-eslint/utils"
+      ],
+      "effects": [
+        "eslint-config-next"
+      ],
+      "range": "*",
+      "nodes": [
+        "node_modules/typescript-eslint"
+      ],
+      "fixAvailable": {
+        "name": "eslint-config-next",
+        "version": "15.5.29",
+        "isSemVerMajor": true
+      }
+    },
+    "uuid": {
+      "name": "uuid",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1119441,
+          "name": "uuid",
+          "dependency": "uuid",
+          "title": "uuid: Missing buffer bounds check in v3/v5/v6 when buf is provided",
+          "url": "https://github.com/advisories/GHSA-w5hq-g745-h8pq",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-787",
+            "CWE-1285"
+          ],
+          "cvss": {
+            "score": 7.5,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N"
+          },
+          "range": "<11.1.1"
+        }
+      ],
+      "effects": [
+        "xcode"
+      ],
+      "range": "<11.1.1",
+      "nodes": [
+        "node_modules/uuid"
+      ],
+      "fixAvailable": {
+        "name": "@capacitor/cli",
+        "version": "8.6.0",
+        "isSemVerMajor": false
+      }
+    },
+    "vitest": {
+      "name": "vitest",
+      "severity": "moderate",
+      "isDirect": true,
+      "via": [
+        "@vitest/mocker"
+      ],
+      "effects": [],
+      "range": "2.1.0-beta.1 - 4.1.11",
+      "nodes": [
+        "node_modules/vitest"
+      ],
+      "fixAvailable": true
+    },
+    "xcode": {
+      "name": "xcode",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "uuid"
+      ],
+      "effects": [
+        "@capacitor/cli"
+      ],
+      "range": "0.9.2 - 3.0.2-nightly.20251125002453809.sha.e6b981ec",
+      "nodes": [
+        "node_modules/xcode"
+      ],
+      "fixAvailable": {
+        "name": "@capacitor/cli",
+        "version": "8.6.0",
+        "isSemVerMajor": false
+      }
+    }
+  },
+  "metadata": {
+    "vulnerabilities": {
+      "info": 0,
+      "low": 0,
+      "moderate": 13,
+      "high": 0,
+      "critical": 0,
+      "total": 13
+    },
+    "dependencies": {
+      "prod": 313,
+      "dev": 495,
+      "optional": 200,
+      "peer": 16,
+      "peerOptional": 0,
+      "total": 915
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "configuration": "Release simulator iOS15.5",
+  "loggingBehavior": "none",
+  "webContentsDebuggingEnabled": false,
+  "syntheticProfileWritten": {
+    "nickname": "QA-NATIVE—PRIVATE15",
+    "birthDate": "2000-01-01",
+    "birthTime": "",
+    "gender": ""
+  },
+  "logBytes": 468,
+  "bridgeResultsInLog": false,
+  "preferencesCallsInLog": false,
+  "syntheticMarkerInLog": false,
+  "systemMessagesMayRemain": true
+}

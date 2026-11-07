@@ -1,0 +1,29 @@
+const encode = (text) => new TextEncoder().encode(text);
+export async function sha256(text) {
+  const bytes = await crypto.subtle.digest("SHA-256", encode(text));
+  return Array.from(new Uint8Array(bytes), x => x.toString(16).padStart(2, "0")).join("");
+}
+const sameHash = (a, b) => {
+  if (typeof a !== "string" || typeof b !== "string" || a.length !== 64 || b.length !== 64) return false;
+  let delta = 0;
+  for (let i = 0; i < 64; i++) delta |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return delta === 0;
+};
+const hidden = () => new Response("Not found", { status: 404, headers: { "Cache-Control": "no-store" } });
+export function createProbeFetch(originalWorker, config, now = Date.now) {
+  return async function(request, env, ctx) {
+    if (new URL(request.url).pathname !== "/__kiri-diagnostics/key-match") {
+      return originalWorker.fetch(request, env, ctx);
+    }
+    if (request.method !== "POST" || !Number.isFinite(config.expiresAtMs) || now() >= config.expiresAtMs) return hidden();
+    const header = request.headers.get("Authorization") || "";
+    if (!/^Bearer [0-9a-f]{64}$/.test(header)) return hidden();
+    if (!sameHash(await sha256(header.slice(7)), config.tokenHash)) return hidden();
+    void request.body?.cancel().catch(() => {});
+    const key = typeof env.CLAUDE_API_KEY === "string" ? env.CLAUDE_API_KEY : "";
+    const matchesExpected = !!key && sameHash(await sha256(key), config.expectedKeyHash);
+    return Response.json({ keyConfigured: !!key, matchesExpected }, {
+      headers: { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" }
+    });
+  };
+}

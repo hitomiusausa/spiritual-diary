@@ -1,5 +1,5 @@
 import { Phone } from 'lucide-react';
-import { SUPPORT_LINES, SUPPORT_LINES_CHECKED_AT } from '@/lib/kiriSafety';
+import { SUPPORT_LINES, SUPPORT_LINES_CHECKED_AT, SUPPORT_LINES_SOURCE_URL } from '@/lib/kiriSafety';
 
 // 危機の言葉を拾ったときに、読み解きより先に出す相談窓口カード。
 export default function SupportCard({ compact = false }) {
@@ -30,6 +30,7 @@ export default function SupportCard({ compact = false }) {
         ))}
       </ul>
       <p className="mt-3 text-xs text-kiri-fog">今すぐ危ないと感じるときは、迷わず119へ。</p>
+      <p className="mt-2 text-xs text-kiri-lilac-ink leading-relaxed">地域やIP電話によって、別の番号になる場合があります。つながらないときやSNSで相談したいときは、<a href={SUPPORT_LINES_SOURCE_URL} target="_blank" rel="noopener noreferrer" className="text-kiri-gold underline underline-offset-2">厚生労働省の相談窓口案内</a>をご覧ください。</p>
       <p className="mt-1 text-[0.75rem] text-kiri-lilac-ink">窓口情報は{SUPPORT_LINES_CHECKED_AT.replace(/-/g, '/')}に厚生労働省の案内で確認しました。</p>
     </section>
   );

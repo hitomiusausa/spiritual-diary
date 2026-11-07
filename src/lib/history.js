@@ -1,3 +1,7 @@
+import {
+  assertDataWritable, clearDataIssue, readStoredData, validBirthDate, validHistoryRecord, validProfile,
+} from "./dataIntegrity";
+
 export const HISTORY_STORAGE_KEY = "spiritual-diary.history.v1";
 export const PROFILE_STORAGE_KEY = "spiritual-diary.profile.v1";
 export const MAX_HISTORY_ITEMS = 30;
@@ -50,48 +54,50 @@ export function isSameReading(a, b) {
 }
 
 export function loadHistory(storage) {
-  try {
-    const parsed = JSON.parse(storage?.getItem(HISTORY_STORAGE_KEY) ?? "[]");
-    return Array.isArray(parsed) ? parsed.slice(0, MAX_HISTORY_ITEMS) : [];
-  } catch {
-    return [];
-  }
+  return readStoredData(storage, HISTORY_STORAGE_KEY, {
+    fallback: [], validate: validHistoryRecord, array: true, maxItems: MAX_HISTORY_ITEMS,
+  });
 }
 
 export function saveHistory(storage, record) {
-  const history = [record, ...loadHistory(storage)]
-    .filter((item, index, all) => item?.id && all.findIndex((candidate) => candidate.id === item.id) === index)
+  const previous = loadHistory(storage);
+  assertDataWritable(storage, HISTORY_STORAGE_KEY);
+  if (!validHistoryRecord(record)) throw new Error("invalid history record");
+  const history = [record, ...previous]
+    .filter((item, index, all) => all.findIndex((candidate) => candidate.id === item.id) === index)
     .slice(0, MAX_HISTORY_ITEMS);
   storage?.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history));
   return history;
 }
 
 export function deleteHistoryItem(storage, id) {
-  const history = loadHistory(storage).filter((item) => item.id !== id);
+  const previous = loadHistory(storage);
+  assertDataWritable(storage, HISTORY_STORAGE_KEY);
+  const history = previous.filter((item) => item.id !== id);
   storage?.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history));
   return history;
 }
 
 export function clearHistory(storage) {
   storage?.removeItem(HISTORY_STORAGE_KEY);
+  clearDataIssue(storage, HISTORY_STORAGE_KEY);
   return [];
 }
 
 export function loadProfile(storage) {
-  try {
-    const parsed = JSON.parse(storage?.getItem(PROFILE_STORAGE_KEY) ?? "null");
-    return parsed && typeof parsed === "object" ? parsed : null;
-  } catch {
-    return null;
-  }
+  return readStoredData(storage, PROFILE_STORAGE_KEY, { fallback: null, validate: validProfile });
 }
 
 export function saveProfile(storage, profile) {
+  const previous = loadProfile(storage);
+  assertDataWritable(storage, PROFILE_STORAGE_KEY);
+  if (!validProfile(profile)) throw new Error("invalid profile");
   const safeProfile = {
-    nickname: String(profile?.nickname || "").slice(0, 40),
-    birthDate: String(profile?.birthDate || "").slice(0, 10),
-    birthTime: String(profile?.birthTime || "").slice(0, 5),
-    gender: String(profile?.gender || "").slice(0, 16),
+    ...previous,
+    nickname: profile.nickname || "",
+    birthDate: profile.birthDate || "",
+    birthTime: profile.birthTime || "",
+    gender: profile.gender || "",
   };
   storage?.setItem(PROFILE_STORAGE_KEY, JSON.stringify(safeProfile));
   return safeProfile;
@@ -101,7 +107,7 @@ const BIRTH_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 // 起動時の最初の画面。生年月日が保存済みなら基本情報を飛ばして日記入力から始める。
 export function initialStepFor(profile) {
-  return BIRTH_DATE_PATTERN.test(profile?.birthDate || "") ? "input" : "start";
+  return BIRTH_DATE_PATTERN.test(profile?.birthDate || "") && validBirthDate(profile.birthDate, false) ? "input" : "start";
 }
 
 export function formatBirthDateJa(birthDate) {

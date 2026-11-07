@@ -11,11 +11,11 @@
 4. **配布署名は成功**: 未署名archiveからApp Store Connect向けexportでKUGAの配布profileと署名を付けられた。IPAの `embedded.mobileprovision` は `JQU8USCS8L.com.kugainc.kiri.ios`、`get-task-allow=false`、デバイス一覧なし。開発用署名は法人チームに登録端末が無いので失敗したが、TestFlight向けexportには端末登録は不要だった。署名チームはCLI引数で指定。
 5. **課金接続**: RevenueCatキーは未設定。D-28/D-30/D-31が正で、月額480円・1週間トライアル・1日60通・商品名「Kiriと話す」。旧Phase 3資料 Ruling 12 の `premium.monthly` / 「Kiri プレミアム」は古い。正しい商品IDは `com.kugainc.kiri.talk.monthly`、Entitlement `kiri_chat`、Offering `default` / package `$rc_monthly`。Bundle IDを変更しても、商品IDまで機械的に変更しない。
 
-## Appleへのアップロードと内部配布（成功・実機確認前）
+## Appleへのアップロードと内部配布（成功・実機で読み解き結果まで確認）
 
 - 2026-10-16 01:13 JST、1.0 / build 1 のアップロード成功。`/tmp/kiri-testflight-20261016-upload-retry.log` に `Upload succeeded` / `Uploaded App` / `EXPORT SUCCEEDED`。Apple側の処理も完了。
 - 暗号化の質問は「上記のアルゴリズムのどれでもない」を保存。HTTPS・Web Crypto SHA-256・同梱RC SDKのCryptoKit/CommonCryptoの使用を確認し、[Appleの説明](https://developer.apple.com/help/app-store-connect/manage-app-information/overview-of-export-compliance/)と照合した。このビルドに独自暗号実装はない。`ITSAppUsesNonExemptEncryption` はソースに未追加なので、次のビルドでも質問が出る。実装やSDK変更時は再確認。
-- 内部グループ「Kiri 内部テスト」を作成、自動配信はオフ。本人のASCアカウント1人のみ追加。ビルド1を追加し、**「1人のテスター・1個のビルド」「1.0 (1) テスト中」** を画面で確認。再読み込み後、本人のステータスも **「招待済み」** を確認した。インストール状態は未確認。外部テスターには配布していない。
+- 内部グループ「Kiri 内部テスト」を作成、自動配信はオフ。本人のASCアカウント1人のみ追加。ビルド1を追加し、**「1人のテスター・1個のビルド」「1.0 (1) テスト中」** を画面で確認。再読み込み後、本人のステータスも **「招待済み」** を確認した。その後、本人からインストール・起動・読み解き結果表示の成功報告あり。外部テスターには配布していない。
 - TestFlight: `https://appstoreconnect.apple.com/teams/528f37d1-3237-441f-bae2-bdfcf9e20158/apps/6823251374/testflight`
 - グループ: `https://appstoreconnect.apple.com/teams/528f37d1-3237-441f-bae2-bdfcf9e20158/apps/6823251374/testflight/groups/b7d885d0-4228-4312-8f5b-e9cbc62fe6cd`
 
@@ -33,7 +33,7 @@
 
 ## 再開する順番
 
-1. 本人の招待メールをiPhoneで開き、[Apple公式TestFlight](https://apps.apple.com/jp/app/testflight/id899247664)でKiriを入れる。招待済みは確認。アプリレコード・新ID・配布用署名・アップロード・処理・内部グループへの配布開始も済み。
+1. TestFlight版は本人のiPhoneでインストール・起動・読み解き結果表示・履歴表示・完全終了後の基本情報復元・バックアップ読み込み（追加0件・全記録2件）・Face IDロックの有効化と終了後の再ロック・アプリ切替時の目隠し・大きい文字での表示と操作・Wi-Fiを含め通信を切った場合のエラー表示・設定時間後の自動ロックまで成功。
 2. 初回TestFlightは今ある基本機能の署名IPAを使える。課金テストも含める場合は、ASCの商品とRevenueCatを先に接続して再ビルド。公開SDKキーはビルド時のプロセス環境、秘密キーはCloudflare Secrets。秘密を `.env*` に書かない（D-19）。App Storeで有料チャットを出す判断は既存のD-28/D-30を維持。
 3. 課金込みなら `npm run ios:sync -- --require-iap`。キーなしで止まることを維持し、モックをアップロードしない。端末のAPI送信先・Version/Build番号・署名・manifestをarchiveの実物で確認。
 4. 次回の新ビルドはビルド番号を増やして下記のCLIでUpload。Appleの処理完了とビルド番号を確認し、必要なビルドだけ内部グループへ手動で追加する。本人は追加済み。第三者を招待するときは送信の指示を別途受ける。
@@ -69,4 +69,17 @@ exportOptionsは `method=app-store-connect` / `destination=export` / `signingSty
 アップロード用 `/tmp/kiri-testflight-20261016-upload.plist` は `destination=upload` にしたもの。ASCのアプリレコード作成後、上記コマンドから `-exportPath` を外し、このupload plistを指定して実行する。
 
 ログ: `/tmp/kiri-testflight-20261016-archive-new.log`、`/tmp/kiri-testflight-20261016-export.log`（成功）、`/tmp/kiri-testflight-20261016-upload.log`（missingAppで失敗）。
-このIPAは**課金なし**。TestFlightの内部グループへ配布開始済み。本人のiPhoneへのインストールと実機テストはまだ確認していない。App Store審査にも未提出。
+このIPAは**課金なし**。TestFlightの内部グループへ配布開始済み。本人のiPhoneでインストール・起動・読み解き結果表示まで確認済み。残りの実機QAは下記のとおり。App Store審査には未提出。
+
+### 本人による実機確認（2026-10-16）
+
+- PASS: TestFlightからインストールし、起動できた（ひちゃんの「起動できた！」）。端末モデル・OSは今回の報告では未確認。
+- PASS: 日記から本番AIの読み解き結果表示まで到達（ひちゃんの「結果まで表示できた」）。入力内容の共有は不要。
+- PASS: 「最近の記録」に今回の日記があること、完全終了後に基本情報を再入力せず日記画面から始まること（ひちゃんの「両方できた。前回の記録も残ってる」）。前回の記録も残っている。
+- PASS: バックアップファイル読み込みで「追加された記録 0件・全記録2件」。同一データの再読込で重複しないことを確認。
+- PASS: アプリのロックを有効にするときFace IDで認証し、アプリ終了後の再起動で再ロックする（ひちゃんの報告）。
+- PASS: アプリ切替画面での目隠し（ひちゃんの報告）。
+- PASS: 大きい文字で主要画面の表示と操作に問題なし（ひちゃんの報告）。
+- PASS: Wi-Fiを含め通信を切った状態で読み解きを試し、エラーメッセージが表示された（ひちゃんの報告）。
+- PASS: 自動ロックを1分に設定し、別アプリに移ってから時間経過後に戻るとFace IDロック画面が出た（ひちゃんの報告）。
+- PASS: 書き出したJSONバックアップをiPhoneから選び直して読み込めた（追加0件・全記録2件）。したがってバックアップの生成・保存・読込を一通り確認。

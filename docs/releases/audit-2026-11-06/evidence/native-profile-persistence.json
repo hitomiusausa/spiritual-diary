@@ -1,0 +1,12 @@
+{
+  "device": "Kiri-audit-20261106",
+  "os": "15.5",
+  "profile": {
+    "nickname": "QA-NATIVE-15",
+    "birthDate": "2000-01-01",
+    "birthTime": "",
+    "gender": ""
+  },
+  "restarted": true,
+  "consentStored": false
+}

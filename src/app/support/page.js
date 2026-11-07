@@ -8,7 +8,7 @@ export const metadata = {
 
 export default function SupportPage() {
   return (
-    <DocPage title="サポート" updatedAt="2026-10-10">
+    <DocPage title="サポート" updatedAt="2026-11-06">
       <section>
         <h2>よくある質問</h2>
         <div className="space-y-4 mt-2">
@@ -106,7 +106,7 @@ export default function SupportPage() {
             <p>
               Kiriの言葉は傾向を映す読み物であり、あなたの未来や価値を決めるものではありません。
               心がつらいときは、占いではなく人に頼ってください。厚生労働省の
-              「まもろうよ こころ」（https://www.mhlw.go.jp/mamorouyokokoro/）に、
+              <a href="https://www.mhlw.go.jp/mamorouyokokoro/" target="_blank" rel="noopener noreferrer" className="underline">「まもろうよ こころ」</a>に、
               電話・SNSで相談できる窓口がまとまっています。
             </p>
             <div className="mt-3">

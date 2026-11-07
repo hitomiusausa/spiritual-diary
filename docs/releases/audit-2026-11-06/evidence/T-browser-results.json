@@ -1,0 +1,311 @@
+{
+  "checks": [
+    {
+      "notice": "購入の情報がまだ反映されていないかもしれません。少し時間をおいて、残っている入力でもう一度送ってください。購入し直す必要はありません。",
+      "label": "E03 reflection wait avoids repurchase",
+      "pass": true
+    },
+    {
+      "label": "E03 keeps unsent input",
+      "pass": true
+    },
+    {
+      "label": "E03 does not save failure as conversation",
+      "pass": true
+    },
+    {
+      "label": "E03 no repurchase CTA in chat",
+      "pass": true
+    },
+    {
+      "label": "D03 keeps input after unusable reply",
+      "pass": true
+    },
+    {
+      "label": "D03 failure notice not persisted",
+      "pass": true
+    },
+    {
+      "label": "D03 shows separate error notice",
+      "pass": true
+    },
+    {
+      "label": "D01 failed crisis input retained",
+      "pass": true
+    },
+    {
+      "label": "D01 local support on chat failure",
+      "pass": true
+    },
+    {
+      "label": "D01 crisis failure not ordinary history",
+      "pass": true
+    },
+    {
+      "label": "D01 local support clears for general input",
+      "pass": true
+    },
+    {
+      "label": "G02 clear confirmation initially focuses cancel",
+      "pass": true
+    },
+    {
+      "label": "G02 focus stays in top confirmation Tab",
+      "pass": true
+    },
+    {
+      "label": "G02 focus stays in top confirmation Tab",
+      "pass": true
+    },
+    {
+      "label": "G02 focus stays in top confirmation Shift+Tab",
+      "pass": true
+    },
+    {
+      "label": "G02 Escape closes only confirmation",
+      "pass": true
+    },
+    {
+      "label": "G02 focus returns to trash opener",
+      "pass": true
+    },
+    {
+      "label": "B03 empty immediately after delete false",
+      "pass": true
+    },
+    {
+      "label": "B03 no resurrection after late success",
+      "pass": true
+    },
+    {
+      "label": "B03 no late assistant in state false",
+      "pass": true
+    },
+    {
+      "label": "B03 empty immediately after delete true",
+      "pass": true
+    },
+    {
+      "label": "B03 no resurrection after late 503",
+      "pass": true
+    },
+    {
+      "label": "B03 no late assistant in state true",
+      "pass": true
+    },
+    {
+      "id": "kiri-chat-input",
+      "labels": [
+        "Kiriに聞きたいこと"
+      ],
+      "label": "G04 stable chat label",
+      "pass": true
+    },
+    {
+      "label": "G02 Escape closes chat",
+      "pass": true
+    },
+    {
+      "label": "B03 reopening stays empty",
+      "pass": true
+    }
+  ],
+  "traffic": [
+    {
+      "kind": "reflection",
+      "body": {
+        "messages": [
+          {
+            "role": "user",
+            "content": "SYNTHETIC_OLD_QUESTION"
+          },
+          {
+            "role": "assistant",
+            "content": "監査用の過去の返事です。"
+          },
+          {
+            "role": "user",
+            "content": "PURCHASE_PENDING_INPUT"
+          }
+        ],
+        "userProfile": {
+          "nickname": "操作監査用"
+        },
+        "context": {
+          "entry": {
+            "event": "【監査用の架空日記】今日は公園を歩いて静かに過ごしました。",
+            "intuition": ""
+          },
+          "result": {
+            "deepMessage": "今日は静かな時間の中で、自分の歩幅を確かめていたんだね。ひとつずつ言葉にした記録には、あなたらしい気づきが残っているよ。今日は静かな時間の中で、自分の歩幅を確かめていたんだね。ひとつずつ言葉にした記録には、あなたらしい気づきが残っているよ。今日は静かな時間の中で、自分の歩幅を確かめていたんだね。ひとつずつ言葉にした記録には、あなたらしい気づきが残っているよ。今日は静かな時間の中で、自分の歩幅を確かめていたんだね。ひとつずつ言葉にした記録には、あなたらしい気づきが残っているよ。",
+            "innerMessage": "思いついたことを少しだけ書き留めてみると、次の一歩が見えてきそう。",
+            "actionAdvice": "今夜は温かいお茶と一緒に、小さな達成をひとつ振り返ってみて。"
+          }
+        },
+        "appUserId": "$RCAnonymousID:0000000000000000000000000000c0de"
+      }
+    },
+    {
+      "kind": "unusable",
+      "body": {
+        "messages": [
+          {
+            "role": "user",
+            "content": "SYNTHETIC_OLD_QUESTION"
+          },
+          {
+            "role": "assistant",
+            "content": "監査用の過去の返事です。"
+          },
+          {
+            "role": "user",
+            "content": "UPSTREAM_UNUSABLE_INPUT"
+          }
+        ],
+        "userProfile": {
+          "nickname": "操作監査用"
+        },
+        "context": {
+          "entry": {
+            "event": "【監査用の架空日記】今日は公園を歩いて静かに過ごしました。",
+            "intuition": ""
+          },
+          "result": {
+            "deepMessage": "今日は静かな時間の中で、自分の歩幅を確かめていたんだね。ひとつずつ言葉にした記録には、あなたらしい気づきが残っているよ。今日は静かな時間の中で、自分の歩幅を確かめていたんだね。ひとつずつ言葉にした記録には、あなたらしい気づきが残っているよ。今日は静かな時間の中で、自分の歩幅を確かめていたんだね。ひとつずつ言葉にした記録には、あなたらしい気づきが残っているよ。今日は静かな時間の中で、自分の歩幅を確かめていたんだね。ひとつずつ言葉にした記録には、あなたらしい気づきが残っているよ。",
+            "innerMessage": "思いついたことを少しだけ書き留めてみると、次の一歩が見えてきそう。",
+            "actionAdvice": "今夜は温かいお茶と一緒に、小さな達成をひとつ振り返ってみて。"
+          }
+        },
+        "appUserId": "$RCAnonymousID:0000000000000000000000000000c0de"
+      }
+    },
+    {
+      "kind": "crisisFailure",
+      "body": {
+        "messages": [
+          {
+            "role": "user",
+            "content": "SYNTHETIC_OLD_QUESTION"
+          },
+          {
+            "role": "assistant",
+            "content": "監査用の過去の返事です。"
+          },
+          {
+            "role": "user",
+            "content": "【自動監査用の架空文】消えたいと感じています。"
+          }
+        ],
+        "userProfile": {
+          "nickname": "操作監査用"
+        },
+        "context": {
+          "entry": {
+            "event": "【監査用の架空日記】今日は公園を歩いて静かに過ごしました。",
+            "intuition": ""
+          },
+          "result": {
+            "deepMessage": "今日は静かな時間の中で、自分の歩幅を確かめていたんだね。ひとつずつ言葉にした記録には、あなたらしい気づきが残っているよ。今日は静かな時間の中で、自分の歩幅を確かめていたんだね。ひとつずつ言葉にした記録には、あなたらしい気づきが残っているよ。今日は静かな時間の中で、自分の歩幅を確かめていたんだね。ひとつずつ言葉にした記録には、あなたらしい気づきが残っているよ。今日は静かな時間の中で、自分の歩幅を確かめていたんだね。ひとつずつ言葉にした記録には、あなたらしい気づきが残っているよ。",
+            "innerMessage": "思いついたことを少しだけ書き留めてみると、次の一歩が見えてきそう。",
+            "actionAdvice": "今夜は温かいお茶と一緒に、小さな達成をひとつ振り返ってみて。"
+          }
+        },
+        "appUserId": "$RCAnonymousID:0000000000000000000000000000c0de"
+      }
+    },
+    {
+      "kind": "hold",
+      "body": {
+        "messages": [
+          {
+            "role": "user",
+            "content": "SYNTHETIC_OLD_QUESTION"
+          },
+          {
+            "role": "assistant",
+            "content": "監査用の過去の返事です。"
+          },
+          {
+            "role": "user",
+            "content": "POST_DELETE_SUCCESS"
+          }
+        ],
+        "userProfile": {
+          "nickname": "操作監査用"
+        },
+        "context": {
+          "entry": {
+            "event": "【監査用の架空日記】今日は公園を歩いて静かに過ごしました。",
+            "intuition": ""
+          },
+          "result": {
+            "deepMessage": "今日は静かな時間の中で、自分の歩幅を確かめていたんだね。ひとつずつ言葉にした記録には、あなたらしい気づきが残っているよ。今日は静かな時間の中で、自分の歩幅を確かめていたんだね。ひとつずつ言葉にした記録には、あなたらしい気づきが残っているよ。今日は静かな時間の中で、自分の歩幅を確かめていたんだね。ひとつずつ言葉にした記録には、あなたらしい気づきが残っているよ。今日は静かな時間の中で、自分の歩幅を確かめていたんだね。ひとつずつ言葉にした記録には、あなたらしい気づきが残っているよ。",
+            "innerMessage": "思いついたことを少しだけ書き留めてみると、次の一歩が見えてきそう。",
+            "actionAdvice": "今夜は温かいお茶と一緒に、小さな達成をひとつ振り返ってみて。"
+          }
+        },
+        "appUserId": "$RCAnonymousID:0000000000000000000000000000c0de"
+      }
+    },
+    {
+      "kind": "seed",
+      "body": {
+        "messages": [
+          {
+            "role": "user",
+            "content": "SEED_FOR_NEXT_DELETE"
+          }
+        ],
+        "userProfile": {
+          "nickname": "操作監査用"
+        },
+        "context": {
+          "entry": {
+            "event": "【監査用の架空日記】今日は公園を歩いて静かに過ごしました。",
+            "intuition": ""
+          },
+          "result": {
+            "deepMessage": "今日は静かな時間の中で、自分の歩幅を確かめていたんだね。ひとつずつ言葉にした記録には、あなたらしい気づきが残っているよ。今日は静かな時間の中で、自分の歩幅を確かめていたんだね。ひとつずつ言葉にした記録には、あなたらしい気づきが残っているよ。今日は静かな時間の中で、自分の歩幅を確かめていたんだね。ひとつずつ言葉にした記録には、あなたらしい気づきが残っているよ。今日は静かな時間の中で、自分の歩幅を確かめていたんだね。ひとつずつ言葉にした記録には、あなたらしい気づきが残っているよ。",
+            "innerMessage": "思いついたことを少しだけ書き留めてみると、次の一歩が見えてきそう。",
+            "actionAdvice": "今夜は温かいお茶と一緒に、小さな達成をひとつ振り返ってみて。"
+          }
+        },
+        "appUserId": "$RCAnonymousID:0000000000000000000000000000c0de"
+      }
+    },
+    {
+      "kind": "hold",
+      "body": {
+        "messages": [
+          {
+            "role": "user",
+            "content": "SEED_FOR_NEXT_DELETE"
+          },
+          {
+            "role": "assistant",
+            "content": "監査用の正常な返事です。"
+          },
+          {
+            "role": "user",
+            "content": "POST_DELETE_ERROR"
+          }
+        ],
+        "userProfile": {
+          "nickname": "操作監査用"
+        },
+        "context": {
+          "entry": {
+            "event": "【監査用の架空日記】今日は公園を歩いて静かに過ごしました。",
+            "intuition": ""
+          },
+          "result": {
+            "deepMessage": "今日は静かな時間の中で、自分の歩幅を確かめていたんだね。ひとつずつ言葉にした記録には、あなたらしい気づきが残っているよ。今日は静かな時間の中で、自分の歩幅を確かめていたんだね。ひとつずつ言葉にした記録には、あなたらしい気づきが残っているよ。今日は静かな時間の中で、自分の歩幅を確かめていたんだね。ひとつずつ言葉にした記録には、あなたらしい気づきが残っているよ。今日は静かな時間の中で、自分の歩幅を確かめていたんだね。ひとつずつ言葉にした記録には、あなたらしい気づきが残っているよ。",
+            "innerMessage": "思いついたことを少しだけ書き留めてみると、次の一歩が見えてきそう。",
+            "actionAdvice": "今夜は温かいお茶と一緒に、小さな達成をひとつ振り返ってみて。"
+          }
+        },
+        "appUserId": "$RCAnonymousID:0000000000000000000000000000c0de"
+      }
+    }
+  ]
+}

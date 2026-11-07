@@ -15,6 +15,9 @@ const config: CapacitorConfig = {
   ios: {
     contentInset: "never",
     backgroundColor: NIGHT_COLOR,
+    // Preferencesの戻り値には日記本文が含まれる。SPMのDebug判定に依存してログ/検査を有効にしない。
+    loggingBehavior: "none",
+    webContentsDebuggingEnabled: false,
   },
   plugins: {
     CapacitorHttp: { enabled: false },

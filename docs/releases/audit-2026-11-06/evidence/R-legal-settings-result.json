@@ -1,0 +1,129 @@
+{
+  "passed": 20,
+  "results": [
+    {
+      "path": "/privacy",
+      "width": 375,
+      "scale": 1,
+      "overflow": false
+    },
+    {
+      "path": "/privacy",
+      "width": 375,
+      "scale": 1.35,
+      "overflow": false
+    },
+    {
+      "path": "/privacy",
+      "width": 402,
+      "scale": 1,
+      "overflow": false
+    },
+    {
+      "path": "/privacy",
+      "width": 402,
+      "scale": 1.35,
+      "overflow": false
+    },
+    {
+      "path": "/privacy",
+      "width": 1280,
+      "scale": 1,
+      "overflow": false
+    },
+    {
+      "path": "/privacy",
+      "width": 1280,
+      "scale": 1.35,
+      "overflow": false
+    },
+    {
+      "path": "/terms",
+      "width": 375,
+      "scale": 1,
+      "overflow": false
+    },
+    {
+      "path": "/terms",
+      "width": 375,
+      "scale": 1.35,
+      "overflow": false
+    },
+    {
+      "path": "/terms",
+      "width": 402,
+      "scale": 1,
+      "overflow": false
+    },
+    {
+      "path": "/terms",
+      "width": 402,
+      "scale": 1.35,
+      "overflow": false
+    },
+    {
+      "path": "/terms",
+      "width": 1280,
+      "scale": 1,
+      "overflow": false
+    },
+    {
+      "path": "/terms",
+      "width": 1280,
+      "scale": 1.35,
+      "overflow": false
+    },
+    {
+      "path": "/support",
+      "width": 375,
+      "scale": 1,
+      "overflow": false
+    },
+    {
+      "path": "/support",
+      "width": 375,
+      "scale": 1.35,
+      "overflow": false
+    },
+    {
+      "path": "/support",
+      "width": 402,
+      "scale": 1,
+      "overflow": false
+    },
+    {
+      "path": "/support",
+      "width": 402,
+      "scale": 1.35,
+      "overflow": false
+    },
+    {
+      "path": "/support",
+      "width": 1280,
+      "scale": 1,
+      "overflow": false
+    },
+    {
+      "path": "/support",
+      "width": 1280,
+      "scale": 1.35,
+      "overflow": false
+    },
+    {
+      "path": "settings",
+      "width": 667,
+      "height": 375,
+      "scale": 1,
+      "clipping": false,
+      "focus": true
+    },
+    {
+      "path": "settings",
+      "width": 667,
+      "height": 375,
+      "scale": 1.35,
+      "clipping": false,
+      "focus": true
+    }
+  ]
+}

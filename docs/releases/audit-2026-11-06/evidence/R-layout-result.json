@@ -1,0 +1,64 @@
+{
+  "resultAndPopupMatrix": [
+    {
+      "width": 375,
+      "height": 812,
+      "scale": 1,
+      "popups": 7,
+      "overflow": false
+    },
+    {
+      "width": 375,
+      "height": 812,
+      "scale": 1.35,
+      "popups": 7,
+      "overflow": false
+    },
+    {
+      "width": 402,
+      "height": 812,
+      "scale": 1,
+      "popups": 7,
+      "overflow": false
+    },
+    {
+      "width": 402,
+      "height": 812,
+      "scale": 1.35,
+      "popups": 7,
+      "overflow": false
+    },
+    {
+      "width": 1280,
+      "height": 900,
+      "scale": 1,
+      "popups": 7,
+      "overflow": false
+    },
+    {
+      "width": 1280,
+      "height": 900,
+      "scale": 1.35,
+      "popups": 7,
+      "overflow": false
+    },
+    {
+      "width": 667,
+      "height": 375,
+      "scale": 1,
+      "popups": 7,
+      "overflow": false
+    },
+    {
+      "width": 667,
+      "height": 375,
+      "scale": 1.35,
+      "popups": 7,
+      "overflow": false
+    }
+  ],
+  "stableInputLabel": true,
+  "noEmptyTaiun": true,
+  "noFalsePrecision": true,
+  "popupChecks": 56
+}

@@ -3,6 +3,8 @@
 // サーバーには日記由来のデータを保存しない方針のため、キャッシュは利用者の端末にだけ置く。
 // キーは正規化入力のSHA-256で、日記本文を平文のキーとして持たない。履歴（history.js）とは別物。
 
+import { MAX_DATA_JSON_CHARS, validAnalysisPayload } from "./dataIntegrity";
+
 export const ANALYSIS_CACHE_STORAGE_KEY = "kiri-analysis-cache-v1";
 export const MAX_ANALYSIS_CACHE_ITEMS = 10;
 
@@ -51,10 +53,12 @@ export async function analysisCacheKey(input, date = new Date(), subtle = global
 
 function readTodayEntries(storage, today) {
   try {
-    const parsed = JSON.parse(storage?.getItem(ANALYSIS_CACHE_STORAGE_KEY) ?? "{}");
+    const raw = storage?.getItem(ANALYSIS_CACHE_STORAGE_KEY) ?? "{}";
+    if (typeof raw !== "string" || raw.length > MAX_DATA_JSON_CHARS) return {};
+    const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
     return Object.fromEntries(
-      Object.entries(parsed).filter(([, item]) => item && item.date === today && item.payload)
+      Object.entries(parsed).filter(([, item]) => item && item.date === today && validAnalysisPayload(item.payload))
     );
   } catch {
     return {};

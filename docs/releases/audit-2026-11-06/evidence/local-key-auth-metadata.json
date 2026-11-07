@@ -1,0 +1,25 @@
+{
+  "keySource": "existing canonical .env.local; value not displayed",
+  "matchesConsoleMaskedEnds": true,
+  "aiGenerationCalls": 0,
+  "requests": [
+    {
+      "endpoint": "/v1/organizations/me",
+      "method": "GET",
+      "status": 200,
+      "organizationHeader": "a3d93888-11ed-4d90-87dc-19419004f1bc",
+      "workspaceHeader": null,
+      "organizationId": "a3d93888-11ed-4d90-87dc-19419004f1bc",
+      "organizationName": "Hitomi’s Individual Org"
+    },
+    {
+      "endpoint": "/v1/models",
+      "method": "GET",
+      "status": 200,
+      "organizationHeader": "a3d93888-11ed-4d90-87dc-19419004f1bc",
+      "workspaceHeader": "wrkspc_012jzv8UJ1hKnEB5THWJzark",
+      "availableModelCount": 13,
+      "sonnet55Listed": true
+    }
+  ]
+}

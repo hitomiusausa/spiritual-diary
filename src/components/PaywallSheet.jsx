@@ -2,8 +2,9 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { BookOpen, MessageCircle, RotateCw, X } from 'lucide-react';
+import ModalFrame from '@/components/ModalFrame';
 import { KIRI_TALK_AI_NOTICE, KIRI_TALK_NAME, kiriTalkPromises, paywallView } from '@/lib/kiriTalk';
 
 // 購入画面「Kiriと話す」（D-30 案A: 結果画面の上に下から出るシート）。
@@ -12,38 +13,14 @@ import { KIRI_TALK_AI_NOTICE, KIRI_TALK_NAME, kiriTalkPromises, paywallView } fr
 // 価格は StoreKit の文字列（offering.priceString）。ここに数字を書かない。
 // offering: undefined（読み込み中）／null（取れなかった）／{ priceString, productId, trial }
 // onPurchase / onRestore: Promise<string | null>（画面に出す案内。null なら何も出さない）を返す。
-const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
 const PROMISE_ICONS = [MessageCircle, BookOpen];
 
 export default function PaywallSheet({ open, offering, entitled = false, onPurchase, onRestore, onRetry, onManage, onClose }) {
-  const sheetRef = useRef(null);
-  const closeRef = useRef(null);
   const [busy, setBusy] = useState(null); // null | 'purchase' | 'restore'
   const [notice, setNotice] = useState(null);
   const busyRef = useRef(busy);
-  busyRef.current = busy;
 
-  // 開いている間: 背景のスクロールを止め、閉じるボタンへフォーカス。閉じたら開く前の場所へ戻す。
-  useEffect(() => {
-    if (!open) return undefined;
-    const previousFocus = document.activeElement;
-    const root = document.documentElement;
-    const previousOverflow = [root.style.overflow, document.body.style.overflow];
-    root.style.overflow = 'hidden';
-    document.body.style.overflow = 'hidden';
-    closeRef.current?.focus();
-    return () => {
-      [root.style.overflow, document.body.style.overflow] = previousOverflow;
-      if (previousFocus && typeof previousFocus.focus === 'function') previousFocus.focus();
-    };
-  }, [open]);
 
-  useEffect(() => {
-    if (!open) {
-      setNotice(null);
-      setBusy(null);
-    }
-  }, [open]);
 
   if (!open) return null;
 
@@ -52,27 +29,6 @@ export default function PaywallSheet({ open, offering, entitled = false, onPurch
   const close = () => {
     if (busyRef.current === 'purchase') return; // App Store の購入シートが出ている間は閉じない
     onClose?.();
-  };
-
-  // Esc で閉じる・Tab はシートの中を回る（aria-modal の約束）。
-  const onKeyDown = (event) => {
-    if (event.key === 'Escape') {
-      event.stopPropagation();
-      close();
-      return;
-    }
-    if (event.key !== 'Tab') return;
-    const items = [...(sheetRef.current?.querySelectorAll(FOCUSABLE) ?? [])];
-    if (!items.length) return;
-    const first = items[0];
-    const last = items[items.length - 1];
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first.focus();
-    }
   };
 
   const run = async (kind, action) => {
@@ -89,19 +45,14 @@ export default function PaywallSheet({ open, offering, entitled = false, onPurch
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end justify-center" role="presentation" onKeyDown={onKeyDown}>
+    <ModalFrame aria-modal="true" className="fixed inset-0 z-[60] flex items-end justify-center" onClose={close} initialFocus="[data-kiri-paywall-close]" aria-labelledby="kiri-paywall-title" aria-describedby="kiri-paywall-kind">
       <div className="absolute inset-0 bg-black/60" onClick={close} aria-hidden="true" />
       <div
-        ref={sheetRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="kiri-paywall-title"
-        aria-describedby="kiri-paywall-kind"
         className="kiri-paywall-sheet kiri-rise relative w-full max-w-md max-h-[calc(100dvh-env(safe-area-inset-top)-0.75rem)] overflow-y-auto overscroll-contain rounded-t-3xl border-t border-kiri-gold/25 px-6 pt-2.5 pb-[calc(1.75rem+env(safe-area-inset-bottom))]"
       >
         <div className="mx-auto mb-2.5 h-1.5 w-10 rounded-full bg-kiri-fog/30" aria-hidden="true" />
         <button
-          ref={closeRef}
+          data-kiri-paywall-close
           type="button"
           onClick={close}
           aria-label="閉じる"
@@ -159,7 +110,7 @@ export default function PaywallSheet({ open, offering, entitled = false, onPurch
             {!entitled && (
               <button
                 type="button"
-                onClick={() => run('purchase', onPurchase)}
+                onClick={() => run('purchase', () => onPurchase?.(offering))}
                 disabled={view.status !== 'ready' || busy !== null}
                 aria-busy={busy === 'purchase'}
                 className="mt-4 w-full min-h-[3.25rem] rounded-full bg-kiri-gold px-4 text-base font-bold tracking-wider text-kiri-night disabled:opacity-60"
@@ -170,7 +121,7 @@ export default function PaywallSheet({ open, offering, entitled = false, onPurch
           </>
         )}
 
-        {notice && <p className="mt-3 text-center text-sm leading-relaxed text-kiri-gold" role="status">{notice}</p>}
+        {notice && <div className="mt-3 text-center" role="status"><p className="text-sm leading-relaxed text-kiri-gold">{notice}</p>{onRetry && <button type="button" onClick={onRetry} disabled={busy !== null} className="min-h-11 text-sm text-kiri-gold underline">価格を再読み込み</button>}</div>}
 
         {view.fine && <p className="mt-3 text-center text-[0.75rem] leading-relaxed text-kiri-lilac-ink">{view.fine}</p>}
         <p className="mt-1 text-center text-[0.75rem] leading-relaxed text-kiri-lilac-ink">{KIRI_TALK_AI_NOTICE}</p>
@@ -194,6 +145,6 @@ export default function PaywallSheet({ open, offering, entitled = false, onPurch
           <Link href="/privacy" className="inline-flex min-h-11 items-center px-2 text-xs text-kiri-fog underline underline-offset-4">プライバシーポリシー</Link>
         </div>
       </div>
-    </div>
+    </ModalFrame>
   );
 }

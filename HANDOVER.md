@@ -1,25 +1,59 @@
 # HANDOVER.md — Kiri 現在地
 
-最終更新: 2026-10-16
+最終更新: 2026-11-08（本人依頼で調査をここまでで区切り、作業ブランチへpush）
 
-新しいセッションでは、まず`CLAUDE.md` → `DECISIONS.md` → `HANDOVER.md`の順に読む。詳細な履歴は`docs/HANDOFF-2026-07-28.md`と`docs/PROJECT_STATUS.md`にある。**このファイルの正本は main 上のもの**（作業ツリーごとに古い版が残っていることがある。`git show origin/main:HANDOVER.md` で確かめる）。
+新しいセッションでは `CLAUDE.md` → `DECISIONS.md` → この現在地を読む。**今回の監査変更はmainへ未マージ。origin/mainの古い引き継ぎでこの作業ブランチを上書きしない。**
 
-## 2026-10-16 TestFlight 内部配布（1.0 / build 1 テスト中・実機確認待ち）
+## 現在の状態
+
+- 本番: https://kiri.kugainc.com/ 。本人承認で監査候補＋安全な上流エラー分類を反映済み。最後のCLI確認でactive version **`cf45f762-b4d7-4269-a580-398ed865e095`**、100%。再開時は変更競合を確認する。監査前は `eb128156-5748-4f31-82dc-925f52dd9ba4`。
+- **公開阻害H-02/P1は継続**。実機の読み解きはAnthropic upstream HTTP400。初回2回(build2)＋別途承認の1回(build3)すべて失敗。最新ログは `provider_request_invalid`。本文解析失敗もこの分類へ落ちるため、原因・billing除外を断定しない。**追加AIは承認上限1/1使用済み、再承認なしで送信しない。**
+- 実機: iPhone12mini/iOS26.3.1、bundle `com.kugainc.kiri.ios`、開発署名Release 1.0/build3。TestFlight再upload/提出/実購入なし。元profile・既存history3件・lock設定をraw保存値で完全一致照合し復元済み。架空入力を消し、試験用v2同意も撤回、再起動後のKiriロック画面を確認。本人のデータをGitへ含めない。
+- backup実ファイル往復（追加0/全3）、通常共有後Cache回収、本人認証、短時間復帰・82秒後自動ロックは部分合格。**AI成功→結果保存→再起動復元は未合格**。VoiceOver/大文字、実StoreKit・RevenueCat、共有中終了、Native全経路marker、G-05待機画面再測定も未了。
+
+## Anthropicの調査で分かったこと
+
+- 正しい組織は **Hitomi’s Individual Org**。**Kiri専用workspaceは存在**し、ID `wrkspc_012jzv8UJ1hKnEB5THWJzark`。`kiri-vercel-prod` はKiriスコープ・有効キー1本、作成2026-10-08、期限2027-03-31。前に見ていた日本語名の別表示組織の残高・Defaultだけの一覧をKiriの状態として使わない。
+- 11/7ライブ値: 組織0.52/100USD（通知30）、Kiri0.00/20USD（通知15）、残高表示19.99USD。上限/支払/キー/権限の変更なし。キーの名前にvercelとあるが現在の配信先はCloudflare。
+- canonical checkout `/Users/usausagi/Documents/AI_Playground/spiritual-diary/.env.local` に既存キーあり。値を表示せずConsoleの部分表示と照合。**非生成GET `/v1/organizations/me` と `/v1/models` は200**、上記組織/Kiri workspaceが解決されSonnet5.5利用可。APIversion2023-06-01・x-api-keyで確認。AI生成0、日記送信0。release/candidateには秘密envファイル無し。
+- **未確認はCloudflare本番secretとこのローカルキーの一致**。Workers管理APIはsecret値/fingerprintを返さない。名前/type/version一致だけでは格納値一致を証明できない。モデル/effort/APIversion/認証形式の静的再点検でも明白な不備は見つからず、キー不一致を原因と決めつけない。
+
+## 次の再開手順
+
+1. [調査再開メモ](docs/releases/audit-2026-11-06/restart-2026-11-08.md)と[キー調査](docs/releases/audit-2026-11-06/secret-metadata-readonly-review.md)を読む。CLIで現在のdeploymentsを再確認。
+2. **未承認・未反映の10分限定key比較probe**をGit外privateへ準備済み。既存secretを変更せず、256bit token認証＋期限付きPOSTで `keyConfigured / matchesExpected` のbooleanだけを返す。外向きfetch/AI呼出し無し。7 unit tests・6 local workerd HTTP・deploy dry-run・secret混入検査PASS。セキュリティ担当の限定レビュー記録あり。
+3. **本人へ一時診断deploy＋通常版への即時復帰を具体的に提示して承認を得る**。まだ承認されていないので実行しない。承認後にtoken/10分期限を再生成する（現在のartifactは期限切れ）。404を不一致と読まない。終了後は監査済み通常版 `cf45f762-b4d7-4269-a580-398ed865e095` に戻す。監査前版と混同しない。他者の新deployがあれば上書きしない。
+4. 一致/不一致の事実から次の調査を決める。キー再設定・上限変更・追加AIを自動実行しない。原因修正後の成功経路と残るH-02を実測してから公開判断。
+
+## 実装・検証・作業場所
+
+- 8領域監査＋Astra優先順位: 初回32件＋F-03/C-05/G-05＝35件、34件を修正対象として対応。保存失敗/破損原本保全/import保持、同意v2/撤回、API入力/deadline/安全性、購入表示整合、共有Cache回収、JST・出生時刻表示、共通dialog・アクセシビリティ等。保存キー/schema1・世界観を維持。
+- 製品検証: **51 files/824 tests、lint0、Next/OpenNext build、秘密埋込/Web課金混入検査PASS**。依存実行用audit0、dev moderate13残。WebKit113条件はAPI/購入mock。最低iOS15.5 Releaseで初期/設定/入力/同意拒否/profile保存・終了復元を確認。実機全項目の合格とは区別。
+- 本番: 公開4ページ200、static12ファイルcandidateとSHA一致、API保護9項目＋ログ接続用invalid JSON試験PASS（AI0）。最新調査でソース/ビルド2014ファイルは承認時snapshotと一致。以後は文書とGit外診断準備のみ。
+- release: `/Users/usausagi/Documents/AI_Playground/spiritual-diary-release`。**push先は `agent/release-audit-handover-20261108`（mainへmergeしない）。** 基準HEAD `aac43b6`、過去TestFlight build1とは別。
+- 検証済candidate: `/Users/usausagi/Documents/AI_Playground/spiritual-diary-qa/release-audit-20261106-132743/candidate`。releaseの旧node_modulesを使わずcandidateで検証、またはlockに合わせnpm ci。生成物・秘密設定・IPAはpushしない。
+- Git外private: `/Users/usausagi/Documents/AI_Playground/spiritual-diary-qa/physical-qa-20261107-1153/`。原本container・hash・退避・各CLIログ、`key-match-probe/`（auth/config/bundleは秘密扱いでGitへ入れない）。監査前backupは `spiritual-diary-qa/release-audit-20261106-132743/before/`。localserver/live tailは停止済み。
+- [指摘](docs/releases/audit-2026-11-06/findings.md) / [Astra](docs/releases/audit-2026-11-06/astra-priorities.md) / [検証](docs/releases/audit-2026-11-06/verification.md) / [本番・実機実施](docs/releases/audit-2026-11-06/approved-deployment-2026-11-07.md)。同日途中の状態は[経過ログ](docs/releases/audit-2026-11-06/session-history-2026-11-07.md)へ移動。以下は以前のリリース記録。
+
+## 2026-10-16 TestFlight 内部配布（1.0 / build 1 実機で読み解き結果まで確認済み）
 
 - ひちゃんの今回の目標: **TestFlightでiPhone実機テスト → App Store公開**。
 - 最新 `origin/main=55933a2` から `agent/testflight-release-20261016` を作成。作業場所は `/Users/usausagi/Documents/AI_Playground/spiritual-diary-release`。元フォルダは古い `5330a55` のままなので、そこでiOSを作り直さない。
-- Apple Developer の法人加入は完了していることをライブ画面で確認（組織 KUGA K.K.・Account Holder）。App Store Connect のアプリ一覧は空。
+- Apple Developer の法人加入は完了していることをライブ画面で確認（組織 KUGA K.K.・Account Holder）。初回はASCのアプリ一覧が空だったが、下記のKiriレコードを作成済み。
 - Developer Program の更新契約の警告が最初に出た。その後のDeveloper画面では警告が消え、ASCには **Paid Applications Schedule の確認・同意が必要**と表示された。契約の操作は本人に依頼中。完了と決めつけず、次回も画面で確認する。
 - **Bundle ID問題は解消（D-37）**: 元の `com.kugainc.kiri` は再試行・Xcode自動署名とも利用不可。ローカルにPersonal Teamの同IDのprofileがあり、予約が残っている可能性が高い（所有情報は未確認）。ひちゃんの「対応して欲しい」を受け、配布用を `com.kugainc.kiri.ios` へ変更。Capacitor / Xcode Debug / Releaseを一致させ、KUGA法人チームのApp Store配布用profile・署名入りIPAの作成まで成功した。元のテストアプリと記録は削除していない。課金の商品IDは `com.kugainc.kiri.talk.monthly` のまま。
 - RevenueCatキーは既存ワークツリーの `.env.local` / `.dev.vars` に見つからなかった（値は出力していない）。公開キー・サーバー秘密キーとストア接続は未確認・未完了。今回の確認ビルドは**課金なし**。
 - **ASCアプリ作成済み（D-38）**: ひちゃんがSafariでログイン完了。名前 `Kiri` は使用済みで拒否されたため、`Kiri - Mind & Energy Note` で作成できた。日本語 / 会社名「くうが株式会社」/ SKU `kiri-ios` / Bundle ID `com.kugainc.kiri.ios`。Apple ID `6823251374`、ページ `https://appstoreconnect.apple.com/apps/6823251374/distribution`。
 - **アップロード・処理完了**: 2026-10-16 01:13 JST、1.0 / build 1。CLI再試行ログ `/tmp/kiri-testflight-20261016-upload-retry.log` に `Upload succeeded` / `Uploaded App` / `EXPORT SUCCEEDED`。Apple側の処理後、アイコンとビルド1が表示された。
 - **暗号化の確認を保存**: ASCの質問「どんな種類の暗号化アルゴリズムが実装されていますか？」に「上記のアルゴリズムのどれでもない」を保存し、提出準備完了→テスト準備完了となった。根拠: HTTPSはOS機能、分析キャッシュはWeb Crypto SHA-256、同梱RevenueCatの署名検証・チェックサムはAppleのCryptoKit/CommonCryptoを使用。Apple公式のOS内暗号機能の説明と照合。独自暗号実装のないこのビルドに対する回答。SDKや実装を変える場合は再確認する。Info.plistの `ITSAppUsesNonExemptEncryption` はまだ未追加（次のビルドでも質問が出る）。
-- **内部グループへ配布開始**: 「Kiri 内部テスト」、自動配信オフ（手動選択）。本人のASCアカウント1人のみ。ビルド1を追加し、画面で **「1人のテスター・1個のビルド」「1.0 (1) テスト中」** を確認済み。再読み込み後、本人のステータスも **「招待済み」** を確認。**次: 本人のiPhoneでTestFlightインストール→招待メールからKiriを入れる→実機検収**。インストール済みとはまだ確認していない。外部テスト・App Store審査提出は未実施。
+- **内部グループへ配布開始**: 「Kiri 内部テスト」、自動配信オフ（手動選択）。本人のASCアカウント1人のみ。ビルド1を追加し、画面で **「1人のテスター・1個のビルド」「1.0 (1) テスト中」** を確認済み。再読み込み後、本人のステータスも **「招待済み」** を確認。本人のiPhoneでインストール・起動・読み解き結果表示・履歴と再起動時の基本情報復元・重複しないバックアップ読み込み（追加0件・全記録2件）・Face IDロックと終了後の再ロック・アプリ切替時の目隠し・大きい文字での表示と操作・オフライン時の読み解きエラー・設定時間後の自動ロック画面まで確認済み。**次: App Store提出条件（課金接続方針・契約・プライバシー/素材）を仕上げる**。外部テスト・App Store審査提出は未実施。
 - 配布上の不足を修正: `ios/App/App/PrivacyInfo.xcprivacy` に Preferences（UserDefaults / CA92.1）・Filesystem（FileTimestamp / C617.1）の利用理由を追加し、Xcode Resources に登録。In-App Purchase capability も Xcode project に追加。署名チームはコマンドでKUGAを指定（Personal Teamをコミットしない）。
 - 検証: `npm ci`、715 tests / 45 files、lint、Web build、`npm audit --omit=dev` 0件。ID変更後もiOS関連63 testsと `npm run ios:sync` が成功。Xcode 26.3 / iOS 26.2 SDK の Release archive → App Store Connect向け署名export成功。IPAで法人チーム・新ID・配布profile（開発用フラグfalse、デバイス一覧なし）・署名・manifest・本番API向けHTMLを確認。`codesign --verify --deep --strict` も合格。アップロード成功は実機QA合格とは別。
 - 成果物: `build/testflight-20261016/Kiri-1.0-1.ipa`（Git管理外、1.0 / build 1、SHA-256 `5b71e741d795b5cf8cdaabb072f81a3c3d633946a191083648e6830720f6ffb0`）。元の未署名archiveは `/Users/usausagi/Library/Developer/Xcode/Archives/2026-10-16/Kiri-TestFlight-20261016.xcarchive`。GUIの推奨配布はこの未署名archiveだと `No Team Found in Archive` になるので、成功済みのCLI export経路を使う。詳細・コマンド・ログは `docs/releases/testflight-2026-10-16.md`。
 - Apple側では新ID・署名profileを作成済み。mainへのpush・Web本番デプロイはしていない。
+- **実機の本人確認**: ひちゃんから「起動できた！」「結果まで表示できた」「両方できた。前回の記録も残ってる」「追加された記録 0件・全記録2件」「できた！」「目隠し機能も確認できた」「大丈夫みたい」「エラーメッセージでた」「Face IDのロック画面出た！」と報告あり。TestFlightからのインストール・起動・本番AIの読み解き結果表示・履歴表示・完全終了後の基本情報復元・重複しないバックアップ読み込み・アプリロック有効化のFace ID認証・終了後の再ロック・アプリ切替時の目隠し・大きい文字での表示と操作・Wi-Fiを含め通信を切ったときのエラー表示・設定時間後の自動ロック画面がPASS。前回の記録も残存。旧Personal Team版の実機合格と混ぜない。
+- **App Store準備**: 現在の提出用整理は `docs/releases/app-store-2026-10-16.md`。10/09のPhase 4ドラフトは、現在と異なる記述（ID・名前・課金前提・プライバシー・審査メモ）があるので直接転記しない。公開版の有料チャット方針（D-28/D-30）は維持し、今回の課金なしTestFlightをもって無断で無料のみの公開へ変えない。
+- **契約のライブ確認**: SafariのBusinessで有料アプリ契約は「有効（新規契約が利用可能）」、新しいバージョンの確認・同意の案内あり。こちらでは同意していない。銀行・税務フォームは今回操作していない。
 
 ## 前回までの場所（2026-10-11 未明）
 

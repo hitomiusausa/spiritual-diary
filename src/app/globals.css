@@ -314,3 +314,21 @@ input[type="time"]::-webkit-date-and-time-value {
   文章の折り返しは通常のまま（text-wrap: pretty は使わない）。
   iOS Safari 26 では日本語の段落が実幅の7割ほどで折り返され、ヒントのカードが細長くなったため外した（D-35）。
 */
+
+/* モーダルは画面内でスクロールし、OSの大きい文字でも閉じる操作へ届くようにする。 */
+dialog.kiri-modal {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  border: 0;
+  color: inherit;
+}
+dialog.kiri-modal:not([open]) { display: none; }
+dialog.kiri-modal::backdrop { background: transparent; }
+.kiri-dialog-card {
+  max-height: calc(100vh - 2rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  max-height: calc(100dvh - 2rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  overflow-y: auto;
+}

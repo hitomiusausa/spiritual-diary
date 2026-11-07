@@ -7,7 +7,7 @@ export const metadata = {
 
 export default function PrivacyPage() {
   return (
-    <DocPage title="プライバシーポリシー" updatedAt="2026-10-10">
+    <DocPage title="プライバシーポリシー" updatedAt="2026-11-06">
       <p>
         Kiri（Mind & Energy Note、以下「本サービス」）は、利用者のプライバシーを尊重し、
         個人情報を次のとおり取り扱います。
@@ -49,13 +49,16 @@ export default function PrivacyPage() {
         <p>
           占いの読み解きとチャットの応答を生成するとき、入力内容（基本情報・日記・メッセージ）は
           本サービスのサーバーを経由してAnthropic社のAI
-          API（Claude）に送信されます。
+          API（Claude）に送信されます。会話では今日の記録・読み解き結果と直近の会話も、応答の背景として送信されます。端末に保存した全履歴を毎回送信することはありません。
           Anthropic社のAPIに送信されたデータは、同社の方針によりAIモデルの学習には使用されません。
           入力内容（日記・分析結果・メッセージ）は、運営者のサーバーに保存しません。
+          Anthropic社の商用APIでは、通常は受信・生成から30日以内に入出力が削除されます。
+          安全対策・利用規約違反への対応・法令・個別契約などによって、より長く保持される場合があります。
+          詳しくは<a href="https://privacy.claude.com/en/articles/7996866-how-long-do-you-store-my-organization-s-data" target="_blank" rel="noopener noreferrer" className="underline">Anthropic社のデータ保持方針</a>をご確認ください。
         </p>
         <p className="mt-2">
           この送信は、確認画面で同意をいただいた場合にだけ行います（読み解き・チャットとも）。確認画面は、同意がまだない状態で「読み解く」を押すと表示されます。
-          同意はいつでも、設定の「AI送信の同意を取り消す」から取り消せます。取り消すと、読み解きは再び同意をいただくまで使えません。
+          同意はいつでも、設定の「AI送信の同意を取り消す」から取り消せます。取り消すと、再び同意をいただくまで読み解き・会話は送信されません。保存済みの記録は引き続き読めます。
         </p>
         <p className="mt-2">
           不正利用の防止と利用量の管理のため、本サービスは次の情報だけを、

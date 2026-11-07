@@ -7,6 +7,9 @@ import {
   getStorage,
   initStorage,
   resetStorageForTests,
+  getStorageStatus,
+  retryStorageWrites,
+  subscribeStorageStatus,
 } from "@/lib/storage";
 import { HISTORY_STORAGE_KEY, PROFILE_STORAGE_KEY } from "@/lib/history";
 import { CHAT_HISTORY_STORAGE_KEY } from "@/lib/chatHistory";
@@ -41,14 +44,16 @@ describe("getStorage / initStorage on the web", () => {
   it("falls back to window.localStorage when called before init", () => {
     const local = createMemoryStorage();
     globalThis.window = { localStorage: local };
-    expect(getStorage()).toBe(local);
+    getStorage().setItem("x", "1");
+    expect(local.getItem("x")).toBe("1");
   });
 
   it("initStorage resolves immediately and keeps returning localStorage", async () => {
     const local = createMemoryStorage();
     globalThis.window = { localStorage: local };
     await expect(initStorage()).resolves.toBeUndefined();
-    expect(getStorage()).toBe(local);
+    getStorage().setItem("x", "1");
+    expect(local.getItem("x")).toBe("1");
   });
 
   it("returns a memory shim when localStorage access throws", async () => {
@@ -203,7 +208,7 @@ describe("initStorage on native (Preferences)", () => {
     await initStorage({ preferences });
     getStorage().setItem("x", "1");
     getStorage().setItem("y", "2");
-    await expect(flushStorageWrites()).resolves.toBeUndefined();
+    await expect(flushStorageWrites()).rejects.toMatchObject({ code: "storage_write_failed", failedKeys: ["x"] });
     expect(getStorage().getItem("x")).toBe("1");
     expect(preferences.store.get("y")).toBe("2");
   });
@@ -282,12 +287,12 @@ describe("one-time migration from WKWebView localStorage", () => {
     expect(preferences.store.has("some-other-site-key")).toBe(false);
   });
 
-  it("does not mark when a copy fails, keeps the data visible, and retries on the next launch", async () => {
+  it("stops hydration when a copy fails, preserves originals, and retries", async () => {
     const local = spyStorage(ALL_KEYS);
     const failing = createPreferencesMock({}, { failSetFor: [HISTORY_STORAGE_KEY] });
     nativeWindow(local);
-    await initStorage({ preferences: failing });
-    expect(getStorage().getItem(HISTORY_STORAGE_KEY)).toBe(ALL_KEYS[HISTORY_STORAGE_KEY]);
+    await expect(initStorage({ preferences: failing })).rejects.toMatchObject({ code: "storage_init_failed" });
+    expect(getStorage().getItem(HISTORY_STORAGE_KEY)).toBeNull();
     expect(failing.store.has(MIGRATION_MARKER_KEY)).toBe(false);
     expect(local.writes).toEqual([]);
 
@@ -348,12 +353,13 @@ describe("writes before initStorage finishes (audit P2-5)", () => {
     expect(b.getItem("x")).toBeNull();
     const local = createMemoryStorage();
     globalThis.window = { localStorage: local };
-    expect(getStorage()).toBe(local);
+    getStorage().setItem("x", "1");
+    expect(local.getItem("x")).toBe("1");
   });
 });
 
 describe("initStorage when Preferences is unavailable on native", () => {
-  it("falls back to localStorage without rejecting and keeps early writes", async () => {
+  it("rejects without reviving old localStorage and keeps early writes pending", async () => {
     const local = spyStorage({ [HISTORY_STORAGE_KEY]: "h" });
     nativeWindow(local);
     getStorage().setItem(CONSENT_STORAGE_KEY, "c");
@@ -362,8 +368,199 @@ describe("initStorage when Preferences is unavailable on native", () => {
         throw new Error("plugin missing");
       },
     };
-    await expect(initStorage({ preferences })).resolves.toBeUndefined();
-    expect(getStorage().getItem(HISTORY_STORAGE_KEY)).toBe("h");
+    await expect(initStorage({ preferences })).rejects.toMatchObject({ code: "storage_init_failed" });
+    expect(getStorage().getItem(HISTORY_STORAGE_KEY)).toBeNull();
     expect(getStorage().getItem(CONSENT_STORAGE_KEY)).toBe("c");
+  });
+});
+
+describe("B-01 durable completion and latest-intent retry", () => {
+  it("notifies a write failure, retries the latest intent, and survives restart", async () => {
+    const failSetFor = [HISTORY_STORAGE_KEY];
+    const preferences = createPreferencesMock({ [MIGRATION_MARKER_KEY]: "{}", [HISTORY_STORAGE_KEY]: "old" }, { failSetFor });
+    nativeWindow(spyStorage());
+    const changes = [];
+    const unsubscribe = subscribeStorageStatus((state) => changes.push(state));
+    await initStorage({ preferences });
+    const stable = getStorageStatus();
+    expect(getStorageStatus()).toBe(stable);
+    getStorage().setItem(HISTORY_STORAGE_KEY, "newer");
+    await expect(flushStorageWrites()).rejects.toMatchObject({ failedKeys: [HISTORY_STORAGE_KEY] });
+    expect(getStorageStatus()).toMatchObject({ phase: "ready", mode: "native", failedKeys: [HISTORY_STORAGE_KEY] });
+    expect(preferences.store.get(HISTORY_STORAGE_KEY)).toBe("old");
+    getStorage().setItem(HISTORY_STORAGE_KEY, "latest");
+    await expect(flushStorageWrites()).rejects.toMatchObject({ code: "storage_write_failed" });
+    failSetFor.splice(0);
+    await retryStorageWrites();
+    expect(preferences.store.get(HISTORY_STORAGE_KEY)).toBe("latest");
+    expect(getStorageStatus().failedKeys).toEqual([]);
+    expect(changes.some((state) => state.pendingKeys.includes(HISTORY_STORAGE_KEY))).toBe(true);
+    expect(JSON.stringify(changes)).not.toContain("newer");
+    unsubscribe();
+    resetStorageForTests();
+    await initStorage({ preferences, native: true });
+    expect(getStorage().getItem(HISTORY_STORAGE_KEY)).toBe("latest");
+  });
+
+  it("does not poison the chain or retry an obsolete failed value", async () => {
+    const preferences = createPreferencesMock({ [MIGRATION_MARKER_KEY]: "{}" });
+    const original = preferences.set;
+    preferences.set = async (options) => {
+      if (options.value === "bad") throw new Error("sensitive upstream detail");
+      return original(options);
+    };
+    await initStorage({ native: true, preferences });
+    getStorage().setItem("x", "bad");
+    getStorage().setItem("x", "good");
+    await flushStorageWrites();
+    await retryStorageWrites();
+    expect(preferences.store.get("x")).toBe("good");
+    expect(getStorageStatus().failedKeys).toEqual([]);
+  });
+
+  it("exposes remove failure and lets a key-scoped flush ignore an optional cache failure", async () => {
+    const preferences = createPreferencesMock({ [MIGRATION_MARKER_KEY]: "{}", [HISTORY_STORAGE_KEY]: "old" });
+    let fail = true;
+    preferences.remove = async ({ key }) => { if (fail) throw new Error("remove failed"); preferences.store.delete(key); };
+    await initStorage({ native: true, preferences });
+    getStorage().removeItem(HISTORY_STORAGE_KEY);
+    await expect(flushStorageWrites()).rejects.toMatchObject({ failedKeys: [HISTORY_STORAGE_KEY] });
+    await expect(flushStorageWrites({ keys: [CONSENT_STORAGE_KEY] })).resolves.toBeUndefined();
+    expect(preferences.store.has(HISTORY_STORAGE_KEY)).toBe(true);
+    fail = false;
+    await retryStorageWrites();
+    expect(preferences.store.has(HISTORY_STORAGE_KEY)).toBe(false);
+  });
+
+  it("reports Web quota failure without exposing the raw exception and retries", async () => {
+    const local = createMemoryStorage();
+    const set = local.setItem;
+    let fail = true;
+    local.setItem = (key, value) => { if (fail) throw new Error("private diary detail"); set(key, value); };
+    globalThis.window = { localStorage: local };
+    await initStorage();
+    expect(() => getStorage().setItem("x", "latest")).toThrow("device storage write failed");
+    await expect(flushStorageWrites()).rejects.toMatchObject({ failedKeys: ["x"] });
+    fail = false;
+    await retryStorageWrites();
+    expect(local.getItem("x")).toBe("latest");
+    expect(getStorageStatus().failedKeys).toEqual([]);
+  });
+
+  it("never claims the Web memory fallback is durable, even on retry while blocked", async () => {
+    const local = createMemoryStorage();
+    let blocked = true;
+    globalThis.window = { get localStorage() { if (blocked) throw new Error(); return local; } };
+    await initStorage();
+    getStorage().setItem("x", "work");
+    expect(getStorage().getItem("x")).toBe("work");
+    expect(getStorageStatus().mode).toBe("memory");
+    await expect(retryStorageWrites()).rejects.toMatchObject({ code: "storage_write_failed" });
+    blocked = false;
+    await retryStorageWrites();
+    expect(getStorageStatus().mode).toBe("web");
+    expect(getStorage().getItem("x")).toBe("work");
+  });
+});
+
+describe("B-05 failed native hydration", () => {
+  it("keeps Preferences authoritative when one read fails and retries without stale resurrection", async () => {
+    const local = spyStorage({ [HISTORY_STORAGE_KEY]: "stale-deleted" });
+    const preferences = createPreferencesMock({ [MIGRATION_MARKER_KEY]: "{}", [HISTORY_STORAGE_KEY]: "newest" });
+    const get = preferences.get;
+    let fail = true;
+    preferences.get = async (options) => { if (fail && options.key === PROFILE_STORAGE_KEY) throw new Error(); return get(options); };
+    nativeWindow(local);
+    getStorage().setItem(CONSENT_STORAGE_KEY, "pending-consent");
+    await expect(initStorage({ preferences })).rejects.toMatchObject({ code: "storage_init_failed" });
+    expect(getStorage().getItem(HISTORY_STORAGE_KEY)).toBeNull();
+    expect(getStorageStatus().phase).toBe("error");
+    expect(local.writes).toEqual([]);
+    expect(preferences.store.get(HISTORY_STORAGE_KEY)).toBe("newest");
+    fail = false;
+    await initStorage({ preferences });
+    await flushStorageWrites();
+    expect(getStorage().getItem(HISTORY_STORAGE_KEY)).toBe("newest");
+    expect(preferences.store.get(CONSENT_STORAGE_KEY)).toBe("pending-consent");
+  });
+
+  it("stops on migration-marker failure and retries without rewriting existing Preferences", async () => {
+    const failSetFor = [MIGRATION_MARKER_KEY];
+    const preferences = createPreferencesMock({ [HISTORY_STORAGE_KEY]: "newest" }, { failSetFor });
+    nativeWindow(spyStorage({ [HISTORY_STORAGE_KEY]: "old" }));
+    await expect(initStorage({ preferences })).rejects.toMatchObject({ code: "storage_init_failed" });
+    expect(preferences.store.get(HISTORY_STORAGE_KEY)).toBe("newest");
+    failSetFor.splice(0);
+    await initStorage({ preferences });
+    expect(getStorage().getItem(HISTORY_STORAGE_KEY)).toBe("newest");
+  });
+});
+
+describe("Web recovery overlay and unseen originals", () => {
+  it("exposes a failed latest write for backup rescue while keeping the old durable copy", async () => {
+    const local = createMemoryStorage({ [HISTORY_STORAGE_KEY]: "old" });
+    const originalSet = local.setItem;
+    let fail = true;
+    local.setItem = (key, value) => { if (fail) throw new Error(); originalSet(key, value); };
+    globalThis.window = { localStorage: local };
+    await initStorage();
+    expect(() => getStorage().setItem(HISTORY_STORAGE_KEY, "latest")).toThrow();
+    expect(getStorage().getItem(HISTORY_STORAGE_KEY)).toBe("latest");
+    expect(local.getItem(HISTORY_STORAGE_KEY)).toBe("old");
+    fail = false;
+    await retryStorageWrites();
+    expect(local.getItem(HISTORY_STORAGE_KEY)).toBe("latest");
+    originalSet(HISTORY_STORAGE_KEY, "external-after-success");
+    expect(getStorage().getItem(HISTORY_STORAGE_KEY)).toBe("external-after-success");
+  });
+
+  it("retains the user's failed deletion as a retryable overlay", async () => {
+    const local = createMemoryStorage({ x: "old" });
+    const originalRemove = local.removeItem;
+    let fail = true;
+    local.removeItem = (key) => { if (fail) throw new Error(); originalRemove(key); };
+    globalThis.window = { localStorage: local };
+    await initStorage();
+    expect(() => getStorage().removeItem("x")).toThrow();
+    expect(getStorage().getItem("x")).toBeNull();
+    expect(local.getItem("x")).toBe("old");
+    fail = false;
+    await retryStorageWrites();
+    expect(local.getItem("x")).toBeNull();
+  });
+
+  it("preflights memory recovery before replacing unseen original history/profile", async () => {
+    const local = createMemoryStorage({ [HISTORY_STORAGE_KEY]: "original-history", [PROFILE_STORAGE_KEY]: "original-profile" });
+    let blocked = true;
+    globalThis.window = { get localStorage() { if (blocked) throw new Error(); return local; } };
+    await initStorage();
+    getStorage().setItem(HISTORY_STORAGE_KEY, "session-history");
+    getStorage().setItem(PROFILE_STORAGE_KEY, "session-profile");
+    getStorage().setItem("new-only", "session-value");
+    blocked = false;
+    await expect(retryStorageWrites()).rejects.toMatchObject({ code: "storage_recovery_conflict", conflictKeys: [HISTORY_STORAGE_KEY, PROFILE_STORAGE_KEY] });
+    expect(getStorageStatus().mode).toBe("memory");
+    expect(getStorage().getItem(HISTORY_STORAGE_KEY)).toBe("session-history");
+    expect(local.getItem(HISTORY_STORAGE_KEY)).toBe("original-history");
+    expect(local.getItem(PROFILE_STORAGE_KEY)).toBe("original-profile");
+    expect(local.getItem("new-only")).toBeNull();
+  });
+
+  it("keeps a memory-session delete pending when recovery finds an unseen original", async () => {
+    const local = createMemoryStorage({ x: "unseen-original" });
+    let blocked = true;
+    globalThis.window = { get localStorage() { if (blocked) throw new Error(); return local; } };
+    await initStorage();
+    getStorage().setItem("x", "session-value");
+    getStorage().removeItem("x");
+    blocked = false;
+    await expect(retryStorageWrites()).rejects.toMatchObject({ code: "storage_recovery_conflict", conflictKeys: ["x"] });
+    expect(local.getItem("x")).toBe("unseen-original");
+    expect(getStorage().getItem("x")).toBeNull();
+    // Simulates an explicit external reconciliation after both copies were rescued.
+    local.removeItem("x");
+    await retryStorageWrites();
+    expect(getStorageStatus().mode).toBe("web");
+    expect(getStorage().getItem("x")).toBeNull();
   });
 });

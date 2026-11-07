@@ -2,14 +2,14 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useState, useEffect, useReducer, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useReducer, useRef } from 'react';
 import { flushSync } from 'react-dom';
 import { Sparkles, Lock, AlertCircle, X, ChevronRight, ChevronDown, ChevronUp, HelpCircle, Heart, Smile, Frown, Meh, Angry, Star, Sun, Moon, Cloud, Zap, CloudFog, Palette, Download, Upload, Settings, History, Laugh, Leaf, CloudRain, Droplet, Music, ShieldOff, Timer, EyeOff } from 'lucide-react';
-import { deleteHistoryItem, loadHistory, saveHistory, toHistoryRecord, loadProfile, saveProfile, initialStepFor, formatBirthDateJa, isSameReading } from '@/lib/history';
-import { buildBackup, backupFileName, parseBackup, applyBackup } from '@/lib/backup';
+import { HISTORY_STORAGE_KEY, PROFILE_STORAGE_KEY, deleteHistoryItem, loadHistory, saveHistory, toHistoryRecord, loadProfile, saveProfile, initialStepFor, formatBirthDateJa, isSameReading } from '@/lib/history';
+import { buildBackup, buildRecoveryBackup, backupFileName, parseBackup, applyBackup } from '@/lib/backup';
 import KiriChatPanel from '@/components/KiriChatPanel';
 import PaywallSheet from '@/components/PaywallSheet';
-import { loadChatHistory } from '@/lib/chatHistory';
+import { CHAT_HISTORY_STORAGE_KEY, loadChatHistory } from '@/lib/chatHistory';
 import { clearAllRecords, hasAnyRecords } from '@/lib/deleteAll';
 import {
   APPLE_SUBSCRIPTIONS_URL,
@@ -26,15 +26,16 @@ import { KIRI_TALK_NAME, entryCardView, purchaseNotice, restoreNotice, talkSetti
 import SupportCard from '@/components/SupportCard';
 import { entryNeedsSupport } from '@/lib/kiriSafety';
 import { apiUrl } from '@/lib/apiUrl';
-import { getStorage, initStorage } from '@/lib/storage';
-import { exportBackupNative } from '@/lib/backupShare';
+import { getStorage, initStorage, flushStorageWrites, getStorageStatus, subscribeStorageStatus, retryStorageWrites } from '@/lib/storage';
+import { getDataIssues } from '@/lib/dataIntegrity';
+import { exportBackupNative, cleanupBackupCacheNative, isBackupExportInProgress } from '@/lib/backupShare';
 import { applyStatusBar, armSplashFallback, haptic, hideSplash, isNativePlatform } from '@/lib/native';
-import { hasConsent, recordConsent, revokeConsent } from '@/lib/consent';
+import { CONSENT_STORAGE_KEY, hasConsent, recordConsent, revokeConsent } from '@/lib/consent';
 import ConsentModal from '@/components/ConsentModal';
 import { browserSessionStorage, saveEntryDraft, takeEntryDraft } from '@/lib/entryDraft';
 import { DEFAULT_MOOD, MOODS, findMood } from '@/lib/moods';
 import { describeAnalyzeFailure } from '@/lib/analyzeError';
-import { DEFAULT_LOCK_SETTINGS, initialLockState, reduceLock, saveLockSettings } from '@/lib/appLock';
+import { LOCK_STORAGE_KEY, DEFAULT_LOCK_SETTINGS, initialLockState, reduceLock, saveLockSettings } from '@/lib/appLock';
 import { createLockController } from '@/lib/lockController';
 import { commitBoot, prepareLockBoot } from '@/lib/lockBoot';
 import { authenticateForLock, checkLockAvailability } from '@/lib/lockAuth';
@@ -50,7 +51,11 @@ import {
   shouldOfferLockSettings,
 } from '@/lib/lockUi';
 import LockScreen from '@/components/LockScreen';
-import { analysisCacheKey, clearCachedAnalyses, loadCachedAnalysis, saveCachedAnalysis } from '@/lib/analysisCache';
+import ModalFrame, { ModalLockContext } from '@/components/ModalFrame';
+import { createConsentFlow } from '@/lib/consentFlow';
+import { calculateBiorhythm } from '@/lib/biorhythm';
+import { NICKNAME_MAX_CHARS, ENTRY_EVENT_MAX_CHARS, ENTRY_INTUITION_MAX_CHARS } from '@/lib/inputContract';
+import { ANALYSIS_CACHE_STORAGE_KEY, analysisCacheKey, clearCachedAnalyses, loadCachedAnalysis, saveCachedAnalysis } from '@/lib/analysisCache';
 
 // ビルド時定数（next.config が '0'/'1' を埋め込む）。どちらも '0' なら入口・購入画面・チャット欄はバンドルから消える（D-24）。
 // IAP_BUILD: 購入「Kiriと話す」あり（iOS で RevenueCat の公開キーあり、または next dev / ios:build --dev のモック）。Web 本番は常に '0'。
@@ -64,6 +69,198 @@ const ERROR_BANNER_AUTO_DISMISS_MS = 10000;
 // 読み解きの後の霧の画面切り替え: 覆うのにかかる時間・覆ったまま待つ時間（そのあと同じ時間で晴れる）
 const FOG_FADE_MS = 900;
 const FOG_HOLD_MS = 400;
+
+const InfoPopup = ({ show, onClose, title, children }) => {
+    if (!show) return null;
+
+    return (
+      <ModalFrame onClose={onClose} aria-label={title} className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1rem+env(safe-area-inset-bottom))]" onClick={onClose}>
+        <div className="kiri-card-strong kiri-dialog-card rounded-2xl p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-display text-xl font-bold text-kiri-gold">{title}</h3>
+            <button type="button" onClick={onClose} aria-label="閉じる" className="kiri-hit text-white hover:bg-white/20 rounded-full p-1">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="text-white text-sm leading-relaxed space-y-3">
+            {children}
+          </div>
+        </div>
+      </ModalFrame>
+    );
+  };
+
+
+  // バイオリズムバー表示（色濃淡対応）
+  const BiorhythmBar = ({ label, value, color, barColor, icon }) => {
+    const percentage = ((value + 100) / 200) * 100;
+
+    // 色の濃淡計算（0-100%の値に基づく）
+    const getOpacity = (val) => {
+      const normalizedVal = (val + 100) / 2; // -100〜100を0〜100に変換
+      if (normalizedVal >= 80) return 1.0;
+      if (normalizedVal >= 60) return 0.85;
+      if (normalizedVal >= 40) return 0.7;
+      if (normalizedVal >= 20) return 0.55;
+      return 0.4;
+    };
+
+    const opacity = getOpacity(value);
+
+    return (
+      <div className="bg-white/[0.055] rounded-lg p-3">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <span className="text-kiri-fog">{icon}</span>
+            <span className="text-white font-bold text-sm">{label}</span>
+          </div>
+          <span className={`text-xl font-bold ${color}`}>{value}%</span>
+        </div>
+        <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden">
+          <div
+            className={`h-full rounded-full ${barColor} transition-all duration-500`}
+            style={{ width: `${percentage}%`, opacity: opacity }}
+          />
+        </div>
+      </div>
+    );
+  };
+
+  // テーマ別運勢バー（色濃淡対応）
+  const ThemeBar = ({ icon, label, value, baseColor }) => {
+    // 星の数を計算
+    const stars = Math.round(value / 20); // 0-5段階
+
+    // 色の濃淡計算
+    const getOpacity = (val) => {
+      if (val >= 80) return 1.0;
+      if (val >= 60) return 0.85;
+      if (val >= 40) return 0.7;
+      if (val >= 20) return 0.55;
+      return 0.4;
+    };
+
+    const opacity = getOpacity(value);
+
+    return (
+      <div className="bg-white/[0.03] rounded-lg p-3">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <span className="text-kiri-fog">{icon}</span>
+            <span className="text-white text-sm font-medium">{label}</span>
+          </div>
+          <div className="flex">
+            {[...Array(5)].map((_, i) => (
+              <span key={i} className={`text-kiri-gold ${i < stars ? 'opacity-100' : 'opacity-20'}`}>★</span>
+            ))}
+          </div>
+        </div>
+        <div className="w-full bg-white/10 rounded-full h-2.5 overflow-hidden">
+          <div
+            className={`h-full rounded-full ${baseColor} transition-all duration-500`}
+            style={{ width: `${value}%`, opacity: opacity }}
+          />
+        </div>
+        <div className="text-right mt-1">
+          <span className="text-white text-xs font-bold">{value}%</span>
+        </div>
+      </div>
+    );
+  };
+
+  const HintItem = ({ icon, title, value, message, bgColor, textColor, onInfoClick }) => {
+    return (
+      <div className="bg-white/[0.03] rounded-lg p-3">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-1">
+            <span className="text-kiri-fog">{icon}</span>
+            <span className="text-xs font-bold text-white">{title}</span>
+          </div>
+          <button
+            type="button"
+            aria-label={`${title}の説明`}
+            onClick={(event) => { event.currentTarget.focus(); onInfoClick(); }}
+            className="kiri-hit text-kiri-lilac-ink hover:text-kiri-gold transition-colors"
+          >
+            <HelpCircle className="w-3 h-3" />
+          </button>
+        </div>
+
+        <div className="relative mb-2 text-center">
+          <p className={`text-2xl font-bold ${textColor}`} style={{textShadow: '0 1px 8px rgba(255,255,255,0.12)'}}>
+            {value}
+          </p>
+        </div>
+
+        <p className="text-sm text-white/90 leading-relaxed text-center">
+          {message.split('\n')[0]}
+        </p>
+      </div>
+    );
+  };
+
+  // 見出し行はdiv+個別ボタン構成にする（button入れ子はHTML違反でhydrationエラーになる）
+  // 開いているときは見出し→中身を12px（カード見出し→中身の共通値。D-29）。行の高さは56px（閉じて60px）でタップ範囲は足りる
+  // collapsedHint: 閉じているときだけ右に小さく出す案内（例「タップで確認」）。案内を出している間はバッジを隠し、1行に収める（D-36）
+  const CollapsibleSection = ({ title, isExpanded, onToggle, children, badge, onInfoClick, collapsedHint }) => (
+    <div className="bg-white/[0.055] backdrop-blur-md rounded-xl border border-kiri-lilac/30 overflow-hidden">
+      <div
+        onClick={onToggle}
+        className={`w-full p-4 ${isExpanded ? 'pb-3' : ''} flex items-center justify-between cursor-pointer active:bg-white/5 transition-colors`}
+      >
+        {/* 見出し・バッジは割らない。入りきらないとき（大きい文字など）は「タップで確認」だけ次の行へ回る */}
+        <div className="kiri-dt-section-head flex flex-1 min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+          <h2 className="font-display text-lg font-bold text-kiri-gold whitespace-nowrap">{title}</h2>
+          {badge && !(collapsedHint && !isExpanded) && (
+            <span className="text-xs bg-kiri-gold/11 text-kiri-gold px-2 py-0.5 rounded-full whitespace-nowrap">
+              {badge}
+            </span>
+          )}
+          {onInfoClick && (
+            <button
+              type="button"
+              aria-label={`${title}の説明`}
+              onClick={(e) => {
+                e.stopPropagation();
+                e.currentTarget.focus();
+                onInfoClick();
+              }}
+              className="kiri-hit ml-1 text-kiri-lilac-ink hover:text-kiri-gold transition-colors"
+            >
+              <HelpCircle className="w-4 h-4" />
+            </button>
+          )}
+          {/* 見出しと同じまとまりに置く。大きい文字では見出しの下へ回り込む（kiri-dt-section-head が折り返す） */}
+          {collapsedHint && !isExpanded && (
+            <span className="ml-auto text-xs text-kiri-lilac-ink whitespace-nowrap" aria-hidden="true">{collapsedHint}</span>
+          )}
+        </div>
+        <div className="flex items-center shrink-0">
+          <button
+            type="button"
+            aria-expanded={isExpanded}
+            aria-label={isExpanded ? `${title}を折りたたむ` : `${title}を開く`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggle();
+            }}
+            className="text-kiri-lilac-ink hover:text-white p-1"
+          >
+            {isExpanded ? (
+              <ChevronUp className="w-5 h-5" />
+            ) : (
+              <ChevronDown className="w-5 h-5" />
+            )}
+          </button>
+        </div>
+      </div>
+      {isExpanded && (
+        <div className="px-4 pb-4">
+          {children}
+        </div>
+      )}
+    </div>
+  );
 
 export default function SpiritualDiary() {
   // 'boot' はプロフィール復元前。基本情報画面が一瞬見えないよう背景だけ描く。
@@ -92,8 +289,10 @@ export default function SpiritualDiary() {
   const [showHistoryList, setShowHistoryList] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(null); // null | { type: 'one', id } | { type: 'all' }
   const [deleteNotice, setDeleteNotice] = useState(null);
+  const [deleteFailed, setDeleteFailed] = useState(false);
   const [backupNotice, setBackupNotice] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [analysisSaving, setAnalysisSaving] = useState(false);
   const [error, setError] = useState(null);
   // バイオリズム・四柱推命・テーマ別運勢は詳細を見たい人だけ開く（結果が長く、Kiriの読み解きまで進めないように見えるため。2026-10-10）
   const [expandedSections, setExpandedSections] = useState({
@@ -122,6 +321,9 @@ export default function SpiritualDiary() {
   const [talkNotice, setTalkNotice] = useState(null);
   const [talkBusy, setTalkBusy] = useState(false);
   const [showConsent, setShowConsent] = useState(false);
+  const [consentFlow] = useState(createConsentFlow);
+  const [consentBusy, setConsentBusy] = useState(false);
+  const [consentNotice, setConsentNotice] = useState(null);
   const [aiConsent, setAiConsent] = useState(false);
   // 同意せずに閉じたとき、記録に危機の言葉があれば送信せずに相談窓口カードを出す（D-15）。
   const [declinedSupport, setDeclinedSupport] = useState(false);
@@ -129,6 +331,17 @@ export default function SpiritualDiary() {
   const [isTransitioning, setIsTransitioning] = useState(false);
   // 復元が反映されるまで保存しない（復元前の空の値で端末のプロフィールを上書きしないため）。
   const [profileHydrated, setProfileHydrated] = useState(false);
+  const [bootError, setBootError] = useState(false);
+  const [bootAttempt, setBootAttempt] = useState(0);
+  const [dataIssues, setDataIssues] = useState([]);
+  const [storageStatus, setStorageStatus] = useState(getStorageStatus);
+  const [storageNotice, setStorageNotice] = useState(null);
+  const [backupBusy, setBackupBusy] = useState(false);
+  const backupBusyRef = useRef(false);
+  const analysisRun = useRef(0);
+  const analysisController = useRef(null);
+  const analysisTimers = useRef([]);
+  const [purchasePending, setPurchasePending] = useState(false);
   const importInputRef = useRef(null);
 
   // アプリのロック（iOS のみ。D-25）。Web では lockNative が false のままで、ロックの UI も処理も一切動かない。
@@ -145,9 +358,13 @@ export default function SpiritualDiary() {
   // 切り替え画面の目隠しは OS 認証の間も付けたまま（@capacitor/privacy-screen 2.0.1 の不具合はパッチで直した。D-25）。
   // だから Face ID の画面のまま背景へ回っても、切り替え画面には記録が写らない。
   const lockSettingsRef = useRef(lockSettings);
-  lockSettingsRef.current = lockSettings;
   const lockStateRef = useRef(lockState);
-  lockStateRef.current = lockState;
+  useLayoutEffect(() => {
+    lockSettingsRef.current = lockSettings;
+    lockStateRef.current = lockState;
+  }, [lockSettings, lockState]);
+  // Factoryはgetterを保持するだけで、render中にはrefを読み出さない。
+  // eslint-disable-next-line react-hooks/refs
   const [lockController] = useState(() => createLockController({
     dispatch: dispatchLock,
     getLockState: () => lockStateRef.current,
@@ -157,11 +374,18 @@ export default function SpiritualDiary() {
   }));
   const unlockApp = (options) => lockController.unlock(options);
 
-  const updateLockSettings = (next) => {
-    const saved = saveLockSettings(getStorage(), next);
-    setLockSettings(saved);
-    dispatchLock({ type: 'configure', settings: saved });
-    return saved;
+  const updateLockSettings = async (next) => {
+    try {
+      const saved = saveLockSettings(getStorage(), next);
+      // この画面でも直ちに保護を反映し、永続化失敗は別途知らせる。
+      setLockSettings(saved);
+      dispatchLock({ type: 'configure', settings: saved });
+      await flushStorageWrites({ keys: [LOCK_STORAGE_KEY] });
+      return saved;
+    } catch {
+      setLockNotice('ロックの設定を端末に保存できませんでした。閉じる前に保存を再試行してください。');
+      return null;
+    }
   };
 
   const toggleLock = async () => {
@@ -171,53 +395,63 @@ export default function SpiritualDiary() {
     try {
       const { change, notice } = await lockController.toggleLock(lockSettings.enabled);
       if (change === 'enable') {
-        updateLockSettings({ enabled: true });
+        await updateLockSettings({ enabled: true });
       } else if (change === 'disable') {
-        updateLockSettings({ enabled: false });
+        await updateLockSettings({ enabled: false });
       }
-      setLockNotice(notice);
+      if (notice) setLockNotice(notice);
     } finally {
       setLockBusy(false);
     }
   };
 
-  const exportBackup = async () => {
-    // ロックがオンなら、端末の外へ記録を出す前に本人か確かめる（Ruling 11。Web ではロックが無いので素通し）。
-    const { proceed, notice } = await lockController.confirmWithLock(LOCK_AUTH_REASONS.export);
-    if (!proceed) {
-      if (notice) setBackupNotice({ type: 'error', text: notice });
-      return;
-    }
-    const json = JSON.stringify(buildBackup(getStorage()), null, 2);
-    if (isNativePlatform()) {
-      // iOS アプリ: シェアシートで"ファイル"に保存・AirDrop など（Ruling 6）。閉じただけなら書き出し済みと言わない。
-      try {
-        const { shared } = await exportBackupNative({ json, fileName: backupFileName(), title: 'Kiriのバックアップ' });
-        setBackupNotice(shared
-          ? { type: 'ok', text: 'バックアップを書き出しました' }
-          : { type: 'ok', text: '書き出しを取りやめました' });
-      } catch (exportError) {
-        console.error('[kiri-backup]', exportError?.message);
-        setBackupNotice({ type: 'error', text: 'バックアップを書き出せませんでした' });
+  const exportBackup = async ({ recovery = false } = {}) => {
+    if (backupBusyRef.current) return;
+    backupBusyRef.current = true;
+    setBackupBusy(true);
+    try {
+      const { proceed, notice } = await lockController.confirmWithLock(LOCK_AUTH_REASONS.export);
+      if (!proceed) {
+        if (notice) setBackupNotice({ type: 'error', text: notice });
+        return;
       }
-      return;
+      const json = JSON.stringify(recovery ? buildRecoveryBackup(getStorage()) : buildBackup(getStorage()), null, 2);
+      const fileName = recovery ? backupFileName().replace('kiri-backup-', 'kiri-recovery-backup-') : backupFileName();
+      if (isNativePlatform()) {
+        const outcome = await exportBackupNative({ json, fileName, title: 'Kiriのバックアップ' });
+        setBackupNotice(outcome.busy
+          ? { type: 'error', text: '一時バックアップを片づけています。少し待ってから、もう一度書き出してください。' }
+          : outcome.cleanupFailed
+          ? { type: 'error', text: '共有を終えましたが、一時ファイルを片づけられませんでした。次の起動時にもう一度片づけます。' }
+          : { type: 'ok', text: outcome.shared ? 'バックアップを書き出しました' : '書き出しを取りやめました' });
+      } else {
+        const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        setBackupNotice({ type: 'ok', text: recovery ? '修復用の原本を書き出しました（通常の読み込み用とは異なります）' : 'バックアップを書き出しました' });
+      }
+    } catch {
+      setDataIssues(getDataIssues(getStorage()));
+      setBackupNotice({ type: 'error', text: 'バックアップを書き出せませんでした。読み込めない記録がある場合は、修復用の原本を書き出してください。' });
+    } finally {
+      backupBusyRef.current = false;
+      setBackupBusy(false);
     }
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = backupFileName();
-    link.click();
-    URL.revokeObjectURL(url);
-    setBackupNotice({ type: 'ok', text: 'バックアップを書き出しました' });
   };
 
   const importBackup = async (event) => {
     const file = event.target.files?.[0];
     event.target.value = '';
-    if (!file) return;
+    if (!file || backupBusyRef.current) return;
+    backupBusyRef.current = true;
+    setBackupBusy(true);
     try {
+      if (file.size > 16_000_000) throw new Error('backup too large');
       const summary = applyBackup(getStorage(), parseBackup(await file.text()));
+      await flushStorageWrites({ keys: [HISTORY_STORAGE_KEY, PROFILE_STORAGE_KEY, CHAT_HISTORY_STORAGE_KEY] });
       setHistory(loadHistory(getStorage()));
       if (summary.profileApplied) {
         const restored = loadProfile(getStorage());
@@ -226,10 +460,19 @@ export default function SpiritualDiary() {
         setBirthTime(restored?.birthTime || '');
         setGender(restored?.gender || '');
       }
-      setBackupNotice({ type: 'ok', text: `読み込みました（追加された記録 ${summary.historyAdded}件・全${summary.historyTotal}件）` });
-    } catch (importError) {
-      console.error('[kiri-backup]', importError);
-      setBackupNotice({ type: 'error', text: 'このファイルは読み込めませんでした' });
+      setBackupNotice({ type: 'ok', text: `読み込みました（追加 ${summary.historyAdded}件・全${summary.historyTotal}件）${summary.historySkipped ? `。上限のため${summary.historySkipped}件は追加していません。元のファイルは保管してください。` : ''}` });
+    } catch {
+      const partialProfile = loadProfile(getStorage());
+      setNickname(partialProfile?.nickname || '');
+      setBirthDate(partialProfile?.birthDate || '');
+      setBirthTime(partialProfile?.birthTime || '');
+      setGender(partialProfile?.gender || '');
+      setHistory(loadHistory(getStorage()));
+      setDataIssues(getDataIssues(getStorage()));
+      setBackupNotice({ type: 'error', text: '読み込みを完了できませんでした。一部が反映された場合もあるため、元のファイルを保管し、保存状態を確かめてください。' });
+    } finally {
+      backupBusyRef.current = false;
+      setBackupBusy(false);
     }
   };
 
@@ -264,10 +507,18 @@ export default function SpiritualDiary() {
     (async () => {
       try {
         await initStorage();
-      } catch (storageError) {
-        console.error('[kiri-storage]', storageError?.message);
+      } catch {
+        if (!cancelled) setBootError(true);
+        hideSplash();
+        return;
       }
       if (cancelled) return;
+      setBootError(false);
+      if (isNativePlatform()) {
+        cleanupBackupCacheNative().then((outcome) => {
+          if (!cancelled && outcome.failed) setStorageNotice('一時バックアップを片づけられませんでした。設定からもう一度お試しください。');
+        }).catch(() => { if (!cancelled) setStorageNotice('一時バックアップを片づけられませんでした。'); });
+      }
       // アプリのロック（iOS のみ）: 設定を読み、オンなら端末の認証方法も先に調べる（スプラッシュの裏。監査 P2-7）。
       // 例外が出ても起動を止めない（ロックなしの計画で進み、後の effect が調べ直す。再監査 P2-B）。
       const lockPlan = await prepareLockBoot({
@@ -289,6 +540,8 @@ export default function SpiritualDiary() {
           setGender(storedProfile.gender || '');
         }
         setHistory(loadHistory(storage));
+        loadChatHistory(storage);
+        setDataIssues(getDataIssues(storage));
         setAiConsent(hasConsent(storage));
         const initialStep = initialStepFor(storedProfile);
         // 同意画面からポリシーを読みに行って戻ったときは、書きかけの記録を戻す。
@@ -303,14 +556,24 @@ export default function SpiritualDiary() {
         });
       } catch (hydrateError) {
         // 復元に失敗してもスプラッシュは残さない（通常は描画後の effect で隠す）。
-        console.error('[kiri-storage]', hydrateError?.message);
+        console.warn('[kiri-storage] restore failed', hydrateError?.name);
+        setBootError(true);
         hideSplash();
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [bootAttempt]);
+
+  useEffect(() => subscribeStorageStatus(setStorageStatus), []);
+
+  useEffect(() => () => {
+    consentFlow.cancel({ revoke: () => revokeConsent(getStorage()), flush: () => flushStorageWrites({ keys: [CONSENT_STORAGE_KEY] }) });
+    analysisRun.current += 1;
+    analysisController.current?.abort();
+    analysisTimers.current.forEach(clearTimeout);
+  }, [consentFlow]);
 
   // 復元した画面が描画されてからスプラッシュを隠す（iOS。Web では何もしない）。
   useEffect(() => {
@@ -370,10 +633,15 @@ export default function SpiritualDiary() {
   // ロック画面では OS 認証を自動で始めない。先にロック画面を見せ、「Face IDでひらく」を押してもらう（2026-10-09 ひとみうさ決定）。
 
   useEffect(() => {
-    if (profileHydrated) {
-      saveProfile(getStorage(), { nickname, birthDate, birthTime, gender });
-    }
-  }, [profileHydrated, nickname, birthDate, birthTime, gender]);
+    if (!profileHydrated || dataIssues.some((issue) => issue.key === PROFILE_STORAGE_KEY) || nickname.length > NICKNAME_MAX_CHARS) return;
+    let cancelled = false;
+    Promise.resolve().then(() => {
+      if (!cancelled) saveProfile(getStorage(), { nickname, birthDate, birthTime, gender });
+    }).catch(() => {
+      if (!cancelled) setStorageNotice('基本情報を保存できませんでした。元の記録を保ったまま、もう一度お試しください。');
+    });
+    return () => { cancelled = true; };
+  }, [profileHydrated, nickname, birthDate, birthTime, gender, dataIssues]);
 
   useEffect(() => {
     if (!error) return undefined;
@@ -386,10 +654,10 @@ export default function SpiritualDiary() {
   }, [declinedSupport]);
 
   useEffect(() => {
-    if (!deleteNotice) return undefined;
+    if (!deleteNotice || deleteFailed) return undefined;
     const timer = setTimeout(() => setDeleteNotice(null), 3000);
     return () => clearTimeout(timer);
-  }, [deleteNotice]);
+  }, [deleteNotice, deleteFailed]);
 
   // テキスト内の**強調**を処理する関数
   const renderHighlightedText = (text) => {
@@ -412,44 +680,64 @@ export default function SpiritualDiary() {
   };
 
 
-  const calcBio = (birth) => {
-    const b = new Date(birth);
-    const t = new Date();
-    const d = Math.floor((t - b) / 86400000);
-    return {
-      p: Math.round(Math.sin(2 * Math.PI * d / 23) * 100),
-      e: Math.round(Math.sin(2 * Math.PI * d / 28) * 100),
-      i: Math.round(Math.sin(2 * Math.PI * d / 33) * 100)
-    };
-  };
-
   // 初回の読み解き前に、第三者AIへの送信の同意を取る（5.1.2(i)）。
   const requestAnalyze = () => {
+    setDeclinedSupport(entryNeedsSupport(entry));
+    if (nickname.length > NICKNAME_MAX_CHARS || entry.event.length > ENTRY_EVENT_MAX_CHARS || entry.intuition.length > ENTRY_INTUITION_MAX_CHARS || !entry.event.trim()) {
+      setError({ title: '入力を確かめてね', message: '名前は40文字、出来事は1,200文字、直感は600文字まで書けます。出来事には今日のことをひとこと書いてね。' });
+      return;
+    }
+    setDeclinedSupport(entryNeedsSupport(entry));
     haptic('analyze');
     if (!hasConsent(getStorage())) {
+      setConsentNotice(null);
       setShowConsent(true);
       return;
     }
     analyze();
   };
 
-  const acceptConsent = () => {
-    recordConsent(getStorage());
-    setAiConsent(true);
-    setShowConsent(false);
-    setDeclinedSupport(false);
-    analyze();
+  const cancelPendingConsent = () => {
+    consentFlow.cancel({
+      revoke: () => revokeConsent(getStorage()),
+      flush: () => flushStorageWrites({ keys: [CONSENT_STORAGE_KEY] }),
+      failed: () => setStorageNotice('同意の取り消しを端末へ保存できませんでした。この画面での送信は止めています。'),
+    });
+    setConsentBusy(false);
   };
 
-  // 同意しない（今はやめる・×・背景タップ）。何も送らない。判定は端末内だけで行い、ログにも残さない。
+  const acceptConsent = async () => {
+    if (consentFlow.pending) return;
+    setConsentBusy(true);
+    setConsentNotice(null);
+    await consentFlow.accept({
+      record: () => recordConsent(getStorage()),
+      flush: () => flushStorageWrites({ keys: [CONSENT_STORAGE_KEY] }),
+      accepted: () => {
+        setAiConsent(true);
+        setShowConsent(false);
+        analyze();
+      },
+      failed: () => setConsentNotice('同意の設定を保存できませんでした。もう一度試すか、「今はやめる」で戻ってください。'),
+    });
+    if (!consentFlow.pending) setConsentBusy(false);
+  };
+
   const declineConsent = () => {
+    cancelPendingConsent();
     setShowConsent(false);
     setDeclinedSupport(entryNeedsSupport(entry));
   };
 
-  const withdrawConsent = () => {
-    revokeConsent(getStorage());
+  const withdrawConsent = async () => {
+    cancelPendingConsent();
     setAiConsent(false);
+    try {
+      revokeConsent(getStorage());
+      await flushStorageWrites({ keys: [CONSENT_STORAGE_KEY] });
+    } catch {
+      setStorageNotice('この画面でのAI送信は止めました。同意の取り消しを端末に保存できていないため、閉じる前に保存を再試行してください。');
+    }
   };
 
   // 「Kiriと話す」: 起動時に RevenueCat を設定し、購読状態を読んで、変化（購入・更新・期限切れ）を受け取る。
@@ -457,12 +745,11 @@ export default function SpiritualDiary() {
   useEffect(() => {
     if (!IAP_BUILD || !isIapEnabled()) return undefined;
     let cancelled = false;
-    setIapActive(true);
     const unsubscribe = onEntitlementChange((state) => {
       if (!cancelled) setTalk(state);
     });
     configurePurchases()
-      .then(() => getEntitlementState())
+      .then(() => { if (!cancelled) setIapActive(true); return getEntitlementState(); })
       .then((state) => {
         if (!cancelled) setTalk(state);
       });
@@ -495,42 +782,6 @@ export default function SpiritualDiary() {
       cancelled = true;
     };
   }, [iapActive, showSettings]);
-
-  // 設定はモーダルなので、開いたら中へフォーカスを移し、Tab は中で回し、Esc で閉じ、閉じたら元の場所へ戻す（見やすさテスト 2026-10-10）。
-  useEffect(() => {
-    if (!showSettings) return undefined;
-    const opener = document.activeElement;
-    const dialog = () => document.querySelector('[data-kiri-settings]');
-    const focusables = () => Array.from(dialog()?.querySelectorAll('button, [href], input:not([type="hidden"]):not(.hidden), select, textarea, [tabindex]:not([tabindex="-1"])') || [])
-      .filter((el) => !el.disabled && el.offsetParent !== null);
-    focusables()[0]?.focus();
-    const onKeyDown = (event) => {
-      if (event.key === 'Escape') {
-        setShowSettings(false);
-        return;
-      }
-      if (event.key !== 'Tab') return;
-      const items = focusables();
-      if (items.length === 0) return;
-      const first = items[0];
-      const last = items[items.length - 1];
-      if (!dialog()?.contains(document.activeElement)) {
-        event.preventDefault();
-        first.focus();
-      } else if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('keydown', onKeyDown);
-      if (opener && typeof opener.focus === 'function' && document.contains(opener)) opener.focus();
-    };
-  }, [showSettings]);
 
   // 開発用プレビュー（購入なし）では購読中と同じに扱う。それ以外は RevenueCat の状態。
   const devPreviewChat = CHAT_DEV_PREVIEW && !iapActive;
@@ -566,9 +817,10 @@ export default function SpiritualDiary() {
     openChat();
   };
 
-  const handlePurchase = async () => {
-    const outcome = await purchaseChat();
+  const handlePurchase = async (offering = talkOffering) => {
+    const outcome = await purchaseChat(offering);
     if (outcome.entitled) {
+      setPurchasePending(true);
       await enterTalkAfterPurchase(outcome);
       return null;
     }
@@ -578,6 +830,7 @@ export default function SpiritualDiary() {
   const handlePaywallRestore = async () => {
     const outcome = await restorePurchases();
     if (outcome.entitled) {
+      setPurchasePending(true);
       await enterTalkAfterPurchase(outcome);
       return null;
     }
@@ -597,6 +850,7 @@ export default function SpiritualDiary() {
     try {
       const outcome = await restorePurchases();
       setTalk(talkStateAfterPurchase(await getEntitlementState(), outcome));
+      if (outcome.entitled) setPurchasePending(true);
       setTalkNotice(restoreNotice(outcome));
     } finally {
       setTalkBusy(false);
@@ -610,14 +864,39 @@ export default function SpiritualDiary() {
     window.open(talk.managementUrl || APPLE_SUBSCRIPTIONS_URL, '_blank', 'noopener,noreferrer');
   };
 
+  const cancelAnalysis = () => {
+    if (analysisSaving || isTransitioning) return;
+    analysisRun.current += 1;
+    analysisController.current?.abort();
+    analysisController.current = null;
+    analysisTimers.current.forEach(clearTimeout);
+    analysisTimers.current = [];
+    setLoading(false);
+    setIsTransitioning(false);
+    setStep('input');
+  };
+
   const analyze = async () => {
+    if (analysisController.current) return;
+    const run = ++analysisRun.current;
+    const controller = new AbortController();
+    analysisController.current = controller;
+    const deadline = setTimeout(() => controller.abort(), 90_000);
+    const current = () => analysisRun.current === run && !controller.signal.aborted;
+    const checkCurrent = () => {
+      if (analysisRun.current !== run) return false;
+      if (controller.signal.aborted) throw new DOMException('Request timeout', 'AbortError');
+      return true;
+    };
+    setDeclinedSupport(entryNeedsSupport(entry));
+    setAnalysisSaving(false);
     setLoading(true);
     setError(null);
     setStep('loading'); // ローディング画面に遷移
 
     try {
-      const bio = calcBio(birthDate);
       const now = new Date();
+      const bio = calculateBiorhythm(birthDate, now);
 
       const userProfile = { birthDate, birthTime, gender, nickname };
 
@@ -627,11 +906,13 @@ export default function SpiritualDiary() {
       const cacheStorage = getStorage();
       const cached = loadCachedAnalysis(cacheStorage, cacheKey, now);
       let data;
+      if (!checkCurrent()) return;
       if (cached) {
         data = { success: true, data: cached };
       } else {
         const response = await fetch(apiUrl('/api/analyze'), {
           method: 'POST',
+          signal: controller.signal,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             userProfile,
@@ -645,14 +926,21 @@ export default function SpiritualDiary() {
         data = await response.json().catch(() => null);
         if (!data) data = { success: false, status: response.status };
         else data.status = response.status;
+        if (!checkCurrent()) return;
         if (data.success && data.data) {
           saveCachedAnalysis(cacheStorage, cacheKey, data.data, now);
         }
       }
 
-      if (data.success) {
+      if (!checkCurrent()) return;
+      if (data.success && data.data) {
+        // 通信の期限は本文の受信まで。永続化中に通信中止の霧が残らないようにする。
+        clearTimeout(deadline);
+        setAnalysisSaving(true);
         const avg = (bio.p + bio.e + bio.i) / 3;
-        const h = new Date().getHours();
+        const originalDate = new Date(data.data.analyzedAt || (cached ? NaN : now));
+        const snapshotDate = Number.isFinite(originalDate.getTime()) ? originalDate : now;
+        const h = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Tokyo', hour: '2-digit', hourCycle: 'h23' }).format(snapshotDate));
         const energy = avg > 30 ? '高揚' : avg > -30 ? '調和' : '内省';
         const time = h < 11 ? '朝' : h < 16 ? '昼' : '夜';
 
@@ -660,7 +948,8 @@ export default function SpiritualDiary() {
           energy,
           time,
           bio,
-          timestamp: now,
+          timestamp: snapshotDate,
+          analyzedAt: Number.isFinite(originalDate.getTime()) ? snapshotDate.toISOString() : null,
           ...data.data
         };
         setResult(nextResult);
@@ -674,30 +963,39 @@ export default function SpiritualDiary() {
         // 端末キャッシュの結果を見直しただけなら、同じ記録を履歴へ重ねない。
         const latest = loadHistory(getStorage())[0];
         if (!(cached && isSameReading(latest, record))) {
-          setHistory(saveHistory(getStorage(), record));
+          try {
+            setHistory(saveHistory(getStorage(), record));
+            await flushStorageWrites({ keys: [HISTORY_STORAGE_KEY] });
+          } catch {
+            setStorageNotice('読み解きは表示できますが、まだ端末に保存できていません。再試行するか、バックアップを書き出してください。');
+          }
         }
         
         // ホワイトアウト遷移
         // 霧が画面を覆いきってから結果へ切り替える（途中で切り替えると、薄くなった霧ごしに文字が見える）
         setIsTransitioning(true);
-        setTimeout(() => {
+        analysisTimers.current.push(setTimeout(() => {
+          if (!current()) return;
           setStep('result');
           haptic('success');
-          setTimeout(() => {
-            setIsTransitioning(false);
-          }, FOG_HOLD_MS);
-        }, FOG_FADE_MS);
+          analysisTimers.current.push(setTimeout(() => {
+            if (current()) setIsTransitioning(false);
+          }, FOG_HOLD_MS));
+        }, FOG_FADE_MS));
       } else {
         setStep('input'); // エラー時は入力画面に戻る
         setError(describeAnalyzeFailure({ status: data.status, code: data.code }));
       }
     } catch (error) {
+      if (analysisRun.current !== run) return;
       // fetch 自体の失敗（オフライン・CORS 拒否・DNS など）。例外の文言（"Load failed" 等）は出さない。
       console.warn('[kiri-analyze] request failed', error?.name);
       setStep('input'); // エラー時は入力画面に戻る
-      setError(describeAnalyzeFailure({ network: true }));
+      setError(controller.signal.aborted ? { title: 'いまは少し時間がかかっています', message: '入力は残っているので、もう一度試してね。' } : describeAnalyzeFailure({ network: true }));
     } finally {
-      setLoading(false);
+      clearTimeout(deadline);
+      if (analysisController.current === controller) analysisController.current = null;
+      if (analysisRun.current === run) { setLoading(false); setAnalysisSaving(false); }
     }
   };
 
@@ -738,195 +1036,7 @@ export default function SpiritualDiary() {
     );
   };
 
-  // バイオリズムバー表示（色濃淡対応）
-  const BiorhythmBar = ({ label, value, color, barColor, icon }) => {
-    const percentage = ((value + 100) / 200) * 100;
-    
-    // 色の濃淡計算（0-100%の値に基づく）
-    const getOpacity = (val) => {
-      const normalizedVal = (val + 100) / 2; // -100〜100を0〜100に変換
-      if (normalizedVal >= 80) return 1.0;
-      if (normalizedVal >= 60) return 0.85;
-      if (normalizedVal >= 40) return 0.7;
-      if (normalizedVal >= 20) return 0.55;
-      return 0.4;
-    };
-    
-    const opacity = getOpacity(value);
-    
-    return (
-      <div className="bg-white/[0.055] rounded-lg p-3">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <span className="text-kiri-fog">{icon}</span>
-            <span className="text-white font-bold text-sm">{label}</span>
-          </div>
-          <span className={`text-xl font-bold ${color}`}>{value}%</span>
-        </div>
-        <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden">
-          <div 
-            className={`h-full rounded-full ${barColor} transition-all duration-500`}
-            style={{ width: `${percentage}%`, opacity: opacity }}
-          />
-        </div>
-      </div>
-    );
-  };
 
-  // テーマ別運勢バー（色濃淡対応）
-  const ThemeBar = ({ icon, label, value, baseColor }) => {
-    // 星の数を計算
-    const stars = Math.round(value / 20); // 0-5段階
-    
-    // 色の濃淡計算
-    const getOpacity = (val) => {
-      if (val >= 80) return 1.0;
-      if (val >= 60) return 0.85;
-      if (val >= 40) return 0.7;
-      if (val >= 20) return 0.55;
-      return 0.4;
-    };
-    
-    const opacity = getOpacity(value);
-    
-    return (
-      <div className="bg-white/[0.03] rounded-lg p-3">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <span className="text-kiri-fog">{icon}</span>
-            <span className="text-white text-sm font-medium">{label}</span>
-          </div>
-          <div className="flex">
-            {[...Array(5)].map((_, i) => (
-              <span key={i} className={`text-kiri-gold ${i < stars ? 'opacity-100' : 'opacity-20'}`}>★</span>
-            ))}
-          </div>
-        </div>
-        <div className="w-full bg-white/10 rounded-full h-2.5 overflow-hidden">
-          <div 
-            className={`h-full rounded-full ${baseColor} transition-all duration-500`}
-            style={{ width: `${value}%`, opacity: opacity }}
-          />
-        </div>
-        <div className="text-right mt-1">
-          <span className="text-white text-xs font-bold">{value}%</span>
-        </div>
-      </div>
-    );
-  };
-
-  const InfoPopup = ({ show, onClose, title, children }) => {
-    if (!show) return null;
-
-    return (
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1rem+env(safe-area-inset-bottom))]" onClick={onClose}>
-        <div className="kiri-card-strong rounded-2xl p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-display text-xl font-bold text-kiri-gold">{title}</h3>
-            <button type="button" onClick={onClose} aria-label="閉じる" className="kiri-hit text-white hover:bg-white/20 rounded-full p-1">
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-          <div className="text-white text-sm leading-relaxed space-y-3">
-            {children}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const HintItem = ({ icon, title, value, message, bgColor, textColor, onInfoClick }) => {
-    return (
-      <div className="bg-white/[0.03] rounded-lg p-3">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-1">
-            <span className="text-kiri-fog">{icon}</span>
-            <span className="text-xs font-bold text-white">{title}</span>
-          </div>
-          <button
-            type="button"
-            aria-label={`${title}の説明`}
-            onClick={onInfoClick}
-            className="kiri-hit text-kiri-lilac-ink hover:text-kiri-gold transition-colors"
-          >
-            <HelpCircle className="w-3 h-3" />
-          </button>
-        </div>
-        
-        <div className="relative mb-2 text-center">
-          <p className={`text-2xl font-bold ${textColor}`} style={{textShadow: '0 1px 8px rgba(255,255,255,0.12)'}}>
-            {value}
-          </p>
-        </div>
-        
-        <p className="text-sm text-white/90 leading-relaxed text-center">
-          {message.split('\n')[0]}
-        </p>
-      </div>
-    );
-  };
-
-  // 見出し行はdiv+個別ボタン構成にする（button入れ子はHTML違反でhydrationエラーになる）
-  // 開いているときは見出し→中身を12px（カード見出し→中身の共通値。D-29）。行の高さは56px（閉じて60px）でタップ範囲は足りる
-  // collapsedHint: 閉じているときだけ右に小さく出す案内（例「タップで確認」）。案内を出している間はバッジを隠し、1行に収める（D-36）
-  const CollapsibleSection = ({ title, isExpanded, onToggle, children, badge, onInfoClick, collapsedHint }) => (
-    <div className="bg-white/[0.055] backdrop-blur-md rounded-xl border border-kiri-lilac/30 overflow-hidden">
-      <div
-        onClick={onToggle}
-        className={`w-full p-4 ${isExpanded ? 'pb-3' : ''} flex items-center justify-between cursor-pointer active:bg-white/5 transition-colors`}
-      >
-        {/* 見出し・バッジは割らない。入りきらないとき（大きい文字など）は「タップで確認」だけ次の行へ回る */}
-        <div className="kiri-dt-section-head flex flex-1 min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-          <h2 className="font-display text-lg font-bold text-kiri-gold whitespace-nowrap">{title}</h2>
-          {badge && !(collapsedHint && !isExpanded) && (
-            <span className="text-xs bg-kiri-gold/11 text-kiri-gold px-2 py-0.5 rounded-full whitespace-nowrap">
-              {badge}
-            </span>
-          )}
-          {onInfoClick && (
-            <button
-              type="button"
-              aria-label={`${title}の説明`}
-              onClick={(e) => {
-                e.stopPropagation();
-                onInfoClick();
-              }}
-              className="kiri-hit ml-1 text-kiri-lilac-ink hover:text-kiri-gold transition-colors"
-            >
-              <HelpCircle className="w-4 h-4" />
-            </button>
-          )}
-          {/* 見出しと同じまとまりに置く。大きい文字では見出しの下へ回り込む（kiri-dt-section-head が折り返す） */}
-          {collapsedHint && !isExpanded && (
-            <span className="ml-auto text-xs text-kiri-lilac-ink whitespace-nowrap" aria-hidden="true">{collapsedHint}</span>
-          )}
-        </div>
-        <div className="flex items-center shrink-0">
-          <button
-            type="button"
-            aria-expanded={isExpanded}
-            aria-label={isExpanded ? `${title}を折りたたむ` : `${title}を開く`}
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggle();
-            }}
-            className="text-kiri-lilac-ink hover:text-white p-1"
-          >
-            {isExpanded ? (
-              <ChevronUp className="w-5 h-5" />
-            ) : (
-              <ChevronDown className="w-5 h-5" />
-            )}
-          </button>
-        </div>
-      </div>
-      {isExpanded && (
-        <div className="px-4 pb-4">
-          {children}
-        </div>
-      )}
-    </div>
-  );
 
   // 霧に包まれる画面遷移（白飛びさせず、薄紫の霧で覆う）
   // 部品として {renderWhiteoutTransition()} で置くと再描画のたびに作り直され、ふわっと出る・晴れるアニメーションが効かないので、関数として呼ぶ。
@@ -1085,15 +1195,17 @@ export default function SpiritualDiary() {
   const renderSettingsModal = () => {
     if (!showSettings) return null;
     return (
-      <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1rem+env(safe-area-inset-bottom))]" onClick={() => setShowSettings(false)} role="dialog" aria-modal="true" aria-label="設定" data-kiri-settings>
+      <ModalFrame onClose={() => setShowSettings(false)} className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1rem+env(safe-area-inset-bottom))]" onClick={() => setShowSettings(false)} role="dialog" aria-modal="true" aria-label="設定" data-kiri-settings>
         {/* iOS アプリではロックの項目で縦に長くなるので、画面に収まらないときは中でスクロールする（Web は従来どおり。監査 P2-5） */}
-        <div className={`kiri-card-strong rounded-2xl w-full max-w-md p-6 kiri-rise${lockNative || iapActive ? ' max-h-full overflow-y-auto' : ''}`} onClick={(e) => e.stopPropagation()}>
+        <div className={`kiri-card-strong kiri-dialog-card rounded-2xl w-full max-w-md p-6 kiri-rise${lockNative || iapActive ? ' max-h-full overflow-y-auto' : ''}`} onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-display text-xl font-bold text-kiri-gold">設定</h3>
             <button type="button" onClick={() => setShowSettings(false)} aria-label="閉じる" className="kiri-hit text-white hover:bg-white/20 rounded-full p-1">
               <X className="w-5 h-5" />
             </button>
           </div>
+          {storageNotice && <p role="status" className="text-sm text-kiri-gold mb-3">{storageNotice}</p>}
+          {storageStatus.failedKeys.length > 0 && <div className="text-sm text-kiri-gold mb-3"><p>端末に保存できていない変更があります。</p><button type="button" onClick={retrySaving} className="min-h-11 underline">保存を再試行</button></div>}
           {renderLockSettings()}
           {renderTalkSettings()}
           {/* カードどうしは12px。カードの中は 見出し→説明 4px・説明→ボタン 8px で詰め、ひとまとまりに見せる（D-29） */}
@@ -1104,6 +1216,7 @@ export default function SpiritualDiary() {
               <button
                 type="button"
                 onClick={exportBackup}
+                disabled={backupBusy}
                 className="flex-1 flex items-center justify-center gap-1.5 bg-white/[0.055] hover:bg-white/20 text-white text-sm py-2.5 rounded-lg transition-colors"
               >
                 <Download className="w-4 h-4" />書き出す
@@ -1111,6 +1224,7 @@ export default function SpiritualDiary() {
               <button
                 type="button"
                 onClick={() => importInputRef.current?.click()}
+                disabled={backupBusy}
                 className="flex-1 flex items-center justify-center gap-1.5 bg-white/[0.055] hover:bg-white/20 text-white text-sm py-2.5 rounded-lg transition-colors"
               >
                 <Upload className="w-4 h-4" />読み込む
@@ -1131,7 +1245,7 @@ export default function SpiritualDiary() {
             <h4 className="text-sm font-bold text-kiri-gold mb-1">AI送信の同意</h4>
             <p className="text-xs text-kiri-lilac-ink mb-2 leading-relaxed">
               {aiConsent
-                ? '読み解きのため、入力内容をAnthropic社のAI（Claude）へ送ることに同意しています。取り消すと、次の読み解きで改めて確認します。'
+                ? (CHAT_UI_BUILD ? '読み解きや会話のときに、必要な入力内容をAnthropic社のAI（Claude）へ送ることに同意しています。取り消すと、新しく送る前に改めて確認します。' : '読み解きのときに、必要な入力内容をAnthropic社のAI（Claude）へ送ることに同意しています。取り消すと、次の読み解きで改めて確認します。')
                 : '現在は同意していません。次に「読み解く」を押したときに確認します。'}
             </p>
             {aiConsent && (
@@ -1146,16 +1260,106 @@ export default function SpiritualDiary() {
           </div>
           <p className="text-[0.75rem] text-kiri-lilac-ink mt-3">記録はこの端末内にのみ保存されます。</p>
         </div>
-      </div>
+      </ModalFrame>
+    );
+  };
+
+  const retrySaving = async () => {
+    try {
+      await retryStorageWrites();
+      const storage = getStorage();
+      const restored = loadProfile(storage);
+      setNickname(restored?.nickname || '');
+      setBirthDate(restored?.birthDate || '');
+      setBirthTime(restored?.birthTime || '');
+      setGender(restored?.gender || '');
+      setAiConsent(hasConsent(storage));
+      setHistory(loadHistory(storage));
+      loadChatHistory(storage);
+      setDataIssues(getDataIssues(storage));
+      setStorageNotice(null);
+      setLockNotice(null);
+      setDeleteFailed(false);
+      setDeleteNotice(null);
+    } catch (failure) {
+      setStorageNotice(failure?.code === 'storage_recovery_conflict'
+        ? '保存先に別の記録があります。上書きはしていません。まず今の記録をバックアップへ書き出して保管してください。'
+        : 'まだ端末に保存できていません。バックアップを書き出してから、空き容量や端末の状態を確かめてください。');
+    }
+  };
+
+  const performDelete = async () => {
+    const target = confirmDelete;
+    if (!target) return;
+    const all = target.type === 'all';
+    if (all && (backupBusyRef.current || isBackupExportInProgress())) {
+      setDeleteNotice('書き出しが終わってから、もう一度削除してください。');
+      setConfirmDelete(null);
+      return;
+    }
+    haptic('delete');
+    setDeleteFailed(false);
+    try {
+      if (all) {
+        clearAllRecords(getStorage());
+        setShowChat(false);
+      } else {
+        deleteHistoryItem(getStorage(), target.id);
+        clearCachedAnalyses(getStorage());
+      }
+      setHistory(loadHistory(getStorage()));
+      await flushStorageWrites({ keys: [HISTORY_STORAGE_KEY, CHAT_HISTORY_STORAGE_KEY, ANALYSIS_CACHE_STORAGE_KEY] });
+      let text = all ? '記録と会話をすべて削除しました' : '記録を削除しました';
+      if (all && isNativePlatform()) {
+        const cleanup = await cleanupBackupCacheNative();
+        if (cleanup.pending || cleanup.failed > 0) text = '記録と会話は削除しました。一時バックアップはまだ片づけられていません。もう一度お試しください。';
+      }
+      setDataIssues(getDataIssues(getStorage()));
+      setDeleteNotice(text);
+      if (all) {
+        setOpenedRecord(null);
+        setShowHistoryList(false);
+        clearAll();
+        setStorageNotice(text);
+      } else if (openedRecord?.id === target.id) setOpenedRecord(null);
+    } catch {
+      setDeleteFailed(true);
+      setDeleteNotice('削除を端末へ反映できませんでした。設定から保存を再試行してください。');
+      setStorageNotice('削除を端末へ反映できませんでした。閉じる前に保存を再試行してください。');
+    } finally {
+      setConfirmDelete(null);
+    }
+  };
+
+  const renderStorageNotice = () => {
+    if (!profileHydrated) return null;
+    const failed = storageStatus.failedKeys.length > 0;
+    const temporary = storageStatus.mode === 'memory';
+    if (!failed && !temporary && !dataIssues.length && !storageNotice) return null;
+    return (
+      <aside role="status" className="relative z-40 kiri-shell px-4 py-3 border-b border-kiri-gold/30">
+        <div className="max-w-md mx-auto text-sm text-kiri-text space-y-2">
+          {dataIssues.length > 0 && <p>読み込めない記録があります。元のデータは書き換えていません。書き出して保管し、サポートへお問い合わせください。</p>}
+          {temporary && <p>この環境では端末への保存が使えません。画面を閉じる前に、バックアップを書き出してください。</p>}
+          {failed && <p>まだ端末に保存できていない変更があります。閉じる前に保存を再試行するか、バックアップを書き出してください。</p>}
+          {storageNotice && <p>{storageNotice}</p>}
+          <div className="flex flex-wrap gap-3">
+            {(failed || temporary) && <button type="button" onClick={retrySaving} className="min-h-11 underline text-kiri-gold">保存を再試行</button>}
+            <button type="button" disabled={backupBusy} onClick={() => exportBackup({ recovery: dataIssues.length > 0 })} className="min-h-11 underline text-kiri-gold">{dataIssues.length ? '元のデータを書き出す' : 'バックアップを書き出す'}</button>
+            {!failed && !temporary && !dataIssues.length && <button type="button" onClick={() => setStorageNotice(null)} className="min-h-11 underline">閉じる</button>}
+          </div>
+          {backupNotice && <p>{backupNotice.text}</p>}
+        </div>
+      </aside>
     );
   };
 
   // 最近の記録の一覧（結果画面の「今日の記録」下から開く）
-  const HistoryListModal = () => {
+  const renderHistoryListModal = () => {
     if (!showHistoryList) return null;
     return (
-      <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-3 pt-[calc(0.75rem+env(safe-area-inset-top))] pb-[calc(0.75rem+env(safe-area-inset-bottom))]" onClick={() => setShowHistoryList(false)} role="dialog" aria-modal="true" aria-label="最近の記録">
-        <div className="kiri-card-strong rounded-2xl w-full max-w-lg max-h-[88vh] flex flex-col overflow-hidden kiri-rise" onClick={(e) => e.stopPropagation()}>
+      <ModalFrame onClose={() => setShowHistoryList(false)} className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-3 pt-[calc(0.75rem+env(safe-area-inset-top))] pb-[calc(0.75rem+env(safe-area-inset-bottom))]" onClick={() => setShowHistoryList(false)} role="dialog" aria-modal="true" aria-label="最近の記録">
+        <div className="kiri-card-strong kiri-dialog-card rounded-2xl w-full max-w-lg max-h-[88vh] flex flex-col overflow-hidden kiri-rise" onClick={(e) => e.stopPropagation()}>
           <div className="p-4 border-b border-white/10 flex items-center justify-between">
             <h2 className="font-display font-bold text-kiri-gold">最近の記録</h2>
             <div className="flex items-center gap-3">
@@ -1163,7 +1367,7 @@ export default function SpiritualDiary() {
               {hasAnyRecords(history, getStorage()) && (
                 <button
                   type="button"
-                  onClick={() => setConfirmDelete({ type: 'all' })}
+                  onClick={(event) => { event.currentTarget.focus(); setConfirmDelete({ type: 'all' }); }}
                   className="text-xs text-kiri-lilac-ink hover:text-white"
                 >
                   すべて削除
@@ -1183,7 +1387,7 @@ export default function SpiritualDiary() {
               <div key={item.id} className="bg-black/15 rounded-lg flex items-stretch">
                 <button
                   type="button"
-                  onClick={() => setOpenedRecord(item)}
+                  onClick={(event) => { event.currentTarget.focus(); setOpenedRecord(item); }}
                   className="flex-1 min-w-0 p-2.5 flex items-start gap-2 text-left rounded-l-lg hover:bg-white/5 transition-colors"
                 >
                   <span className="text-kiri-fog"><MoodIcon value={item.entry?.emoji || '✨'} className="w-5 h-5" /></span>
@@ -1197,7 +1401,7 @@ export default function SpiritualDiary() {
                 <button
                   type="button"
                   aria-label="この記録を削除"
-                  onClick={() => setConfirmDelete({ type: 'one', id: item.id })}
+                  onClick={(event) => { event.currentTarget.focus(); setConfirmDelete({ type: 'one', id: item.id }); }}
                   className="text-kiri-lilac-ink hover:text-white px-2.5 rounded-r-lg"
                 >
                   <X className="w-4 h-4" />
@@ -1207,17 +1411,17 @@ export default function SpiritualDiary() {
           </div>
           <p className="px-4 pb-3 text-[0.75rem] text-kiri-lilac-ink">タップすると当時のKiriの読み解きを読み返せます。</p>
         </div>
-      </div>
+      </ModalFrame>
     );
   };
 
   // 削除前の確認（バックアップは手動のみのため、復元不可を明示する）
-  const ConfirmDeleteModal = () => {
+  const renderConfirmDeleteModal = () => {
     if (!confirmDelete) return null;
     const isAll = confirmDelete.type === 'all';
     return (
-      <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1rem+env(safe-area-inset-bottom))]" onClick={() => setConfirmDelete(null)} role="alertdialog" aria-modal="true" aria-label="削除の確認">
-        <div className="kiri-card-strong rounded-2xl w-full max-w-sm p-6 kiri-rise" onClick={(e) => e.stopPropagation()}>
+      <ModalFrame onClose={() => setConfirmDelete(null)} initialFocus="[data-cancel-delete]" className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1rem+env(safe-area-inset-bottom))]" onClick={() => setConfirmDelete(null)} role="alertdialog" aria-modal="true" aria-label="削除の確認">
+        <div className="kiri-card-strong kiri-dialog-card rounded-2xl w-full max-w-sm p-6 kiri-rise" onClick={(e) => e.stopPropagation()}>
           <h3 className="font-display text-lg font-bold text-white mb-2">
             {isAll ? '記録と会話をすべて削除しますか？' : 'この記録を削除しますか？'}
           </h3>
@@ -1227,6 +1431,7 @@ export default function SpiritualDiary() {
           <div className="flex gap-2">
             <button
               type="button"
+              data-cancel-delete
               onClick={() => setConfirmDelete(null)}
               className="flex-1 bg-white/[0.055] hover:bg-white/20 text-white py-2.5 rounded-lg text-sm font-medium transition-colors"
             >
@@ -1234,39 +1439,27 @@ export default function SpiritualDiary() {
             </button>
             <button
               type="button"
-              onClick={() => {
-                haptic('delete');
-                if (isAll) {
-                  // 日記の記録・端末の読み解き（D-18）・Kiriとの会話をまとめて消す（F-B2）
-                  setHistory(clearAllRecords(getStorage()));
-                } else {
-                  setHistory(deleteHistoryItem(getStorage(), confirmDelete.id));
-                  // 端末に一時保存した当日の読み解きも一緒に消す（D-18）
-                  clearCachedAnalyses(getStorage());
-                }
-                setConfirmDelete(null);
-                setDeleteNotice(isAll ? '記録と会話をすべて削除しました' : '記録を削除しました');
-              }}
+              onClick={performDelete}
               className="flex-1 bg-kiri-danger text-kiri-night py-2.5 rounded-lg text-sm font-bold hover:opacity-90 transition-opacity"
             >
               削除する
             </button>
           </div>
         </div>
-      </div>
+      </ModalFrame>
     );
   };
 
   // 過去の記録の詳細（履歴タップで開く読み返しモーダル）
-  const RecordDetail = ({ record, onClose }) => {
+  const renderRecordDetail = ({ record, onClose }) => {
     if (!record) return null;
     const dateLabel = record.createdAt
       ? new Date(record.createdAt).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })
       : '記録';
     const entryLabel = record.entry?.type === 'future' ? '予定' : '出来事';
     return (
-      <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-3 pt-[calc(0.75rem+env(safe-area-inset-top))] pb-[calc(0.75rem+env(safe-area-inset-bottom))]" onClick={onClose} role="dialog" aria-modal="true" aria-label="過去の記録">
-        <div className="kiri-card-strong rounded-2xl w-full max-w-lg max-h-[88vh] flex flex-col overflow-hidden kiri-rise" onClick={(e) => e.stopPropagation()}>
+      <ModalFrame onClose={onClose} className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-3 pt-[calc(0.75rem+env(safe-area-inset-top))] pb-[calc(0.75rem+env(safe-area-inset-bottom))]" onClick={onClose} role="dialog" aria-modal="true" aria-label="過去の記録">
+        <div className="kiri-card-strong kiri-dialog-card rounded-2xl w-full max-w-lg max-h-[88vh] flex flex-col overflow-hidden kiri-rise" onClick={(e) => e.stopPropagation()}>
           <div className="p-4 border-b border-white/10 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <span className="text-kiri-fog"><MoodIcon value={record.entry?.emoji || '✨'} className="w-6 h-6" /></span>
@@ -1309,13 +1502,22 @@ export default function SpiritualDiary() {
             )}
           </div>
         </div>
-      </div>
+      </ModalFrame>
     );
   };
 
   // 画面の本体（step ごと）。ロック中もアンマウントしないよう、下の return で常に同じ位置に置く。
   const renderScreen = () => {
     if (step === 'boot') {
+      if (bootError) return (
+        <main className="min-h-screen kiri-shell grid place-items-center p-6">
+          <div className="kiri-card-strong rounded-2xl max-w-md p-6 text-kiri-text space-y-4" role="alert">
+            <h1 className="font-display text-xl text-kiri-gold">記録を読み込めませんでした</h1>
+            <p className="text-sm leading-relaxed">端末にある元の記録は消していません。もう一度読み込んでみてください。</p>
+            <button type="button" onClick={() => setBootAttempt((attempt) => attempt + 1)} className="kiri-button min-h-11 w-full rounded-xl">もう一度読み込む</button>
+          </div>
+        </main>
+      );
       return <div className="min-h-screen kiri-shell" aria-hidden="true" />;
     }
 
@@ -1337,7 +1539,7 @@ export default function SpiritualDiary() {
               <button
                 type="button"
                 aria-label="設定"
-                onClick={() => setShowSettings(true)}
+                onClick={(event) => { event.currentTarget.focus(); setShowSettings(true); }}
                 className="absolute top-4 right-4 text-kiri-lilac-ink hover:text-white p-1.5 rounded-full hover:bg-white/10 transition-colors"
               >
                 <Settings className="w-5 h-5" />
@@ -1375,12 +1577,14 @@ export default function SpiritualDiary() {
                   <input
                     id="kiri-nickname"
                     type="text"
-                    value={nickname}
+                    aria-invalid={nickname.length > NICKNAME_MAX_CHARS || undefined}
+                      value={nickname}
                     onChange={(e) => setNickname(e.target.value)}
                     placeholder="例: さくら、太郎、ミオ"
                     className="w-full px-3 py-2.5 text-sm rounded-lg bg-white/10 text-white border border-kiri-lilac/50 focus:outline-none focus:ring-2 focus:ring-kiri-lilac placeholder-kiri-lilac-ink"
                   />
-                  <p className="text-xs text-kiri-lilac-ink mt-1">Kiriがあなたに語りかける時に使います</p>
+                  <p className="text-xs text-kiri-lilac-ink mt-1">Kiriがあなたに語りかける時に使います（40文字まで）</p>
+                  {nickname.length > NICKNAME_MAX_CHARS && <p role="alert" className="text-xs text-kiri-danger mt-1">名前は40文字までです（現在{nickname.length}文字）。入力は残しています。</p>}
                 </div>
 
                 <div>
@@ -1478,10 +1682,12 @@ export default function SpiritualDiary() {
           <ErrorBanner />
           {renderSettingsModal()}
           <ConsentModal
+            busy={consentBusy}
+            notice={consentNotice}
             show={showConsent}
             onAccept={acceptConsent}
             onDecline={declineConsent}
-            onReadPolicy={() => saveEntryDraft(browserSessionStorage(), entry)}
+            onReadPolicy={() => { cancelPendingConsent(); saveEntryDraft(browserSessionStorage(), entry); }}
           />
           <div className="min-h-screen kiri-shell p-4 pb-20">
             <div className="max-w-2xl mx-auto">
@@ -1489,7 +1695,7 @@ export default function SpiritualDiary() {
                 <button
                   type="button"
                   aria-label="設定"
-                  onClick={() => setShowSettings(true)}
+                  onClick={(event) => { event.currentTarget.focus(); setShowSettings(true); }}
                   className="absolute top-0 right-0 text-kiri-lilac-ink hover:text-white p-1.5 rounded-full hover:bg-white/10 transition-colors"
                 >
                   <Settings className="w-5 h-5" />
@@ -1539,10 +1745,12 @@ export default function SpiritualDiary() {
 
                     <div>
                       <label className="block text-white text-sm mb-1 font-medium">記録する</label>
-                      <p className="text-xs text-kiri-lilac-ink mb-2">今日の予定や出来事を、自由に記録してください</p>
+                      <p className="text-xs text-kiri-lilac-ink mb-2">今日の予定や出来事を、自由に記録してください（1,200文字まで）</p>
+                      {entry.event.length > ENTRY_EVENT_MAX_CHARS && <p role="alert" className="text-xs text-kiri-danger mb-2">出来事は1,200文字までです（現在{entry.event.length}文字）。入力は残しています。</p>}
                       {/* 枠と内側の余白は外の箱に持たせ、文字は内側でスクロールさせる（上下の余白が文字で埋まらない。2026-10-09） */}
                       <label className="block w-full px-3 py-2.5 rounded-lg bg-white/10 border border-kiri-lilac/50 focus-within:ring-2 focus-within:ring-kiri-lilac h-32 kiri-dt-event cursor-text">
                         <textarea
+                          aria-invalid={entry.event.length > ENTRY_EVENT_MAX_CHARS || undefined}
                           value={entry.event}
                           onChange={(e) => setEntry({...entry, event: e.target.value})}
                           placeholder={placeholders.event}
@@ -1553,9 +1761,13 @@ export default function SpiritualDiary() {
                     </div>
 
                     <div>
-                      <label className="block text-white text-sm mb-1.5 font-medium">ひらめき・直感的な一言</label>
+                      <label htmlFor="kiri-intuition" className="block text-white text-sm mb-1.5 font-medium">ひらめき・直感的な一言</label>
+                      <p className="text-xs text-kiri-lilac-ink mb-2">600文字まで書けます。</p>
+                      {entry.intuition.length > ENTRY_INTUITION_MAX_CHARS && <p role="alert" className="text-xs text-kiri-danger mb-2">直感は600文字までです（現在{entry.intuition.length}文字）。入力は残しています。</p>}
                       <input
                         type="text"
+                        id="kiri-intuition"
+                    aria-invalid={entry.intuition.length > ENTRY_INTUITION_MAX_CHARS || undefined}
                         value={entry.intuition}
                         onChange={(e) => setEntry({...entry, intuition: e.target.value})}
                         placeholder={placeholders.intuition}
@@ -1584,7 +1796,7 @@ export default function SpiritualDiary() {
                   </div>
                 </div>
 
-                {declinedSupport && (
+                {declinedSupport && entryNeedsSupport(entry) && (
                   <div ref={declinedSupportRef}>
                     <SupportCard />
                   </div>
@@ -1602,7 +1814,7 @@ export default function SpiritualDiary() {
         <>
           {renderWhiteoutTransition()}
           <ErrorBanner />
-          <div className="min-h-screen kiri-shell p-4 flex items-center justify-center relative overflow-hidden">
+          <div className="min-h-screen kiri-shell p-4 flex flex-col items-center justify-center relative overflow-hidden">
             {/* 霧の谷: 静かに漂う光 */}
             <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
               <div className="kiri-fog-orb w-80 h-80 top-[12%] left-[8%] bg-kiri-lilac" style={{'--drift': '52s', '--breathe': '9s', '--fog-min': 0.14, '--fog-max': 0.3}} />
@@ -1630,6 +1842,7 @@ export default function SpiritualDiary() {
               </div>
             </div>
             </div>
+            <button type="button" onClick={cancelAnalysis} disabled={analysisSaving || isTransitioning || !loading} className="relative z-10 mt-6 min-h-11 text-sm text-kiri-lilac-ink underline disabled:opacity-40">中止して入力へ戻る</button>
           </div>
         </>
       );
@@ -1640,12 +1853,14 @@ export default function SpiritualDiary() {
         <>
           {renderWhiteoutTransition()}
           <ErrorBanner />
-          <HistoryListModal />
-          <ConfirmDeleteModal />
-          <RecordDetail record={openedRecord} onClose={() => setOpenedRecord(null)} />
+          {renderHistoryListModal()}
+          {renderConfirmDeleteModal()}
+          {renderRecordDetail({ record: openedRecord, onClose: () => setOpenedRecord(null) })}
           {/* チャット欄と購入画面は購入機能（または開発用プレビュー）のあるビルドにだけ入れる（定数で囲み、Web 本番のバンドルから消す）。 */}
           {CHAT_UI_BUILD && showChat && (
             <KiriChatPanel
+              purchasePending={purchasePending}
+              onChatSuccess={() => setPurchasePending(false)}
               userProfile={{ nickname, birthDate, birthTime, gender }}
               entry={entry}
               result={result}
@@ -1656,7 +1871,7 @@ export default function SpiritualDiary() {
               onClose={() => setShowChat(false)}
             />
           )}
-          {IAP_BUILD && (
+          {IAP_BUILD && showPaywall && (
             <PaywallSheet
               open={showPaywall}
               offering={talkOffering}
@@ -1733,7 +1948,7 @@ export default function SpiritualDiary() {
                 <p className="font-bold text-kiri-rose-ink">今日の気分</p>
                 <p className="text-xs mt-1">気分の絵文字から読み取った雰囲気（微調整）</p>
               </div>
-              {result.saju?.birth?.hour && (
+              {result.saju?.birth?.hasBirthTime === true && (
                 <div className="bg-white/[0.055] p-3 rounded-lg">
                   <p className="font-bold text-kiri-lilac-ink">時柱の相性</p>
                   <p className="text-xs mt-1">出生時刻による精密化</p>
@@ -1861,7 +2076,7 @@ export default function SpiritualDiary() {
                           </div>
                           {result.saju.today.hour && (
                             <div className="bg-kiri-gold/11 p-2 rounded-lg">
-                              <p className="text-xs text-kiri-gold">時運（現在）</p>
+                              <p className="text-xs text-kiri-gold">時運（読み解いた時点）</p>
                               <p className="font-bold text-sm text-white">{result.saju.today.hour}</p>
                               {result.saju.today.hourDescription && (
                                 <p className="text-xs text-kiri-gold mt-1">{result.saju.today.hourDescription}</p>
@@ -1888,7 +2103,10 @@ export default function SpiritualDiary() {
                       <div>
                         <h3 className="text-xs font-bold text-kiri-rain-ink mb-1.5">大運（中長期）</h3>
                         <div className="grid grid-cols-2 gap-2">
-                          {result.saju.taiun && (
+                          {(!result.saju.taiun?.available || !result.saju.taiun?.current) && (
+                            <p className="text-xs text-kiri-lilac-ink">大運は、この条件では表示していません。</p>
+                          )}
+                          {result.saju.taiun?.available && result.saju.taiun?.current && Number.isFinite(result.saju.taiun.age) && (
                             <div className="bg-kiri-rain/11 p-2 rounded-lg">
                               <p className="text-xs text-kiri-rain-ink">現在の大運</p>
                               <p className="font-bold text-sm text-white">{result.saju.taiun.pillar}</p>
@@ -2042,7 +2260,7 @@ export default function SpiritualDiary() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => setShowHistoryList(true)}
+                    onClick={(event) => { event.currentTarget.focus(); setShowHistoryList(true); }}
                     className="mt-3 w-full flex items-center justify-center gap-2 bg-white/[0.055] hover:bg-white/20 active:scale-[0.98] text-white py-2.5 rounded-lg font-medium text-sm transition-all"
                   >
                     <History className="w-4 h-4" />最近の記録
@@ -2143,9 +2361,12 @@ export default function SpiritualDiary() {
   return (
     <>
       {/* ロック中は本体を操作・読み上げの対象から外す（inert＋aria-hidden。Ruling 8・15）。Web では常に素通し。 */}
+      <ModalLockContext.Provider value={lockState.locked}>
       <div inert={lockState.locked} aria-hidden={lockState.locked ? 'true' : undefined}>
+        {renderStorageNotice()}
         {screen}
       </div>
+      </ModalLockContext.Provider>
       {renderLockLayer()}
     </>
   );

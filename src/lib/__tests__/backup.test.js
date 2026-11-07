@@ -68,15 +68,14 @@ describe("parseBackup", () => {
     expect(() => parseBackup(JSON.stringify({ app: "spiritual-diary", schemaVersion: 999 }))).toThrow();
   });
 
-  it("idのない履歴項目を除外する", () => {
-    const parsed = parseBackup(JSON.stringify({
+  it("壊れた履歴はファイル全体を変更前に拒否する", () => {
+    expect(() => parseBackup(JSON.stringify({
       app: "spiritual-diary",
       schemaVersion: 1,
       history: [record("a", "2026-07-01T00:00:00.000Z"), { createdAt: "x" }, null],
       profile: null,
       chat: [],
-    }));
-    expect(parsed.history).toHaveLength(1);
+    }))).toThrow();
   });
 });
 
