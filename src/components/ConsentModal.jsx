@@ -7,6 +7,7 @@ import ModalFrame from '@/components/ModalFrame';
 const CHAT_ENABLED = process.env.NEXT_PUBLIC_KIRI_IAP === '1' || process.env.NEXT_PUBLIC_KIRI_CHAT_PREVIEW === '1';
 
 // 同意v2: 読み解きと、有効なビルドでは会話の送信範囲も説明する。
+// 送る内容・送り先・保存の範囲を変えずにボタン名を実物に合わせただけの直しは、CONSENT_VERSION を上げない（consent.js の方針どおり）。
 // onReadPolicy: ポリシーへ移る直前に呼ぶ（書きかけの記録を退避するため）。
 export default function ConsentModal({ show, onAccept, onDecline, onReadPolicy, busy = false, notice }) {
   if (!show) return null;
@@ -30,13 +31,13 @@ export default function ConsentModal({ show, onAccept, onDecline, onReadPolicy, 
         </div>
         <div className="text-white text-sm leading-relaxed space-y-3">
           <p>
-            「読み解く」を押すと、基本情報（生年月日・出生時刻・性別・ニックネーム）と今日の記録（気分・出来事・直感）が、くうが株式会社のサーバーを経由して <strong className="text-kiri-gold">Anthropic社のAI（Claude）</strong> に送られ、Kiriの言葉を生成します。
+            「Kiriに読み解いてもらう」を押すと、基本情報（生年月日・出生時刻・性別・ニックネーム）と今日の記録（気分・出来事・直感）が、くうが株式会社のサーバーを経由して <strong className="text-kiri-gold">Anthropic社のAI（Claude）</strong> に送られ、<span className="inline-block">Kiriの言葉を生成します。</span>
           </p>
           {CHAT_ENABLED && (
             <p>会話で「送信」を押すと、ニックネーム・今日の記録・読み解き結果・直近の会話も、同じ経路でAnthropic社へ送られます。保存済みの会話すべてを送ることはありません。</p>
           )}
           <ul className="list-disc pl-5 space-y-1 text-kiri-lilac-ink">
-            <li>{CHAT_ENABLED ? '送信は「読み解く」または会話の「送信」を押したときです。' : '送信は「読み解く」を押したときです。'}運営者のサーバーには、日記・読み解き結果・会話を保存しません。</li>
+            <li>{CHAT_ENABLED ? '送信は「Kiriに読み解いてもらう」または会話の「送信」を押したときです。' : '送信は「Kiriに読み解いてもらう」を押したときです。'}運営者のサーバーには、日記・読み解き結果・会話を保存しません。</li>
             <li>Anthropic社では、通常は受信・生成から30日以内に削除されますが、安全対策・法令などの例外があります。詳しくはプライバシーポリシーをご確認ください。</li>
             <li>{CHAT_ENABLED ? '同意は設定から取り消せます。取り消したあとは、再び同意するまで読み解き・会話を送信しません。保存済みの記録は読めます。' : '同意は設定から取り消せます。取り消したあとは、再び同意するまで読み解きを送信しません。保存済みの記録は読めます。'}</li>
           </ul>
@@ -49,7 +50,7 @@ export default function ConsentModal({ show, onAccept, onDecline, onReadPolicy, 
           <button
             type="button"
             onClick={onDecline}
-            className="flex-1 bg-white/[0.055] hover:bg-white/20 text-white py-2.5 rounded-lg text-sm font-medium transition-colors"
+            className="flex-1 min-h-11 bg-white/[0.055] hover:bg-white/20 text-white py-2.5 rounded-lg text-sm font-medium transition-colors"
           >
             今はやめる
           </button>
@@ -58,7 +59,7 @@ export default function ConsentModal({ show, onAccept, onDecline, onReadPolicy, 
             onClick={onAccept}
             disabled={busy}
             aria-busy={busy || undefined}
-            className="flex-1 kiri-button py-2.5 rounded-lg text-sm font-bold hover:scale-[1.01] active:scale-[0.98] transition-transform"
+            className="flex-1 min-h-11 kiri-button py-2.5 rounded-lg text-sm font-bold hover:scale-[1.01] active:scale-[0.98] transition-transform"
           >
             {busy ? '保存しています' : '同意して読み解く'}
           </button>

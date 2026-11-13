@@ -5,12 +5,12 @@ import Link from 'next/link';
 import { useState, useEffect, useLayoutEffect, useReducer, useRef } from 'react';
 import { flushSync } from 'react-dom';
 import { Sparkles, Lock, AlertCircle, X, ChevronRight, ChevronDown, ChevronUp, HelpCircle, Heart, Smile, Frown, Meh, Angry, Star, Sun, Moon, Cloud, Zap, CloudFog, Palette, Download, Upload, Settings, History, Laugh, Leaf, CloudRain, Droplet, Music, ShieldOff, Timer, EyeOff } from 'lucide-react';
-import { HISTORY_STORAGE_KEY, PROFILE_STORAGE_KEY, deleteHistoryItem, loadHistory, saveHistory, toHistoryRecord, loadProfile, saveProfile, initialStepFor, formatBirthDateJa, isSameReading } from '@/lib/history';
+import { HISTORY_QUARANTINE_KEY, HISTORY_STORAGE_KEY, PROFILE_STORAGE_KEY, deleteHistoryItem, hasQuarantinedHistory, loadHistory, saveHistoryKeepingUnreadable, toHistoryRecord, loadProfile, saveProfile, initialStepFor, formatBirthDateJa, isSameReading } from '@/lib/history';
 import { buildBackup, buildRecoveryBackup, backupFileName, parseBackup, applyBackup } from '@/lib/backup';
 import KiriChatPanel from '@/components/KiriChatPanel';
 import PaywallSheet from '@/components/PaywallSheet';
 import { CHAT_HISTORY_STORAGE_KEY, loadChatHistory } from '@/lib/chatHistory';
-import { clearAllRecords, hasAnyRecords } from '@/lib/deleteAll';
+import { clearAllRecords, hasAnyRecords, keepsDraftAfterDeleteAll } from '@/lib/deleteAll';
 import {
   APPLE_SUBSCRIPTIONS_URL,
   configurePurchases,
@@ -64,11 +64,15 @@ const IAP_BUILD = process.env.NEXT_PUBLIC_KIRI_IAP === '1';
 const CHAT_DEV_PREVIEW = process.env.NEXT_PUBLIC_KIRI_CHAT_PREVIEW === '1';
 const CHAT_UI_BUILD = IAP_BUILD || CHAT_DEV_PREVIEW;
 const TALK_NOT_ENTITLED = { entitled: false, expiresAt: null, willRenew: false, isTrial: false, managementUrl: null };
-// エラーの帯は画面上部（設定ボタン・見出しの上）に重なるので、読み終えたころに自動で閉じる。
-const ERROR_BANNER_AUTO_DISMISS_MS = 10000;
 // 読み解きの後の霧の画面切り替え: 覆うのにかかる時間・覆ったまま待つ時間（そのあと同じ時間で晴れる）
 const FOG_FADE_MS = 900;
 const FOG_HOLD_MS = 400;
+
+// 「最近の記録」の一覧で、同じ日の記録を見分けられるよう時刻まで出す（例「2026年11月14日 21:30」）
+function formatRecordTime(createdAt) {
+  if (!createdAt || !Number.isFinite(Date.parse(createdAt))) return '';
+  return new Date(createdAt).toLocaleString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
 
 const InfoPopup = ({ show, onClose, title, children }) => {
     if (!show) return null;
@@ -244,7 +248,7 @@ const InfoPopup = ({ show, onClose, title, children }) => {
               e.stopPropagation();
               onToggle();
             }}
-            className="text-kiri-lilac-ink hover:text-white p-1"
+            className="kiri-hit text-kiri-lilac-ink hover:text-white p-1"
           >
             {isExpanded ? (
               <ChevronUp className="w-5 h-5" />
@@ -328,6 +332,9 @@ export default function SpiritualDiary() {
   // 同意せずに閉じたとき、記録に危機の言葉があれば送信せずに相談窓口カードを出す（D-15）。
   const [declinedSupport, setDeclinedSupport] = useState(false);
   const declinedSupportRef = useRef(null);
+  const errorBannerRef = useRef(null);
+  // 読み込めない記録の原本を別に保管したお知らせ（R2-03）を、この起動中だけ閉じたか
+  const [quarantineDismissed, setQuarantineDismissed] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   // 復元が反映されるまで保存しない（復元前の空の値で端末のプロフィールを上書きしないため）。
   const [profileHydrated, setProfileHydrated] = useState(false);
@@ -643,11 +650,16 @@ export default function SpiritualDiary() {
     return () => { cancelled = true; };
   }, [profileHydrated, nickname, birthDate, birthTime, gender, dataIssues]);
 
+  // エラーの帯は入力画面のヘッダーの下に置き、自動では消さない（次にどうするかが書いてあるので、読む前に消さない。WCAG 2.2.1）。
+  // 出たときは帯が見える位置までスクロールする（入力欄の下のほうで押したときも気づけるように）。
   useEffect(() => {
-    if (!error) return undefined;
-    const timer = setTimeout(() => setError(null), ERROR_BANNER_AUTO_DISMISS_MS);
-    return () => clearTimeout(timer);
+    if (error) errorBannerRef.current?.scrollIntoView({ block: 'nearest' });
   }, [error]);
+
+  // 画面（step）が変わったら先頭から見せる（前の画面のスクロール位置のまま始まると、上のお知らせに気づけない。UX P1-1）
+  useEffect(() => {
+    if (step !== 'boot') window.scrollTo(0, 0);
+  }, [step]);
 
   useEffect(() => {
     if (declinedSupport) declinedSupportRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -964,9 +976,15 @@ export default function SpiritualDiary() {
         const latest = loadHistory(getStorage())[0];
         if (!(cached && isSameReading(latest, record))) {
           try {
-            setHistory(saveHistory(getStorage(), record));
-            await flushStorageWrites({ keys: [HISTORY_STORAGE_KEY] });
+            // 読み込めない記録があっても、原本を別に保管してから新しい記録の保存を続ける（R2-03）
+            const saved = await saveHistoryKeepingUnreadable(getStorage(), record, { flush: flushStorageWrites });
+            setHistory(saved.history);
+            if (saved.quarantined) {
+              setDataIssues(getDataIssues(getStorage()));
+              setQuarantineDismissed(false);
+            }
           } catch {
+            setHistory(loadHistory(getStorage()));
             setStorageNotice('読み解きは表示できますが、まだ端末に保存できていません。再試行するか、バックアップを書き出してください。');
           }
         }
@@ -1005,12 +1023,14 @@ export default function SpiritualDiary() {
     setResult(null);
   };
 
-  const ErrorBanner = () => {
+  // 関数として呼ぶ（部品 <X /> にすると描画のたびに作り直され、フォーカスが外れる）。
+  // 入力画面のヘッダーの下、ふつうの流れの中に置く（上に重ねると「記録」「設定」が隠れる。UX P2-4）。
+  const renderErrorBanner = () => {
     if (!error) return null;
 
     return (
-      <div role="alert" className="fixed top-[calc(1rem+env(safe-area-inset-top))] left-4 right-4 z-50 max-w-md mx-auto">
-        <div className="bg-kiri-plum/95 backdrop-blur-md text-white p-4 rounded-xl shadow-2xl border border-kiri-danger/60">
+      <div role="alert" ref={errorBannerRef} className="mb-3 scroll-mt-4">
+        <div className="bg-kiri-plum/95 text-white p-4 rounded-xl border border-kiri-danger/60">
           <div className="flex items-start gap-3">
             <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-kiri-danger" />
             <div className="flex-1 min-w-0">
@@ -1211,13 +1231,13 @@ export default function SpiritualDiary() {
           {/* カードどうしは12px。カードの中は 見出し→説明 4px・説明→ボタン 8px で詰め、ひとまとまりに見せる（D-29） */}
           <div className="bg-white/[0.055] rounded-xl p-4">
             <h4 className="text-sm font-bold text-kiri-gold mb-1">バックアップ</h4>
-            <p className="text-xs text-kiri-lilac-ink mb-2 leading-relaxed">記録・プロフィール・会話をJSONファイルとして保存/復元できます。読み込みは既存の記録を消しません。バックアップは自動では行われないので、大切な記録は設定アイコンの「バックアップ」を選択して定期的に書き出してください。</p>
+            <p className="text-xs text-kiri-lilac-ink mb-2 leading-relaxed">記録・プロフィール・会話をJSONファイルとして保存/復元できます。読み込みは既存の記録を消しません。バックアップは自動では行われないので、大切な記録はときどき「書き出す」で保存してください。</p>
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={exportBackup}
                 disabled={backupBusy}
-                className="flex-1 flex items-center justify-center gap-1.5 bg-white/[0.055] hover:bg-white/20 text-white text-sm py-2.5 rounded-lg transition-colors"
+                className="flex-1 min-h-11 flex items-center justify-center gap-1.5 bg-white/[0.055] hover:bg-white/20 text-white text-sm py-2.5 rounded-lg transition-colors"
               >
                 <Download className="w-4 h-4" />書き出す
               </button>
@@ -1225,7 +1245,7 @@ export default function SpiritualDiary() {
                 type="button"
                 onClick={() => importInputRef.current?.click()}
                 disabled={backupBusy}
-                className="flex-1 flex items-center justify-center gap-1.5 bg-white/[0.055] hover:bg-white/20 text-white text-sm py-2.5 rounded-lg transition-colors"
+                className="flex-1 min-h-11 flex items-center justify-center gap-1.5 bg-white/[0.055] hover:bg-white/20 text-white text-sm py-2.5 rounded-lg transition-colors"
               >
                 <Upload className="w-4 h-4" />読み込む
               </button>
@@ -1246,13 +1266,13 @@ export default function SpiritualDiary() {
             <p className="text-xs text-kiri-lilac-ink mb-2 leading-relaxed">
               {aiConsent
                 ? (CHAT_UI_BUILD ? '読み解きや会話のときに、必要な入力内容をAnthropic社のAI（Claude）へ送ることに同意しています。取り消すと、新しく送る前に改めて確認します。' : '読み解きのときに、必要な入力内容をAnthropic社のAI（Claude）へ送ることに同意しています。取り消すと、次の読み解きで改めて確認します。')
-                : '現在は同意していません。次に「読み解く」を押したときに確認します。'}
+                : '現在は同意していません。次に「Kiriに読み解いてもらう」を押したときに確認します。'}
             </p>
             {aiConsent && (
               <button
                 type="button"
                 onClick={withdrawConsent}
-                className="w-full flex items-center justify-center gap-1.5 bg-white/[0.055] hover:bg-white/20 text-white text-sm py-2.5 rounded-lg transition-colors"
+                className="w-full min-h-11 flex items-center justify-center gap-1.5 bg-white/[0.055] hover:bg-white/20 text-white text-sm py-2.5 rounded-lg transition-colors"
               >
                 <ShieldOff className="w-4 h-4" />AI送信の同意を取り消す
               </button>
@@ -1308,7 +1328,7 @@ export default function SpiritualDiary() {
         clearCachedAnalyses(getStorage());
       }
       setHistory(loadHistory(getStorage()));
-      await flushStorageWrites({ keys: [HISTORY_STORAGE_KEY, CHAT_HISTORY_STORAGE_KEY, ANALYSIS_CACHE_STORAGE_KEY] });
+      await flushStorageWrites({ keys: [HISTORY_STORAGE_KEY, HISTORY_QUARANTINE_KEY, CHAT_HISTORY_STORAGE_KEY, ANALYSIS_CACHE_STORAGE_KEY] });
       let text = all ? '記録と会話をすべて削除しました' : '記録を削除しました';
       if (all && isNativePlatform()) {
         const cleanup = await cleanupBackupCacheNative();
@@ -1319,8 +1339,12 @@ export default function SpiritualDiary() {
       if (all) {
         setOpenedRecord(null);
         setShowHistoryList(false);
-        clearAll();
+        // 入力画面から消したときは、まだ読み解いていない書きかけを残す（保存前の文は記録ではない。R2-01）
+        if (keepsDraftAfterDeleteAll(step)) setResult(null);
+        else clearAll();
         setStorageNotice(text);
+        // 知らせの帯は画面の上に出るので、先頭へ戻して見えるようにする（UX P1-1）
+        window.scrollTo(0, 0);
       } else if (openedRecord?.id === target.id) setOpenedRecord(null);
     } catch {
       setDeleteFailed(true);
@@ -1335,18 +1359,20 @@ export default function SpiritualDiary() {
     if (!profileHydrated) return null;
     const failed = storageStatus.failedKeys.length > 0;
     const temporary = storageStatus.mode === 'memory';
-    if (!failed && !temporary && !dataIssues.length && !storageNotice) return null;
+    const quarantined = !quarantineDismissed && hasQuarantinedHistory(getStorage());
+    if (!failed && !temporary && !dataIssues.length && !storageNotice && !quarantined) return null;
     return (
-      <aside role="status" className="relative z-40 kiri-shell px-4 py-3 border-b border-kiri-gold/30">
+      <aside role="status" className="relative z-40 bg-kiri-night px-4 py-3 border-b border-kiri-gold/30">
         <div className="max-w-md mx-auto text-sm text-kiri-text space-y-2">
           {dataIssues.length > 0 && <p>読み込めない記録があります。元のデータは書き換えていません。書き出して保管し、サポートへお問い合わせください。</p>}
           {temporary && <p>この環境では端末への保存が使えません。画面を閉じる前に、バックアップを書き出してください。</p>}
           {failed && <p>まだ端末に保存できていない変更があります。閉じる前に保存を再試行するか、バックアップを書き出してください。</p>}
+          {quarantined && !dataIssues.length && <p>読み込めなかった記録は、元のまま別に保管しています。新しい記録はふつうに保存されます。バックアップを書き出すと、保管した原本も一緒に入ります。</p>}
           {storageNotice && <p>{storageNotice}</p>}
           <div className="flex flex-wrap gap-3">
             {(failed || temporary) && <button type="button" onClick={retrySaving} className="min-h-11 underline text-kiri-gold">保存を再試行</button>}
             <button type="button" disabled={backupBusy} onClick={() => exportBackup({ recovery: dataIssues.length > 0 })} className="min-h-11 underline text-kiri-gold">{dataIssues.length ? '元のデータを書き出す' : 'バックアップを書き出す'}</button>
-            {!failed && !temporary && !dataIssues.length && <button type="button" onClick={() => setStorageNotice(null)} className="min-h-11 underline">閉じる</button>}
+            {!failed && !temporary && !dataIssues.length && <button type="button" onClick={() => { setStorageNotice(null); setQuarantineDismissed(true); }} className="min-h-11 underline">閉じる</button>}
           </div>
           {backupNotice && <p>{backupNotice.text}</p>}
         </div>
@@ -1354,27 +1380,18 @@ export default function SpiritualDiary() {
     );
   };
 
-  // 最近の記録の一覧（結果画面の「今日の記録」下から開く）
+  // 最近の記録の一覧（入力画面の左上・結果画面の左上と「今日の記録」の下から開く）
+  // 開いた直後のフォーカスは最初の記録（なければ閉じる）。消す操作を最初に選ばせない（UX P1-3）。
+  // 「すべて削除」は閉じる×の隣から離し、一覧の下に44pxの高さで置く。
   const renderHistoryListModal = () => {
     if (!showHistoryList) return null;
+    const canDeleteAll = hasAnyRecords(history, getStorage());
     return (
-      <ModalFrame onClose={() => setShowHistoryList(false)} className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-3 pt-[calc(0.75rem+env(safe-area-inset-top))] pb-[calc(0.75rem+env(safe-area-inset-bottom))]" onClick={() => setShowHistoryList(false)} role="dialog" aria-modal="true" aria-label="最近の記録">
+      <ModalFrame onClose={() => setShowHistoryList(false)} initialFocus={history.length > 0 ? '[data-history-first]' : '[data-history-close]'} className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-3 pt-[calc(0.75rem+env(safe-area-inset-top))] pb-[calc(0.75rem+env(safe-area-inset-bottom))]" onClick={() => setShowHistoryList(false)} role="dialog" aria-modal="true" aria-label="最近の記録">
         <div className="kiri-card-strong kiri-dialog-card rounded-2xl w-full max-w-lg max-h-[88vh] flex flex-col overflow-hidden kiri-rise" onClick={(e) => e.stopPropagation()}>
           <div className="p-4 border-b border-white/10 flex items-center justify-between">
             <h2 className="font-display font-bold text-kiri-gold">最近の記録</h2>
-            <div className="flex items-center gap-3">
-              {/* 日記の記録が0件でも、会話が残っていれば出す（すべて削除は会話も消す。F-B2） */}
-              {hasAnyRecords(history, getStorage()) && (
-                <button
-                  type="button"
-                  onClick={(event) => { event.currentTarget.focus(); setConfirmDelete({ type: 'all' }); }}
-                  className="text-xs text-kiri-lilac-ink hover:text-white"
-                >
-                  すべて削除
-                </button>
-              )}
-              <button type="button" onClick={() => setShowHistoryList(false)} aria-label="閉じる" className="kiri-hit text-kiri-lilac-ink hover:text-white"><X className="w-5 h-5" /></button>
-            </div>
+            <button type="button" data-history-close onClick={() => setShowHistoryList(false)} aria-label="閉じる" className="kiri-hit text-kiri-lilac-ink hover:text-white"><X className="w-5 h-5" /></button>
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-2">
             {deleteNotice && (
@@ -1383,17 +1400,18 @@ export default function SpiritualDiary() {
             {history.length === 0 && (
               <p className="text-sm text-kiri-lilac-ink leading-relaxed">まだ記録がありません。今日の記録が、最初のひとつになるよ。</p>
             )}
-            {history.map((item) => (
+            {history.map((item, index) => (
               <div key={item.id} className="bg-black/15 rounded-lg flex items-stretch">
                 <button
                   type="button"
+                  data-history-first={index === 0 || undefined}
                   onClick={(event) => { event.currentTarget.focus(); setOpenedRecord(item); }}
                   className="flex-1 min-w-0 p-2.5 flex items-start gap-2 text-left rounded-l-lg hover:bg-white/5 transition-colors"
                 >
                   <span className="text-kiri-fog"><MoodIcon value={item.entry?.emoji || '✨'} className="w-5 h-5" /></span>
                   <span className="min-w-0 flex-1 block">
                     <span className="block text-xs text-kiri-lilac-ink">
-                      記入日: {item.createdAt ? new Date(item.createdAt).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' }) : '不明'}
+                      記入日: {formatRecordTime(item.createdAt) || '不明'}
                     </span>
                     <span className="block text-sm text-white truncate">{item.entry?.event || '記録なし'}</span>
                   </span>
@@ -1402,14 +1420,30 @@ export default function SpiritualDiary() {
                   type="button"
                   aria-label="この記録を削除"
                   onClick={(event) => { event.currentTarget.focus(); setConfirmDelete({ type: 'one', id: item.id }); }}
-                  className="text-kiri-lilac-ink hover:text-white px-2.5 rounded-r-lg"
+                  className="min-w-11 flex items-center justify-center text-kiri-lilac-ink hover:text-white rounded-r-lg"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
             ))}
           </div>
-          <p className="px-4 pb-3 text-[0.75rem] text-kiri-lilac-ink">タップすると当時のKiriの読み解きを読み返せます。</p>
+          <div className="px-4 pt-2 pb-3 border-t border-white/10">
+            <p className="text-[0.75rem] text-kiri-lilac-ink leading-relaxed">選ぶと、当時のKiriの読み解きを読み返せます。</p>
+            {/* 上限30件（D-06）は変えずに、使う人に見える所で正直に伝える（R2-02 の最低限） */}
+            <p className="text-[0.75rem] text-kiri-lilac-ink leading-relaxed">記録は新しいものから30件まで残ります。</p>
+            {/* 日記の記録が0件でも、会話が残っていれば出す（すべて削除は会話も消す。F-B2） */}
+            {canDeleteAll && (
+              <div className="flex justify-end mt-1">
+                <button
+                  type="button"
+                  onClick={(event) => { event.currentTarget.focus(); setConfirmDelete({ type: 'all' }); }}
+                  className="min-h-11 px-3 -mr-3 text-xs text-kiri-lilac-ink hover:text-white underline underline-offset-2"
+                >
+                  すべて削除
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </ModalFrame>
     );
@@ -1426,21 +1460,21 @@ export default function SpiritualDiary() {
             {isAll ? '記録と会話をすべて削除しますか？' : 'この記録を削除しますか？'}
           </h3>
           <p className="text-sm text-kiri-lilac-ink leading-relaxed mb-4">
-            {isAll ? '日記の記録・読み解き・Kiriとの会話がすべて消え、元に戻せません。' : '削除した記録は元に戻せません。'}バックアップを取っていない場合、復元はできません（バックアップは設定アイコンの「バックアップ」を選択して書き出せます）。
+            {isAll ? '日記の記録・読み解き・Kiriとの会話がすべて消え、元に戻せません。' : '削除した記録は元に戻せません。'}残しておきたいときは、先に右上の設定（歯車）を開き、「書き出す」でバックアップを保存してください。
           </p>
           <div className="flex gap-2">
             <button
               type="button"
               data-cancel-delete
               onClick={() => setConfirmDelete(null)}
-              className="flex-1 bg-white/[0.055] hover:bg-white/20 text-white py-2.5 rounded-lg text-sm font-medium transition-colors"
+              className="flex-1 min-h-11 bg-white/[0.055] hover:bg-white/20 text-white py-2.5 rounded-lg text-sm font-medium transition-colors"
             >
               キャンセル
             </button>
             <button
               type="button"
               onClick={performDelete}
-              className="flex-1 bg-kiri-danger text-kiri-night py-2.5 rounded-lg text-sm font-bold hover:opacity-90 transition-opacity"
+              className="flex-1 min-h-11 bg-kiri-danger text-kiri-night py-2.5 rounded-lg text-sm font-bold hover:opacity-90 transition-opacity"
             >
               削除する
             </button>
@@ -1456,6 +1490,10 @@ export default function SpiritualDiary() {
     const dateLabel = record.createdAt
       ? new Date(record.createdAt).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })
       : '記録';
+    const timeLabel = record.createdAt && Number.isFinite(Date.parse(record.createdAt))
+      ? new Date(record.createdAt).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })
+      : '';
+    const moodLabel = findMood(record.entry?.emoji)?.label;
     const entryLabel = record.entry?.type === 'future' ? '予定' : '出来事';
     return (
       <ModalFrame onClose={onClose} className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-3 pt-[calc(0.75rem+env(safe-area-inset-top))] pb-[calc(0.75rem+env(safe-area-inset-bottom))]" onClick={onClose} role="dialog" aria-modal="true" aria-label="過去の記録">
@@ -1465,7 +1503,7 @@ export default function SpiritualDiary() {
               <span className="text-kiri-fog"><MoodIcon value={record.entry?.emoji || '✨'} className="w-6 h-6" /></span>
               <div>
                 <h2 className="font-display font-bold text-kiri-gold">{dateLabel}</h2>
-                <p className="text-[0.75rem] text-kiri-lilac-ink">{entryLabel}の記録</p>
+                <p className="text-[0.75rem] text-kiri-lilac-ink">{[timeLabel, `${entryLabel}の記録`, moodLabel && `気分: ${moodLabel}`].filter(Boolean).join('・')}</p>
               </div>
             </div>
             <button type="button" onClick={onClose} aria-label="閉じる" className="kiri-hit text-kiri-lilac-ink hover:text-white p-1"><X className="w-5 h-5" /></button>
@@ -1525,7 +1563,6 @@ export default function SpiritualDiary() {
       return (
         <>
           {renderWhiteoutTransition()}
-          <ErrorBanner />
           {renderSettingsModal()}
           <div className="min-h-screen kiri-shell p-4 py-8 flex items-center justify-center relative overflow-hidden">
             {/* 霧の谷: トップページの静かな光 */}
@@ -1540,14 +1577,15 @@ export default function SpiritualDiary() {
                 type="button"
                 aria-label="設定"
                 onClick={(event) => { event.currentTarget.focus(); setShowSettings(true); }}
-                className="absolute top-4 right-4 text-kiri-lilac-ink hover:text-white p-1.5 rounded-full hover:bg-white/10 transition-colors"
+                className="kiri-hit absolute top-4 right-4 text-kiri-lilac-ink hover:text-white p-1.5 rounded-full hover:bg-white/10 transition-colors"
               >
                 <Settings className="w-5 h-5" />
               </button>
               <div className="text-center mb-6">
                 <Sparkles className="w-12 h-12 text-kiri-gold mx-auto mb-3" />
                 <h1 className="font-display text-2xl font-bold text-white mb-1">Mind & Energy Note</h1>
-                <p className="text-sm text-kiri-lilac-ink">バイオリズム×四柱推命から読み解く心の分析ノート</p>
+                {/* 語の途中で割れないよう、まとまりごとに inline-block で包む（手動の改行は入れない） */}
+                <p className="text-sm text-kiri-lilac-ink"><span className="inline-block">バイオリズム×四柱推命から</span><span className="inline-block">読み解く心の分析ノート</span></p>
               </div>
 
               {/* Kiriの紹介 */}
@@ -1562,7 +1600,7 @@ export default function SpiritualDiary() {
                   />
                   <div>
                     <h2 className="font-display text-lg font-bold text-kiri-gold">Kiri</h2>
-                    <p className="text-xs text-kiri-lilac-ink">わたしはKiri。あなたの心を映す鏡</p>
+                    <p className="text-xs text-kiri-lilac-ink"><span className="inline-block">わたしはKiri。</span><span className="inline-block">あなたの心を映す鏡</span></p>
                   </div>
                 </div>
                 <p className="text-sm text-white/90 leading-relaxed">
@@ -1636,7 +1674,7 @@ export default function SpiritualDiary() {
                     onChange={(e) => setBirthTime(e.target.value)}
                     className="w-full px-3 py-2.5 text-sm rounded-lg bg-white/10 text-white border border-kiri-lilac/50 focus:outline-none focus:ring-2 focus:ring-kiri-lilac"
                   />
-                  <p className="text-xs text-kiri-lilac-ink mt-1">時運分析に使います（未入力は12:00で概算）</p>
+                  <p className="text-xs text-kiri-lilac-ink mt-1">生まれた時間帯まで読み解きに使います。空欄でも大丈夫です（12:00で概算）</p>
                 </div>
 
                 <div>
@@ -1665,9 +1703,9 @@ export default function SpiritualDiary() {
               </div>
 
               <div className="flex items-center justify-center gap-4 mt-5 text-[0.75rem] text-kiri-lilac-ink">
-                <Link href="/privacy" className="hover:text-white">プライバシー</Link>
-                <Link href="/terms" className="hover:text-white">利用規約</Link>
-                <Link href="/support" className="hover:text-white">サポート</Link>
+                <Link href="/privacy" className="kiri-hit hover:text-white">プライバシー</Link>
+                <Link href="/terms" className="kiri-hit hover:text-white">利用規約</Link>
+                <Link href="/support" className="kiri-hit hover:text-white">サポート</Link>
               </div>
             </div>
           </div>
@@ -1679,7 +1717,6 @@ export default function SpiritualDiary() {
       return (
         <>
           {renderWhiteoutTransition()}
-          <ErrorBanner />
           {renderSettingsModal()}
           {/* 読み解き前・オフラインでも履歴を読み返せるよう、入力画面にも「最近の記録」を置く（D-40） */}
           {renderHistoryListModal()}
@@ -1700,7 +1737,7 @@ export default function SpiritualDiary() {
                   type="button"
                   aria-label="最近の記録"
                   onClick={(event) => { event.currentTarget.focus(); setShowHistoryList(true); }}
-                  className="absolute top-0 left-0 inline-flex items-center gap-1 text-xs text-kiri-lilac-ink hover:text-white px-2 py-1.5 rounded-full hover:bg-white/10 transition-colors"
+                  className="kiri-hit absolute top-0 left-0 inline-flex items-center gap-1 text-xs text-kiri-lilac-ink hover:text-white px-2 py-1.5 rounded-full hover:bg-white/10 transition-colors"
                 >
                   <History className="w-5 h-5" aria-hidden="true" />
                   <span aria-hidden="true">記録</span>
@@ -1709,7 +1746,7 @@ export default function SpiritualDiary() {
                   type="button"
                   aria-label="設定"
                   onClick={(event) => { event.currentTarget.focus(); setShowSettings(true); }}
-                  className="absolute top-0 right-0 text-kiri-lilac-ink hover:text-white p-1.5 rounded-full hover:bg-white/10 transition-colors"
+                  className="kiri-hit absolute top-0 right-0 text-kiri-lilac-ink hover:text-white p-1.5 rounded-full hover:bg-white/10 transition-colors"
                 >
                   <Settings className="w-5 h-5" />
                 </button>
@@ -1730,6 +1767,8 @@ export default function SpiritualDiary() {
                 </p>
                 <p className="text-kiri-lilac-ink text-xs">{new Date().toLocaleDateString('ja-JP')}</p>
               </div>
+
+              {renderErrorBanner()}
 
               <div className="space-y-3">
                 <div className="kiri-card rounded-xl p-4 kiri-dt-card">
@@ -1826,7 +1865,6 @@ export default function SpiritualDiary() {
       return (
         <>
           {renderWhiteoutTransition()}
-          <ErrorBanner />
           <div className="min-h-screen kiri-shell p-4 flex flex-col items-center justify-center relative overflow-hidden">
             {/* 霧の谷: 静かに漂う光 */}
             <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
@@ -1865,7 +1903,7 @@ export default function SpiritualDiary() {
       return (
         <>
           {renderWhiteoutTransition()}
-          <ErrorBanner />
+          {renderSettingsModal()}
           {renderHistoryListModal()}
           {renderConfirmDeleteModal()}
           {renderRecordDetail({ record: openedRecord, onClose: () => setOpenedRecord(null) })}
@@ -1924,14 +1962,14 @@ export default function SpiritualDiary() {
             onClose={() => setShowSajuInfo(false)}
             title="四柱推命とは？"
           >
-            <p>四柱推命は、中国発祥の占術で、生年月日時から人の運命や性格を読み解く東洋占星術です。</p>
+            <p>四柱推命は、中国で生まれた暦の考え方です。生年月日と時刻を、木・火・土・金・水の五つの要素に置きかえて、その日の自分をふり返るための「ものさし」として使っています。</p>
             <div className="space-y-2 mt-3">
               <div className="bg-white/[0.055] p-3 rounded-lg">
                 <p className="font-bold text-kiri-gold">あなたの本命（生まれた時）</p>
                 <p className="text-xs mt-1">年柱・月柱・日柱・時柱の4つの柱から、あなたの本質を表します</p>
               </div>
               <div className="bg-white/[0.055] p-3 rounded-lg">
-                <p className="font-bold text-kiri-gold">日運・時運（今この瞬間の運勢）</p>
+                <p className="font-bold text-kiri-gold">日運・時運（今日と今の時間の巡り）</p>
                 <p className="text-xs mt-1">日運は毎日変わり、時運は2時間ごとに変わります。このアプリでは特にこの2つを重視しています</p>
               </div>
               <div className="bg-white/[0.055] p-3 rounded-lg">
@@ -1945,7 +1983,7 @@ export default function SpiritualDiary() {
           <InfoPopup 
             show={showThemeInfo} 
             onClose={() => setShowThemeInfo(false)}
-            title="テーマ別運勢の算出方法"
+            title="テーマ別のめやすの出し方"
           >
             <p>このスコアは、以下を総合的に判断しています。</p>
             <div className="space-y-2 mt-3">
@@ -1959,7 +1997,7 @@ export default function SpiritualDiary() {
               </div>
               <div className="bg-white/[0.055] p-3 rounded-lg">
                 <p className="font-bold text-kiri-rose-ink">今日の気分</p>
-                <p className="text-xs mt-1">気分の絵文字から読み取った雰囲気（微調整）</p>
+                <p className="text-xs mt-1">選んだ気分から読み取った雰囲気（微調整）</p>
               </div>
               {result.saju?.birth?.hasBirthTime === true && (
                 <div className="bg-white/[0.055] p-3 rounded-lg">
@@ -1977,7 +2015,7 @@ export default function SpiritualDiary() {
             title="今日の色について"
           >
             <p>この色は、四柱推命の五行論と色彩心理学から導いています。</p>
-            <p className="mt-2">五行（木火土金水）にはそれぞれ対応する色があり、今日の運勢（日運）の五行とバイオリズムを組み合わせて、Kiriがイメージした色をお伝えしています。</p>
+            <p className="mt-2">五行（木火土金水）にはそれぞれ対応する色があり、今日の巡り（日運）の五行とバイオリズムを組み合わせて、Kiriがイメージした色をお伝えしています。</p>
             <p className="mt-2 text-kiri-lilac-ink text-xs">感覚的なイメージをKiriからのヒントとして受け取ってください。</p>
           </InfoPopup>
 
@@ -1987,8 +2025,8 @@ export default function SpiritualDiary() {
             title="今日の数字について"
           >
             <p>この数字は、干支の数理とバイオリズムの周期から導いています。</p>
-            <p className="mt-2">十二支にはそれぞれ数字が割り当てられていて、今日の運勢とあなたのバイオリズムから、今日のペースに合いそうな数字をKiriが選んでいます。</p>
-            <p className="mt-2 text-kiri-lilac-ink text-xs">迷った時に、ふと思い出してもらえたら、助けになるかもしてません。</p>
+            <p className="mt-2">十二支にはそれぞれ数字が割り当てられていて、今日の巡りとあなたのバイオリズムから、今日のペースに合いそうな数字をKiriが選んでいます。</p>
+            <p className="mt-2 text-kiri-lilac-ink text-xs">迷った時に、ふと思い出してもらえたら、<span className="inline-block">助けになるかもしれません。</span></p>
           </InfoPopup>
 
           <InfoPopup 
@@ -1997,7 +2035,7 @@ export default function SpiritualDiary() {
             title="今日の方角について"
           >
             <p>この方角は、五行の方位論（風水）から導いています。</p>
-            <p className="mt-2">五行（木火土金水）にはそれぞれ方角があり、今日の運勢の五行とバイオリズムから、Kiriが感じた方向をお伝えしています。</p>
+            <p className="mt-2">五行（木火土金水）にはそれぞれ方角があり、今日の巡りの五行とバイオリズムから、Kiriが感じた方向をお伝えしています。</p>
             <p className="mt-2 text-kiri-lilac-ink text-xs">気にしなくても大丈夫。気が向いたときだけ、Kiriと視線を合わせてみてください。</p>
           </InfoPopup>
 
@@ -2006,7 +2044,7 @@ export default function SpiritualDiary() {
             onClose={() => setShowHintInfo({...showHintInfo, distance: false})}
             title="今日の距離感について"
           >
-            <p>この距離感は、今日のテーマ別運勢とバイオリズムから導いています。</p>
+            <p>この距離感は、今日のテーマ別のめやすとバイオリズムから導いています。</p>
             <p className="mt-2">あなたの今日のエネルギー状態を、人との距離感やものとの関わり方に例えてみました。</p>
             <p className="mt-2 text-kiri-lilac-ink text-xs">正解はないので、心地よい距離を自分で選んでくださいね。</p>
           </InfoPopup>
@@ -2014,7 +2052,25 @@ export default function SpiritualDiary() {
 
           <div className="min-h-screen kiri-shell p-4 pb-20">
             <div className="max-w-2xl mx-auto">
-              <div className="text-center mb-4 pt-2">
+              {/* 入力画面（D-40）と同じく、左上に「記録」・右上に設定を置く。削除の確認で案内する「書き出す」へ、この画面からも行ける（UX P1-4） */}
+              <div className="text-center mb-4 pt-2 relative kiri-dt-header">
+                <button
+                  type="button"
+                  aria-label="最近の記録"
+                  onClick={(event) => { event.currentTarget.focus(); setShowHistoryList(true); }}
+                  className="kiri-hit absolute top-0 left-0 inline-flex items-center gap-1 text-xs text-kiri-lilac-ink hover:text-white px-2 py-1.5 rounded-full hover:bg-white/10 transition-colors"
+                >
+                  <History className="w-5 h-5" aria-hidden="true" />
+                  <span aria-hidden="true">記録</span>
+                </button>
+                <button
+                  type="button"
+                  aria-label="設定"
+                  onClick={(event) => { event.currentTarget.focus(); setShowSettings(true); }}
+                  className="kiri-hit absolute top-0 right-0 text-kiri-lilac-ink hover:text-white p-1.5 rounded-full hover:bg-white/10 transition-colors"
+                >
+                  <Settings className="w-5 h-5" />
+                </button>
                 <h1 className="font-display text-xl font-bold text-white mb-1">
                   今日のメッセージ
                 </h1>
@@ -2029,7 +2085,7 @@ export default function SpiritualDiary() {
                 {/* バイオリズムセクション */}
                 <CollapsibleSection
                     title="バイオリズム"
-                    collapsedHint="タップで確認"
+                    collapsedHint="開いて確認"
                   isExpanded={expandedSections.biorhythm}
                   onToggle={() => setExpandedSections({...expandedSections, biorhythm: !expandedSections.biorhythm})}
                   onInfoClick={() => setShowBioInfo(true)}
@@ -2050,13 +2106,13 @@ export default function SpiritualDiary() {
                     isExpanded={expandedSections.saju}
                     onToggle={() => setExpandedSections({...expandedSections, saju: !expandedSections.saju})}
                     onInfoClick={() => setShowSajuInfo(true)}
-                    collapsedHint="タップで確認"
+                    collapsedHint="開いて確認"
                   >
                     {/* グループ（本命／今日の運勢／月運・年運／大運）どうしは16px（大きい文字は14px）、見出し→格子は6px（D-29） */}
                     <div className="space-y-4 kiri-dt-stack">
                       <div>
                         <h3 className="text-xs font-bold text-kiri-lilac-ink mb-1">あなたの本命</h3>
-                        <p className="text-xs text-kiri-lilac-ink mb-2">自分自身（本質・性格・運勢の根幹）を表す最も重要な要素</p>
+                        <p className="text-xs text-kiri-lilac-ink mb-2">自分自身（本質や性格の土台）を表す<span className="inline-block">最も重要な要素</span></p>
                         <div className="grid grid-cols-2 gap-2">
                           <div className="bg-white/[0.055] p-2 rounded-lg">
                             <p className="text-xs text-kiri-lilac-ink">年柱</p>
@@ -2078,7 +2134,7 @@ export default function SpiritualDiary() {
                       </div>
 
                       <div>
-                        <h3 className="text-xs font-bold text-kiri-gold mb-1.5">今日の運勢</h3>
+                        <h3 className="text-xs font-bold text-kiri-gold mb-1.5">今日の巡り</h3>
                         <div className="grid grid-cols-2 gap-2">
                           <div className="bg-kiri-gold/11 p-2 rounded-lg">
                             <p className="text-xs text-kiri-gold">日運（今日）</p>
@@ -2142,17 +2198,17 @@ export default function SpiritualDiary() {
                 {/* テーマ別運勢セクション - メインメッセージの前に配置 */}
                 {result.themeScores && (
                   <CollapsibleSection
-                    title="今日のテーマ別運勢"
-                    collapsedHint="タップで確認"
+                    title="今日のテーマ別のめやす"
+                    collapsedHint="開いて確認"
                     isExpanded={expandedSections.themes}
                     onToggle={() => setExpandedSections({...expandedSections, themes: !expandedSections.themes})}
                     onInfoClick={() => setShowThemeInfo(true)}
                   >
                     <div className="space-y-2">
                       <ThemeBar icon={<Heart className="w-5 h-5" />} label="恋愛・人間関係" value={result.themeScores.love} baseColor="bg-kiri-rose" />
-                      <ThemeBar icon={<Star className="w-5 h-5" />} label="お金・判断感覚" value={result.themeScores.money} baseColor="bg-kiri-gold" />
+                      <ThemeBar icon={<Star className="w-5 h-5" />} label="お金との向き合い方" value={result.themeScores.money} baseColor="bg-kiri-gold" />
                       <ThemeBar icon={<Zap className="w-5 h-5" />} label="仕事・学び" value={result.themeScores.work} baseColor="bg-kiri-rain" />
-                      <ThemeBar icon={<Heart className="w-5 h-5" />} label="健康・活力" value={result.themeScores.health} baseColor="bg-kiri-leaf" />
+                      <ThemeBar icon={<Heart className="w-5 h-5" />} label="からだのリズム" value={result.themeScores.health} baseColor="bg-kiri-leaf" />
                     </div>
                   </CollapsibleSection>
                 )}
@@ -2238,6 +2294,11 @@ export default function SpiritualDiary() {
                   </p>
                 </div>
 
+                {/* 読み解きはAIの読みものであって、予言や診断ではないことを静かに添える（審査 A-5。チャット欄と同じ文） */}
+                <p className="text-[0.75rem] text-kiri-lilac-ink text-center leading-relaxed px-2">
+                  <span className="inline-block">Kiriの言葉はAIがつくる読みものです。</span><span className="inline-block">未来を約束するものではありません。</span>
+                </p>
+
 
                 <div className="bg-white/[0.055] backdrop-blur-md rounded-xl p-4 border border-kiri-lilac/30">
                   <div className="flex items-center justify-between mb-3">
@@ -2274,7 +2335,7 @@ export default function SpiritualDiary() {
                   <button
                     type="button"
                     onClick={(event) => { event.currentTarget.focus(); setShowHistoryList(true); }}
-                    className="mt-3 w-full flex items-center justify-center gap-2 bg-white/[0.055] hover:bg-white/20 active:scale-[0.98] text-white py-2.5 rounded-lg font-medium text-sm transition-all"
+                    className="mt-3 w-full min-h-11 flex items-center justify-center gap-2 bg-white/[0.055] hover:bg-white/20 active:scale-[0.98] text-white py-2.5 rounded-lg font-medium text-sm transition-all"
                   >
                     <History className="w-4 h-4" />最近の記録
                   </button>
@@ -2319,18 +2380,21 @@ export default function SpiritualDiary() {
                   );
                 })()}
 
+                {/* 左: 書いた文を残したまま入力へ戻る／右: 入力欄を空にして入力へ戻る。どちらも保存した記録は消さない（UX P1-5） */}
                 <div className="flex gap-2">
                   <button
+                    type="button"
                     onClick={() => setStep('input')}
                     className="flex-1 bg-white/[0.055] hover:bg-white/20 active:scale-[0.98] text-white py-3 rounded-xl font-medium text-sm transition-all"
                   >
-                    前の画面に戻る
+                    書き直す
                   </button>
                   <button
+                    type="button"
                     onClick={clearAll}
                     className="flex-1 bg-white/[0.055] hover:bg-white/20 active:scale-[0.98] text-white py-3 rounded-xl font-medium text-sm transition-all"
                   >
-                    今日の記録をクリアする
+                    新しく書く
                   </button>
                 </div>
               </div>

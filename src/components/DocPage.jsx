@@ -5,7 +5,7 @@ export default function DocPage({ title, updatedAt, children }) {
   return (
     <div className="min-h-screen kiri-shell p-4 py-8">
       <div className="max-w-2xl mx-auto kiri-card rounded-2xl p-6">
-        <Link href="/" className="inline-flex items-center gap-1 text-sm text-kiri-lilac-ink hover:text-white mb-4">
+        <Link href="/" className="kiri-hit inline-flex items-center gap-1 text-sm text-kiri-lilac-ink hover:text-white mb-4">
           <ArrowLeft className="w-4 h-4" />ホームへ戻る
         </Link>
         <h1 className="font-display text-xl font-bold text-white mb-1">{title}</h1>

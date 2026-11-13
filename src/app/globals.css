@@ -140,6 +140,8 @@ html[data-kiri-large-text] .kiri-dt-event {
 /* 大きい文字のとき、日記画面の余白を少し詰めて、カードの下端がホームバーの角に掛からないようにする（2026-10-09） */
 html[data-kiri-large-text] .kiri-dt-header {
   margin-bottom: 8px;
+  /* 大きい文字では見出しが左上の「記録」・右上の設定に重なるので、見出しをボタンの下から始める（2026-11-14） */
+  padding-top: 44px;
 }
 
 html[data-kiri-large-text] .kiri-dt-card {
@@ -296,7 +298,8 @@ input[type="time"]::-webkit-date-and-time-value {
   小さなアイコンボタンの「押せる範囲」だけを 44×44px に広げる（見た目は変えない。Apple HIG の最小タップ領域）。
   透明な ::after をボタンの中心に重ねる。2026-10-09。
 */
-.kiri-hit {
+/* absolute などの位置指定と一緒に付けたときは、そちらを残す（::after の基準はどちらでも作れる。2026-11-14） */
+.kiri-hit:not(.absolute):not(.fixed):not(.sticky) {
   position: relative;
 }
 
