@@ -178,3 +178,18 @@ describe("相談窓口", () => {
     expect(CRISIS_CHAT_MESSAGE).not.toMatch(/\p{Extended_Pictographic}/u);
   });
 });
+
+describe("独立検収の誤検知（2026-11-14）", () => {
+  it.each([
+    "週末を楽しんでもいいかな。カフェでケーキを食べた。",
+    "楽しんでもいいと思った",
+    "悲しんでもいいや、と泣いた",
+    "わたしにテーブルを選ばせて",
+    "わたしにテーマをくれた",
+  ])("ふつうの文は拾わない: %s", (text) => {
+    expect(detectCrisis(text)).toBe(false);
+  });
+  it.each(["もう死んでもいいや", "しにてー", "しにてー。", "死にたーい", "しにたーいよ"])("危機の言葉は拾う: %s", (text) => {
+    expect(detectCrisis(text)).toBe(true);
+  });
+});

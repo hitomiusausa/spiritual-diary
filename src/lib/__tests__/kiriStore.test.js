@@ -62,6 +62,18 @@ describe("createMemoryStore", () => {
     expect(await store.incr("kiri:qi:analyze:iphash:2026-10-08", 172_800)).toBe(2);
   });
 
+  // 独立検収 P2-2: 日次キーで埋まっているとき、入れたばかりのキーや全体の上限（kiri:q:）を消さない。
+  it("入れたばかりのキーと全体の上限キーは、あふれても消さない", async () => {
+    const store = createMemoryStore({ maxKeys: 5, now: () => T0 });
+    for (let i = 0; i < 3; i += 1) await store.incr("kiri:q:analyze:2026-10-08", 172_800);
+    for (let i = 0; i < 60; i += 1) {
+      await store.incr(`kiri:qi:analyze:ip${i}:2026-10-08`, 172_800);
+      expect(await store.incr(`kiri:rl:analyze:ip${i}:1`, 120)).toBe(1);
+      expect(await store.incr(`kiri:rl:analyze:ip${i}:1`, 120)).toBe(2);
+    }
+    expect(await store.incr("kiri:q:analyze:2026-10-08", 172_800)).toBe(4);
+  });
+
   it("レート制限キーがなければ、いちばん古いキーを消す", async () => {
     const store = createMemoryStore({ maxKeys: 2, now: () => T0 });
     await store.incr("kiri:q:a", 60);

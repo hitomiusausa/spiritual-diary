@@ -8,6 +8,7 @@ import { Redis } from "@upstash/redis";
 const MEMORY_MAX_KEYS = 2000;
 // あふれたときに先に消すキー。日次の上限（kiri:q: / kiri:cu: / kiri:qi:）を消すと、その日の数が0に戻ってしまう（S-03）。
 const EVICT_FIRST_PREFIX = "kiri:rl:";
+const PROTECTED_PREFIX = "kiri:q:";
 // analyze は incr を2回（レート制限・クォータ）呼ぶので、最悪の待ちは約2秒。
 // 障害時はメモリへ降格するため再試行はしない。
 const STORE_TIMEOUT_MS = 1000;
@@ -26,11 +27,17 @@ export function createMemoryStore({ maxKeys = MEMORY_MAX_KEYS, now = Date.now } 
   const values = new Map(); // key -> { value, expiresAt }
 
   // いちばん古いレート制限キー。なければ（期限切れを含め）いちばん古いキー。Map は入れた順に並ぶ。
-  function evictionCandidate() {
+  // 入れたばかりのキー（keep）は消さない。次に、全体の1日の上限（kiri:q:）は最後まで残す（独立検収 P2-2）。
+  function evictionCandidate(keep) {
+    let fallback;
+    let lastResort;
     for (const key of entries.keys()) {
+      if (key === keep) continue;
       if (key.startsWith(EVICT_FIRST_PREFIX)) return key;
+      if (fallback === undefined && !key.startsWith(PROTECTED_PREFIX)) fallback = key;
+      if (lastResort === undefined) lastResort = key;
     }
-    return entries.keys().next().value;
+    return fallback ?? lastResort;
   }
 
   async function incr(key, ttlSec) {
@@ -43,7 +50,7 @@ export function createMemoryStore({ maxKeys = MEMORY_MAX_KEYS, now = Date.now } 
     entries.delete(key);
     entries.set(key, { count: 1, expiresAt: current + ttlSec * 1000 });
     if (entries.size > maxKeys) {
-      entries.delete(evictionCandidate());
+      entries.delete(evictionCandidate(key));
     }
     return 1;
   }
