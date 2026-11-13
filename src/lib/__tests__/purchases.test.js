@@ -36,6 +36,7 @@ function fakePlugin(overrides = {}) {
   const listeners = [];
   const methods = {
     configure: vi.fn(async () => {}),
+    setLogLevel: vi.fn(async () => {}),
     getOfferings: vi.fn(async () => offerings()),
     checkTrialOrIntroductoryPriceEligibility: vi.fn(async ({ productIdentifiers }) =>
       Object.fromEntries(productIdentifiers.map((id) => [id, { status: 2, description: "eligible" }])),
@@ -116,6 +117,9 @@ describe("ネイティブ（RevenueCat プラグイン）", () => {
     expect(b).toEqual({ configured: true });
     expect(plugin.methods.configure).toHaveBeenCalledTimes(1);
     expect(plugin.methods.configure).toHaveBeenCalledWith({ apiKey: "appl_test_key" });
+    // R2-06: configure より前に、端末ログを警告以上だけにする
+    expect(plugin.methods.setLogLevel).toHaveBeenCalledWith({ level: "WARN" });
+    expect(plugin.methods.setLogLevel.mock.invocationCallOrder[0]).toBeLessThan(plugin.methods.configure.mock.invocationCallOrder[0]);
     expect(plugin.methods.addCustomerInfoUpdateListener).toHaveBeenCalledTimes(1);
   });
 

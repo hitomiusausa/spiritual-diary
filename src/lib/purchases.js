@@ -131,6 +131,13 @@ export function createPurchases({
   async function doConfigure() {
     try {
       const mod = await load();
+      // リリース版の既定は INFO で、端末ログに匿名の利用者IDなどが出うる。警告以上だけにする（R2-06）。
+      // 13.6.1 の型定義 setLogLevel({ level: LOG_LEVEL }) を確認済み。失敗しても購入の設定は止めない。
+      try {
+        await mod.Purchases.setLogLevel({ level: mod.LOG_LEVEL?.WARN ?? "WARN" });
+      } catch {
+        // ログの設定に失敗しても購入機能は使える
+      }
       await mod.Purchases.configure({ apiKey });
       await mod.Purchases.addCustomerInfoUpdateListener((customerInfo) => emit(stateFrom(customerInfo)));
       plugin = mod;
