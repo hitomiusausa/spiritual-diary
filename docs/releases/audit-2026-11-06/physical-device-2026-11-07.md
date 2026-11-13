@@ -94,3 +94,11 @@ Anthropic Consoleの表示中組織は残高あり・組織支出上限未到達
 AstraとAPI担当が独立再点検。旧APIversionの公式schemaにもSonnet5.5/effort mediumが載り、x-api-keyは現在も有効。bodyの明白な構造不備は見つからない。fallbackの全組合せ互換の明示保証は未取得。workspace非限定キーはworkspace headerが必要だが、legacy workspaceキーは作成先に固定され省略可能。本番キーscope未特定のため条件付き候補に留める。api-version-workspace-review.md。
 
 repo旧HANDOVERには、2026-10-08作成のKiri専用workspace `wrkspc_012jzv8UJ1hKnEB5THWJzark`（当時月20USD/通知15USD、同workspaceのキーで200確認）の記録がある。現在ログイン中の個人向けAPI組織から当該workspaceの設定URLを開くと「ワークスペースが見つかりません／権限不足か別組織の可能性」と表示。削除されたと断定しない。先の表示組織の残高・上限をKiriのものと扱わない。ひちゃんへ作成元アカウント／組織を質問済み、キー値は依頼していない。追加AIなしで正しい組織・workspace・spend・キーscopeを確認するのが次。
+
+## 2026-11-13 secret入れ替え後の実機受け入れ（build3・本番 c414cbe9）
+
+- 開始前にapp containerをGit外 `physical-qa-20261107-1153/pre-20261113-container` へ退避（history3件・profile・lock・migrated・analysis-cache）。照合はハッシュのみで中身は表示していない。
+- 本人がiPhoneで合成profile（q / 1980-01-10）・v2同意・「散歩した」で読み解き1回（本人承認）→ **結果表示PASS**。containerで history 4件（新1件＋元3件が完全一致）を確認。
+- 完全終了→再起動→Face ID後のcontainerで history 4件・直前と完全一致 → **AI成功→結果保存→再起動復元 PASS**。
+- 片付け: 同日同入力の端末キャッシュで結果画面へ戻り（本人操作）テスト1件を削除、元profileへ復元、同意取り消し。containerで history/profile/lock/migrated が開始時と完全一致、consentキー無しを確認。analysis-cacheキーは消えている（開始時の分は前日以前の古いキャッシュ）。
+- 新発見（未対応）: 「最近の記録」の入口が結果画面のみ（`SpiritualDiary.jsx` の setShowHistoryList(true) は1箇所）。オフラインや読み解き前には履歴へ行けず、審査メモ下書きの「offline history viewing」と食い違う。4.2対策として入口の追加を要検討（本人の見た目判断待ち）。

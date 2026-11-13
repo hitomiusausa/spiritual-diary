@@ -6,6 +6,7 @@
 
 ## 現在の状態
 
+- **2026-11-13**: 本人承認でローカル1回送信（架空入力・本番と同形）が200成功→本番secret `CLAUDE_API_KEY` を同キーへ入れ替え。新active **`c414cbe9-04c9-44b1-afca-74915e92ed29`**（Secret Change、コード同一）。AI無しの確認はPASS。続けて本人承認の本番1回（架空入力）が **200・success true** → **H-02解消**。続けて実機build3で **AI成功→結果保存→再起動復元もPASS**、端末は開始時と完全一致へ復元済み。履歴の入口が結果画面のみだった件は **D-40で入力画面ヘッダーに「記録」を追加（ローカル実装・テスト/ブラウザ確認済み、本番・新ビルド未反映）**。詳細は restart-2026-11-08.md 末尾。
 - 本番: https://kiri.kugainc.com/ 。本人承認で監査候補＋安全な上流エラー分類を反映済み。最後のCLI確認でactive version **`cf45f762-b4d7-4269-a580-398ed865e095`**、100%。再開時は変更競合を確認する。監査前は `eb128156-5748-4f31-82dc-925f52dd9ba4`。
 - **公開阻害H-02/P1は継続**。実機の読み解きはAnthropic upstream HTTP400。初回2回(build2)＋別途承認の1回(build3)すべて失敗。最新ログは `provider_request_invalid`。本文解析失敗もこの分類へ落ちるため、原因・billing除外を断定しない。**追加AIは承認上限1/1使用済み、再承認なしで送信しない。**
 - 実機: iPhone12mini/iOS26.3.1、bundle `com.kugainc.kiri.ios`、開発署名Release 1.0/build3。TestFlight再upload/提出/実購入なし。元profile・既存history3件・lock設定をraw保存値で完全一致照合し復元済み。架空入力を消し、試験用v2同意も撤回、再起動後のKiriロック画面を確認。本人のデータをGitへ含めない。
