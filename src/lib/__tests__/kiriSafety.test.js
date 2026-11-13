@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   CRISIS_CHAT_MESSAGE,
   SUPPORT_LINES,
@@ -50,6 +52,64 @@ describe("detectCrisis", () => {
     null,
   ])("拾わない: %s", (text) => {
     expect(detectCrisis(text)).toBe(false);
+  });
+
+  // A-3（2026-11-14 敵対的レビュー）で見つかった検出漏れ。
+  it.each([
+    "ODした",
+    "ＯＤした",
+    "odしちゃった",
+    "昨日オーバードーズした",
+    "薬をたくさん飲んだ",
+    "飛び降りたい",
+    "電車に飛び込みたい",
+    "遺書を書いた",
+    "練炭を買った",
+    "希死念慮がある",
+    "死にたーい",
+    "しにたーーい",
+    "死にてー",
+    "タヒにたい",
+    "居なくなりたい",
+    "いなくなってしまいたい",
+    "死のうかな",
+    "もう死んでもいいや",
+    "生まれてこなければよかった",
+    "わたしなんていないほうがいい",
+    "自分はいない方がいい",
+    "生きる価値がない",
+    "生きてる価値もない",
+    "明日の朝、目が覚めなければいいのに",
+    "くびをつりたい",
+    "腕を切った",
+  ])("拾う（追加）: %s", (text) => {
+    expect(detectCrisis(text)).toBe(true);
+  });
+
+  // A-3 の誤検出。ひらがなの「〜しに対して」などを拾わない。
+  it.each([
+    "わたしにたいして優しかった",
+    "わたしにたいへん親切にしてくれた",
+    "あたしにたいする態度",
+    "推しにたくさんお金を使った",
+    "推しにたいへん感謝",
+    "首をつっこみすぎた",
+    "プールに飛び込みたい",
+    "目が覚めなければ遅刻していた",
+    "死んでもいいくらい美味しかった",
+    "goodしかない一日",
+  ])("拾わない（追加）: %s", (text) => {
+    expect(detectCrisis(text)).toBe(false);
+  });
+
+  it("無害な言い回しの直後に危機の言葉があれば、それは拾う", () => {
+    expect(detectCrisis("わたしにたいしてもう死にたいって思う")).toBe(true);
+    expect(detectCrisis("推しにたくさん会えたけど、しにたい")).toBe(true);
+  });
+
+  it("後読み（lookbehind）を使わない（iOS 15.5 の Safari で構文エラーになるため）", () => {
+    const source = readFileSync(join(process.cwd(), "src/lib/kiriSafety.js"), "utf8");
+    expect(source).not.toMatch(/\(\?<[!=]/);
   });
 
   it("複数の入力欄をまとめて判定できる", () => {
