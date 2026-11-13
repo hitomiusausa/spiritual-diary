@@ -298,6 +298,15 @@ export default function SpiritualDiary() {
   const [loading, setLoading] = useState(false);
   const [analysisSaving, setAnalysisSaving] = useState(false);
   const [error, setError] = useState(null);
+  // 入力の確認を促すお知らせは、入力を直し始めたら閉じる（自動で時間切れにはしない。独立検収 P2-5）。
+  const INPUT_CHECK_TITLE = '入力を確かめてね';
+  const inputCheckShownRef = useRef(null);
+  useEffect(() => {
+    if (error?.title !== INPUT_CHECK_TITLE) { inputCheckShownRef.current = null; return; }
+    const snapshot = `${entry.emoji}\u0000${entry.event}\u0000${entry.intuition}`;
+    if (inputCheckShownRef.current === null) { inputCheckShownRef.current = snapshot; return; }
+    if (inputCheckShownRef.current !== snapshot) setError(null);
+  }, [error, entry.emoji, entry.event, entry.intuition]);
   // バイオリズム・四柱推命・テーマ別運勢は詳細を見たい人だけ開く（結果が長く、Kiriの読み解きまで進めないように見えるため。2026-10-10）
   const [expandedSections, setExpandedSections] = useState({
     biorhythm: false,
@@ -696,7 +705,7 @@ export default function SpiritualDiary() {
   const requestAnalyze = () => {
     setDeclinedSupport(entryNeedsSupport(entry));
     if (nickname.length > NICKNAME_MAX_CHARS || entry.event.length > ENTRY_EVENT_MAX_CHARS || entry.intuition.length > ENTRY_INTUITION_MAX_CHARS || !entry.event.trim()) {
-      setError({ title: '入力を確かめてね', message: '名前は40文字、出来事は1,200文字、直感は600文字まで書けます。出来事には今日のことをひとこと書いてね。' });
+      setError({ title: INPUT_CHECK_TITLE, message: '名前は40文字、出来事は1,200文字、直感は600文字まで書けます。出来事には今日のことをひとこと書いてね。' });
       return;
     }
     setDeclinedSupport(entryNeedsSupport(entry));
@@ -1323,6 +1332,7 @@ export default function SpiritualDiary() {
       if (all) {
         clearAllRecords(getStorage());
         setShowChat(false);
+        setError(null); // 消したあとに古いお知らせを残さない（独立検収 P2-5）
       } else {
         deleteHistoryItem(getStorage(), target.id);
         clearCachedAnalyses(getStorage());
@@ -1387,11 +1397,11 @@ export default function SpiritualDiary() {
     if (!showHistoryList) return null;
     const canDeleteAll = hasAnyRecords(history, getStorage());
     return (
-      <ModalFrame onClose={() => setShowHistoryList(false)} initialFocus={history.length > 0 ? '[data-history-first]' : '[data-history-close]'} className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-3 pt-[calc(0.75rem+env(safe-area-inset-top))] pb-[calc(0.75rem+env(safe-area-inset-bottom))]" onClick={() => setShowHistoryList(false)} role="dialog" aria-modal="true" aria-label="最近の記録">
+      <ModalFrame onClose={() => setShowHistoryList(false)} initialFocus="[data-history-initial]" className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-3 pt-[calc(0.75rem+env(safe-area-inset-top))] pb-[calc(0.75rem+env(safe-area-inset-bottom))]" onClick={() => setShowHistoryList(false)} role="dialog" aria-modal="true" aria-label="最近の記録">
         <div className="kiri-card-strong kiri-dialog-card rounded-2xl w-full max-w-lg max-h-[88vh] flex flex-col overflow-hidden kiri-rise" onClick={(e) => e.stopPropagation()}>
           <div className="p-4 border-b border-white/10 flex items-center justify-between">
             <h2 className="font-display font-bold text-kiri-gold">最近の記録</h2>
-            <button type="button" data-history-close onClick={() => setShowHistoryList(false)} aria-label="閉じる" className="kiri-hit text-kiri-lilac-ink hover:text-white"><X className="w-5 h-5" /></button>
+            <button type="button" data-history-close data-history-initial={history.length === 0 || undefined} onClick={() => setShowHistoryList(false)} aria-label="閉じる" className="kiri-hit text-kiri-lilac-ink hover:text-white"><X className="w-5 h-5" /></button>
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-2">
             {deleteNotice && (
@@ -1405,6 +1415,7 @@ export default function SpiritualDiary() {
                 <button
                   type="button"
                   data-history-first={index === 0 || undefined}
+                  data-history-initial={index === 0 || undefined}
                   onClick={(event) => { event.currentTarget.focus(); setOpenedRecord(item); }}
                   className="flex-1 min-w-0 p-2.5 flex items-start gap-2 text-left rounded-l-lg hover:bg-white/5 transition-colors"
                 >

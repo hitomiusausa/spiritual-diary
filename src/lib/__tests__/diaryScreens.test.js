@@ -66,7 +66,10 @@ describe("迷わない導線（05-ux）", () => {
 
   it("最近の記録を開いた直後のフォーカスは、最初の記録か閉じるボタン（すべて削除ではない）", () => {
     const list = block("const renderHistoryListModal", "const renderConfirmDeleteModal");
-    expect(list).toContain("initialFocus={history.length > 0 ? '[data-history-first]' : '[data-history-close]'}");
+    // 件数で selector を変えると ModalFrame の効果が作り直され、Escape 後のフォーカス復帰が外れる（独立検収 P2-3）。
+    expect(list).toContain('initialFocus="[data-history-initial]"');
+    expect(list).toContain("data-history-initial={history.length === 0 || undefined}");
+    expect(list).toContain("data-history-initial={index === 0 || undefined}");
     // すべて削除は閉じる×の隣ではなく、一覧の下に44pxの高さで置く
     const header = list.slice(list.indexOf('<div className="p-4 border-b'), list.indexOf('<div className="flex-1 overflow-y-auto'));
     expect(header).not.toContain("すべて削除");

@@ -13,7 +13,7 @@ import { detectCrisis } from '@/lib/kiriSafety';
 import { CHAT_USER_MAX_CHARS } from '@/lib/inputContract';
 import { createChatRequestSession, withChatAbort, chatRequestBody } from '@/lib/chatRequest';
 
-const CONSENT_REQUIRED_MESSAGE = '……ここで話した言葉は、Anthropic社のAI（Claude）に送られるの。いまは送信への同意が取り消されているから、届けられないみたい。「読み解く」の確認画面で同意すると、また話せるよ。';
+const CONSENT_REQUIRED_MESSAGE = '……ここで話した言葉は、Anthropic社のAI（Claude）に送られるの。いまは送信への同意が取り消されているから、届けられないみたい。「Kiriに読み解いてもらう」を押したときの確認画面で同意すると、また話せるよ。';
 
 export default function KiriChatPanel({ userProfile, entry, result, onClose, readOnly = false, onOpenPaywall, getAppUserId, onNotEntitled, purchasePending = false, onChatSuccess }) {
   const [messages, setMessages] = useState([]);
