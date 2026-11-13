@@ -1681,6 +1681,10 @@ export default function SpiritualDiary() {
           {renderWhiteoutTransition()}
           <ErrorBanner />
           {renderSettingsModal()}
+          {/* 読み解き前・オフラインでも履歴を読み返せるよう、入力画面にも「最近の記録」を置く（D-40） */}
+          {renderHistoryListModal()}
+          {renderConfirmDeleteModal()}
+          {renderRecordDetail({ record: openedRecord, onClose: () => setOpenedRecord(null) })}
           <ConsentModal
             busy={consentBusy}
             notice={consentNotice}
@@ -1692,6 +1696,15 @@ export default function SpiritualDiary() {
           <div className="min-h-screen kiri-shell p-4 pb-20">
             <div className="max-w-2xl mx-auto">
               <div className="text-center mb-4 pt-2 relative kiri-dt-header">
+                <button
+                  type="button"
+                  aria-label="最近の記録"
+                  onClick={(event) => { event.currentTarget.focus(); setShowHistoryList(true); }}
+                  className="absolute top-0 left-0 inline-flex items-center gap-1 text-xs text-kiri-lilac-ink hover:text-white px-2 py-1.5 rounded-full hover:bg-white/10 transition-colors"
+                >
+                  <History className="w-5 h-5" aria-hidden="true" />
+                  <span aria-hidden="true">記録</span>
+                </button>
                 <button
                   type="button"
                   aria-label="設定"
