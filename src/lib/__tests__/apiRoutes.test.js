@@ -494,6 +494,20 @@ describe("release audit API boundaries", () => {
     expect(sent.messages[0].content).toMatch(/PRIVATE_EVENT/);
     expect(sent.messages[0].content).toMatch(/PRIVATE_RESULT/);
   });
+  it("adds fixed gentle guidance to chat system when the diary entry itself is in crisis, without copying the diary (A-7)", async () => {
+    env(); const upstream = vi.fn(async () => anthropicOk()); vi.stubGlobal("fetch", upstream);
+    const res = await chatPOST(jsonRequest({ messages: [{ role: "user", content: "ねえ" }], context: { entry: { event: "PRIVATE_EVENT もう消えたい" } } }));
+    expect(res.status).toBe(200);
+    const sent = JSON.parse(upstream.mock.calls[0][1].body);
+    expect(sent.system).toContain("今日の記録には、とても苦しい気持ちが書かれている");
+    expect(sent.system).not.toMatch(/PRIVATE_EVENT/);
+  });
+  it("does not add the diary-crisis guidance for an ordinary entry (A-7)", async () => {
+    env(); const upstream = vi.fn(async () => anthropicOk()); vi.stubGlobal("fetch", upstream);
+    await chatPOST(jsonRequest({ messages: [{ role: "user", content: "ねえ" }], context: { entry: { event: "散歩した" } } }));
+    const sent = JSON.parse(upstream.mock.calls[0][1].body);
+    expect(sent.system).not.toContain("今日の記録には、とても苦しい気持ちが書かれている");
+  });
   it("analysis returns original time and precision metadata; crisis guidance stays in system", async () => {
     env(); const body = analysisInput(); body.entry.event = "死にたい";
     const fortune = { deepMessage: "ここにいるよ。", innerMessage: "言葉を急がなくていい。", actionAdvice: "人の声に頼っていいよ。" };
