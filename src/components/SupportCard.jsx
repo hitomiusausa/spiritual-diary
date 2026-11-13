@@ -13,7 +13,11 @@ function SupportLineList({ lines }) {
             <Phone className="w-5 h-5 shrink-0 text-kiri-gold" aria-hidden="true" />
             <span className="flex-1 min-w-0">
               <span className="block text-sm font-bold">{line.name}</span>
-              <span className="block text-xs text-kiri-fog">{line.tel}　{line.hours}</span>
+              <span className="block text-xs text-kiri-fog">
+                <span className="inline-block">{line.tel}</span>{'　'}
+                {/* 「（通話料有料）」などの括弧書きが途中で割れないよう、まとまりごとに折り返す（UX P2-6） */}
+                {line.hours.split(/(?=（)/).map((part) => <span key={part} className="inline-block">{part}</span>)}
+              </span>
             </span>
           </a>
         </li>
