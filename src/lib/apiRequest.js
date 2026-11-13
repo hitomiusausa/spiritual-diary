@@ -12,6 +12,19 @@ export class ApiRequestError extends Error {
   }
 }
 
+// JSON の本文だけを受け付ける（S-05）。「application/json; charset=utf-8」のような引数は許す。
+// text/plain などの「単純リクエスト」はブラウザがプリフライトを出さずに他サイトから届くため、数える前に 415 で断る。
+const JSON_MEDIA_TYPE = "application/json";
+
+export function isJsonContentType(value) {
+  if (typeof value !== "string") return false;
+  return value.split(";")[0].trim().toLowerCase() === JSON_MEDIA_TYPE;
+}
+
+export function unsupportedMediaTypeBody() {
+  return { success: false, error: "Unsupported media type", code: "unsupported_media_type" };
+}
+
 export async function readBoundedJson(request, maxBytes, signal) {
   const declared = request.headers.get("content-length");
   if (declared && /^\d+$/.test(declared) && Number(declared) > maxBytes) {

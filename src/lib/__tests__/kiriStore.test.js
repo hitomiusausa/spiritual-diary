@@ -49,6 +49,26 @@ describe("createMemoryStore", () => {
     expect(await store.incr("a", 60)).toBe(1);
     expect(await store.incr("c", 60)).toBe(2);
   });
+
+  // S-03: 2000個の別々のレート制限キーで、日次の上限（kiri:q: / kiri:cu: / kiri:qi:）が0に戻らない。
+  it("あふれたときはレート制限キー（kiri:rl:）から消し、日次の上限キーは残す", async () => {
+    const store = createMemoryStore({ now: () => T0 });
+    for (let i = 0; i < 30; i += 1) await store.incr("kiri:q:analyze:2026-10-08", 172_800);
+    await store.incr("kiri:cu:user:2026-10-08", 172_800);
+    await store.incr("kiri:qi:analyze:iphash:2026-10-08", 172_800);
+    for (let i = 0; i < 2000; i += 1) await store.incr(`kiri:rl:analyze:ip${i}:1`, 120);
+    expect(await store.incr("kiri:q:analyze:2026-10-08", 172_800)).toBe(31);
+    expect(await store.incr("kiri:cu:user:2026-10-08", 172_800)).toBe(2);
+    expect(await store.incr("kiri:qi:analyze:iphash:2026-10-08", 172_800)).toBe(2);
+  });
+
+  it("レート制限キーがなければ、いちばん古いキーを消す", async () => {
+    const store = createMemoryStore({ maxKeys: 2, now: () => T0 });
+    await store.incr("kiri:q:a", 60);
+    await store.incr("kiri:q:b", 60);
+    await store.incr("kiri:q:c", 60); // kiri:q:a が押し出される
+    expect(await store.incr("kiri:q:a", 60)).toBe(1);
+  });
 });
 
 // Upstash の Redis クライアントを模した偽物。multi().incr().expire().exec() だけ持つ。

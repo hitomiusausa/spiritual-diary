@@ -6,6 +6,12 @@ import { hashClientIp } from "@/lib/kiriCrypto";
 
 const RATE_LIMIT_TTL_WINDOWS = 2; // 窓の長さの2倍で消える（最長2分）
 const DAILY_QUOTA_TTL_SECONDS = 2 * 24 * 60 * 60;
+// IPv6 は利用者が /64 をまるごと持つことが多いので、先頭64ビット（4グループ）でまとめて数える（S-04）。
+const IPV6_GROUPS = 8;
+const IPV6_PREFIX_GROUPS = 4;
+// 読み解きの IP ごとの1日の上限（S-01）。全体の上限より前に判定し、1つの IP で全体の枠を使い切れないようにする。
+// DAILY_LIMIT_ANALYZE_PER_IP で上書きできる（リクエスト時に読む）。
+export const IP_DAILY_LIMIT_ANALYZE_DEFAULT = 10;
 
 // 1分あたりの上限（IPごと）。環境変数で上書きでき、テストも同じ値から回数を決める。
 const RATE_LIMITS_PER_MIN = Object.freeze({
@@ -16,13 +22,48 @@ const RATE_LIMITS_PER_MIN = Object.freeze({
 const defaultStore = () => getKiriStore();
 const defaultHashKey = (ip) => hashClientIp(getStoreSecret(), ip);
 
+function jstDateFormatter(timeZone) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" });
+}
+
+const IPV4_PATTERN = /^\d{1,3}(?:\.\d{1,3}){3}$/;
+const IPV6_GROUP_PATTERN = /^[0-9a-f]{1,4}$/;
+
+// "a:b::c" を8グループの配列に広げる。形式が不正なら null。
+function expandIpv6(address) {
+  const halves = address.split("::");
+  if (halves.length > 2) return null;
+  const split = (part) => (part ? part.split(":") : []);
+  const head = split(halves[0]);
+  const tail = halves.length === 2 ? split(halves[1]) : [];
+  if (halves.length === 1 && head.length !== IPV6_GROUPS) return null;
+  const missing = IPV6_GROUPS - head.length - tail.length;
+  if (halves.length === 2 && missing < 1) return null;
+  const groups = [...head, ...Array(Math.max(0, missing)).fill("0"), ...tail];
+  if (groups.length !== IPV6_GROUPS || !groups.every((group) => IPV6_GROUP_PATTERN.test(group))) return null;
+  return groups.map((group) => group.replace(/^0+(?=.)/, ""));
+}
+
+// 制限のキーに使うクライアントの値。IPv4 はそのまま、IPv6 は /64 の接頭辞にまとめる（S-04）。
+// IPv4 射影アドレス（::ffff:a.b.c.d）は IPv4 として扱う。形式がわからないものは元の文字列のまま。
+export function ipLimitKey(raw) {
+  const value = String(raw ?? "").trim();
+  if (!value.includes(":")) return value;
+  const address = value.toLowerCase().replace(/%.*$/, "");
+  const mapped = address.match(/^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/);
+  if (mapped && IPV4_PATTERN.test(mapped[1])) return mapped[1];
+  const groups = expandIpv6(address);
+  if (!groups) return value;
+  return `${groups.slice(0, IPV6_PREFIX_GROUPS).join(":")}::/64`;
+}
+
 export function createRateLimiter({ route, windowMs, max, store = defaultStore, hashKey = defaultHashKey }) {
   const resolveStore = typeof store === "function" ? store : () => store;
   const ttlSeconds = Math.ceil((windowMs * RATE_LIMIT_TTL_WINDOWS) / 1000);
 
   async function check(clientKey, now = Date.now()) {
     const windowIndex = Math.floor(now / windowMs);
-    const key = `kiri:rl:${route}:${hashKey(clientKey)}:${windowIndex}`;
+    const key = `kiri:rl:${route}:${hashKey(ipLimitKey(clientKey))}:${windowIndex}`;
     const count = await resolveStore().incr(key, ttlSeconds);
     if (count <= max) return { allowed: true, retryAfterSeconds: 0 };
     const retryAfterSeconds = Math.max(1, Math.ceil(((windowIndex + 1) * windowMs - now) / 1000));
@@ -68,6 +109,23 @@ export function createUserDailyQuota({ limit, timeZone = "Asia/Tokyo", store = d
   async function consume(userHash, now = Date.now()) {
     const max = typeof limit === "function" ? limit() : limit;
     const key = `kiri:cu:${userHash}:${formatter.format(now)}`;
+    const count = await resolveStore().incr(key, DAILY_QUOTA_TTL_SECONDS);
+    if (count > max) return { allowed: false, used: max, limit: max };
+    return { allowed: true, used: count, limit: max };
+  }
+
+  return { consume };
+}
+
+// IP ごとの1日の上限（S-01）。キーは kiri:qi:{route}:{IPハッシュ}:{JST日付}（IPの平文は使わない）。
+// limit は数値か、呼び出しごとに値を返す関数（環境変数の上書きをリクエスト時に読むため）。
+export function createIpDailyQuota({ route, limit, timeZone = "Asia/Tokyo", store = defaultStore, hashKey = defaultHashKey }) {
+  const resolveStore = typeof store === "function" ? store : () => store;
+  const formatter = jstDateFormatter(timeZone);
+
+  async function consume(clientKey, now = Date.now()) {
+    const max = typeof limit === "function" ? limit() : limit;
+    const key = `kiri:qi:${route}:${hashKey(ipLimitKey(clientKey))}:${formatter.format(now)}`;
     const count = await resolveStore().incr(key, DAILY_QUOTA_TTL_SECONDS);
     if (count > max) return { allowed: false, used: max, limit: max };
     return { allowed: true, used: count, limit: max };

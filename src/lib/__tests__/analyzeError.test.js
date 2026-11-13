@@ -26,6 +26,12 @@ describe("describeAnalyzeFailure", () => {
     expect(shown(failure)).toMatch(/明日/);
   });
 
+  it("uses the daily-limit wording for the per-IP daily cap (ip_daily_limit)", () => {
+    expect(describeAnalyzeFailure({ status: 429, code: "ip_daily_limit" })).toEqual(
+      describeAnalyzeFailure({ status: 429, code: "daily_limit" }),
+    );
+  });
+
   it("asks to wait a moment on the short-term rate limit", () => {
     const failure = describeAnalyzeFailure({ status: 429, code: "rate_limited" });
     expect(shown(failure)).toMatch(/少し/);

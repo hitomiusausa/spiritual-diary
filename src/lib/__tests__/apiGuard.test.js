@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { createRateLimiter, createDailyQuota, createUserDailyQuota, clientKeyFromHeaders, rateLimitPerMin } from "../apiGuard";
+import { createRateLimiter, createDailyQuota, createUserDailyQuota, createIpDailyQuota, clientKeyFromHeaders, ipLimitKey, rateLimitPerMin, IP_DAILY_LIMIT_ANALYZE_DEFAULT } from "../apiGuard";
 import { createMemoryStore } from "../kiriStore";
 
 const T0 = Date.UTC(2026, 6, 28, 3, 0, 0); // 2026-07-28 12:00 JST（分の境界ちょうど）
@@ -101,6 +101,79 @@ describe("createDailyQuota", () => {
     expect((await quota.consume(nextDay)).allowed).toBe(true);
   });
 
+});
+
+describe("ipLimitKey（S-04: IPv6 は /64 にまとめる）", () => {
+  it("同じ /64 のアドレスは同じキーになる", () => {
+    expect(ipLimitKey("2001:db8:1:2:aaaa::1")).toBe(ipLimitKey("2001:db8:1:2:bbbb:cccc:dddd:eeee"));
+    expect(ipLimitKey("2001:0db8:0001:0002::5")).toBe(ipLimitKey("2001:db8:1:2:ffff:ffff:ffff:ffff"));
+    expect(ipLimitKey("2001:db8:1:2::1")).toBe("2001:db8:1:2::/64");
+  });
+
+  it("別の /64 は別のキーになる", () => {
+    expect(ipLimitKey("2001:db8:1:2::1")).not.toBe(ipLimitKey("2001:db8:1:3::1"));
+  });
+
+  it("省略形（::）・大文字・ゾーンIDも扱える", () => {
+    expect(ipLimitKey("::1")).toBe("0:0:0:0::/64");
+    expect(ipLimitKey("2001:DB8::")).toBe("2001:db8:0:0::/64");
+    expect(ipLimitKey("fe80::1%eth0")).toBe("fe80:0:0:0::/64");
+  });
+
+  it("IPv4 と IPv4 射影アドレスは IPv4 のまま", () => {
+    expect(ipLimitKey("203.0.113.5")).toBe("203.0.113.5");
+    expect(ipLimitKey("::ffff:203.0.113.5")).toBe("203.0.113.5");
+  });
+
+  it("形式がわからないものは元の文字列のまま", () => {
+    for (const raw of ["unknown", "1:2:3", "1::2::3", "2001:db8:zz::1", "1:2:3:4:5:6:7:8:9"]) {
+      expect(ipLimitKey(raw)).toBe(raw);
+    }
+  });
+
+  it("レート制限は同じ /64 の別アドレスを同じ人として数える", async () => {
+    const limiter = limiterWith(1);
+    expect((await limiter.check("2001:db8:1:2::1", T0)).allowed).toBe(true);
+    expect((await limiter.check("2001:db8:1:2::2", T0)).allowed).toBe(false);
+    expect((await limiter.check("2001:db8:1:3::1", T0)).allowed).toBe(true);
+  });
+});
+
+describe("createIpDailyQuota（S-01: IP ごとの1日の上限）", () => {
+  it("既定は1日10回", () => {
+    expect(IP_DAILY_LIMIT_ANALYZE_DEFAULT).toBe(10);
+  });
+
+  it("IP ごとに数え、上限を超えたら拒否する。別の IP には影響しない", async () => {
+    const quota = createIpDailyQuota({ route: "analyze", limit: 2, store: recordingStore(), hashKey: fakeHash });
+    expect((await quota.consume("203.0.113.1", T0)).allowed).toBe(true);
+    expect((await quota.consume("203.0.113.1", T0)).allowed).toBe(true);
+    expect((await quota.consume("203.0.113.1", T0)).allowed).toBe(false);
+    expect((await quota.consume("203.0.113.2", T0)).allowed).toBe(true);
+  });
+
+  it("キーは kiri:qi:{route}:{IPハッシュ}:{JST日付}、TTL は2日。IPv6 は /64 でまとめる", async () => {
+    const store = recordingStore();
+    const quota = createIpDailyQuota({ route: "analyze", limit: 5, store, hashKey: fakeHash });
+    await quota.consume("2001:db8:1:2::9", T0);
+    expect(store.calls[0]).toEqual(["kiri:qi:analyze:h(2001:db8:1:2::/64):2026-07-28", 172_800]);
+  });
+
+  it("既定のハッシュ関数ではIPの平文がキーに残らない", async () => {
+    const store = recordingStore();
+    const quota = createIpDailyQuota({ route: "analyze", limit: 5, store });
+    await quota.consume("203.0.113.77", T0);
+    expect(store.calls[0][0]).not.toContain("203.0.113.77");
+  });
+
+  it("limit が関数なら呼び出しごとに評価する", async () => {
+    let max = 1;
+    const quota = createIpDailyQuota({ route: "analyze", limit: () => max, store: recordingStore(), hashKey: fakeHash });
+    expect((await quota.consume("a", T0)).allowed).toBe(true);
+    expect((await quota.consume("a", T0)).allowed).toBe(false);
+    max = 5;
+    expect((await quota.consume("a", T0)).allowed).toBe(true);
+  });
 });
 
 describe("createUserDailyQuota", () => {

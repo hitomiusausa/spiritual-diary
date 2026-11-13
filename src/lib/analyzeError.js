@@ -1,6 +1,7 @@
 // 読み解きが失敗したときに画面へ出す文（Kiriの声のまま、技術的な文字列は出さない）。
 // サーバーの error 文字列（英語・開発者向け）やブラウザの例外文（"Load failed" など）は表示しない。
-// 原因の判定には HTTP ステータスとサーバーの code（daily_limit / rate_limited）だけを使う。
+// 原因の判定には HTTP ステータスとサーバーの code（daily_limit / ip_daily_limit / rate_limited）だけを使う。
+// ip_daily_limit（IP ごとの1日の上限、D-41）も、利用者には全体の上限と同じ「今日はここまで」の文を出す。
 // 文言は 2026-10-09 ひとみうさ確認済み（5番目のみ「紡げない」に修正）。
 
 const KEEP_ENTRY = "書いた記録はそのまま残っています。";
@@ -12,7 +13,7 @@ export function describeAnalyzeFailure({ network = false, status, code } = {}) {
       message: `通信がつながっていないようです。電波の届くところで、もう一度ためしてみてね。${KEEP_ENTRY}`,
     };
   }
-  if (code === "daily_limit") {
+  if (code === "daily_limit" || code === "ip_daily_limit") {
     return {
       title: "今日の読み解きは、ここまで",
       message: `今日はたくさんの声が届いて、Kiriがひと休みしています。日本時間の明日になったら、また話しかけてね。${KEEP_ENTRY}`,
