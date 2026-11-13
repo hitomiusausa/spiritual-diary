@@ -7,13 +7,15 @@ import { checkChatEntitlement } from "@/lib/entitlement";
 import { extractReplyText } from "@/lib/claudeResponse";
 import { CRISIS_CHAT_MESSAGE, SAFETY_GUIDANCE, detectCrisis } from "@/lib/kiriSafety";
 
-import { ApiRequestError, readBoundedJson, fetchUpstreamJson } from "@/lib/apiRequest";
+import { ApiRequestError, readBoundedJson, fetchUpstreamJson, isJsonContentType, unsupportedMediaTypeBody } from "@/lib/apiRequest";
 import { CHAT_CONTEXT_MESSAGES, CHAT_USER_MAX_CHARS, CHAT_REPLY_MAX_CHARS, CHAT_BODY_MAX_BYTES, CHAT_UPSTREAM_TIMEOUT_MS, NICKNAME_MAX_CHARS } from "@/lib/inputContract";
 const CHAT_EFFORT = process.env.KIRI_CHAT_EFFORT || "low";
 
 // 購読者ごとの1日の上限の既定は apiGuard.js の USER_DAILY_LIMIT_DEFAULT（購入画面・規約・サポートと同じ数字）。
 // 全体の1日の上限の既定。本番は wrangler.jsonc の vars で固定する。
 const DAILY_LIMIT_CHAT_DEFAULT = 500;
+// チャットのモデル。分析用の CLAUDE_MODEL には従わない（S-08: 分析を Sonnet にしてもチャットは Haiku のまま）。
+const CHAT_MODEL_DEFAULT = "claude-haiku-5-5";
 
 const RATE_LIMITER = createRateLimiter({
   route: "chat",
@@ -78,6 +80,11 @@ async function handlePost(request) {
     if (!storeReadiness().ready) {
       console.error("[kiri-store] store not configured");
       return NextResponse.json({ success: false, error: "Service unavailable" }, { status: 503 });
+    }
+
+    // JSON 以外は数える前に断る（S-05）。
+    if (!isJsonContentType(request.headers.get("content-type"))) {
+      return NextResponse.json(unsupportedMediaTypeBody(), { status: 415 });
     }
 
     const rate = await RATE_LIMITER.check(clientKeyFromHeaders(request.headers));
@@ -148,7 +155,7 @@ async function handlePost(request) {
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: process.env.KIRI_CLAUDE_MODEL || process.env.CLAUDE_MODEL || "claude-haiku-5-5",
+        model: process.env.KIRI_CLAUDE_MODEL || CHAT_MODEL_DEFAULT,
         // 5.5世代はtemperature指定不可・思考が常時オン（思考もmax_tokensに含まれる）。
         // 返答の短さはCHAT_MODEの指示で保つ。Haikuはサーバー側fallback非対応のため付けない。
         max_tokens: 2000,

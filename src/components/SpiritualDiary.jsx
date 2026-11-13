@@ -54,7 +54,7 @@ import LockScreen from '@/components/LockScreen';
 import ModalFrame, { ModalLockContext } from '@/components/ModalFrame';
 import { createConsentFlow } from '@/lib/consentFlow';
 import { calculateBiorhythm } from '@/lib/biorhythm';
-import { NICKNAME_MAX_CHARS, ENTRY_EVENT_MAX_CHARS, ENTRY_INTUITION_MAX_CHARS } from '@/lib/inputContract';
+import { NICKNAME_MAX_CHARS, ENTRY_EVENT_MAX_CHARS, ENTRY_INTUITION_MAX_CHARS, isBirthDateNotFuture } from '@/lib/inputContract';
 import { ANALYSIS_CACHE_STORAGE_KEY, analysisCacheKey, clearCachedAnalyses, loadCachedAnalysis, saveCachedAnalysis } from '@/lib/analysisCache';
 
 // ビルド時定数（next.config が '0'/'1' を埋め込む）。どちらも '0' なら入口・購入画面・チャット欄はバンドルから消える（D-24）。
@@ -1656,8 +1656,8 @@ export default function SpiritualDiary() {
                 </div>
 
                 <button
-                  onClick={() => birthDate && setStep('input')}
-                  disabled={!/^\d{4}-\d{2}-\d{2}$/.test(birthDate)}
+                  onClick={() => isBirthDateNotFuture(birthDate) && setStep('input')}
+                  disabled={!isBirthDateNotFuture(birthDate)}
                   className="w-full kiri-button py-3 rounded-xl font-bold text-sm hover:scale-[1.01] active:scale-[0.98] transition-transform disabled:opacity-50"
                 >
                   はじめる
