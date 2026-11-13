@@ -3,12 +3,19 @@
 
 // 窓口は厚生労働省「まもろうよ こころ」の電話相談ページで確認した。
 // https://www.mhlw.go.jp/mamorouyokokoro/soudan/tel/
-export const SUPPORT_LINES_CHECKED_AT = "2026-11-06";
+export const SUPPORT_LINES_CHECKED_AT = "2026-11-14";
 export const SUPPORT_LINES_SOURCE_URL = "https://www.mhlw.go.jp/mamorouyokokoro/soudan/tel/";
 export const SUPPORT_LINES = [
   { name: "#いのちSOS", tel: "0120-061-338", hours: "24時間・毎日（無料）" },
   { name: "よりそいホットライン", tel: "0120-279-338", hours: "24時間（無料）" },
-  { name: "いのちの電話", tel: "0570-783-556", hours: "毎日10時〜22時（通話料有料）" },
+  { name: "いのちの電話（フリーダイヤル）", tel: "0120-783-556", hours: "毎日16時〜21時・毎月10日は8時〜翌8時（無料）" },
+  { name: "いのちの電話（ナビダイヤル）", tel: "0570-783-556", hours: "毎日10時〜22時（通話料有料）" },
+];
+
+// 18歳までの方への窓口（同じ厚生労働省のページで確認）。カードでは小さな別のまとまりで出す。
+export const YOUTH_SUPPORT_LINES = [
+  { name: "24時間子供SOSダイヤル", tel: "0120-0-78310", hours: "24時間（無料）" },
+  { name: "チャイルドライン", tel: "0120-99-7777", hours: "18歳まで・毎日16時〜21時（無料・12/29〜1/3は休み）" },
 ];
 
 // normalizeForSafety() を通した文字列（ひらがな化・小文字化・空白除去済み）に当てる。

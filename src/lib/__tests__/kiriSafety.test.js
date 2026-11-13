@@ -5,6 +5,7 @@ import {
   CRISIS_CHAT_MESSAGE,
   SUPPORT_LINES,
   SUPPORT_LINES_CHECKED_AT,
+  YOUTH_SUPPORT_LINES,
   detectCrisis,
   entryNeedsSupport,
   normalizeForSafety,
@@ -144,6 +145,33 @@ describe("相談窓口", () => {
       expect(line.tel).toMatch(/^[0-9-]+$/);
     }
     expect(SUPPORT_LINES_CHECKED_AT).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it("いのちの電話は無料のフリーダイヤルと有料のナビダイヤルを分けて出す（A-6・2026-11-14確認）", () => {
+    const byTel = Object.fromEntries(SUPPORT_LINES.map((line) => [line.tel, line]));
+    expect(byTel["0120-783-556"].hours).toContain("毎日16時〜21時");
+    expect(byTel["0120-783-556"].hours).toContain("毎月10日は8時〜翌8時");
+    expect(byTel["0120-783-556"].hours).toContain("無料");
+    expect(byTel["0570-783-556"].hours).toContain("有料");
+    expect(SUPPORT_LINES_CHECKED_AT).toBe("2026-11-14");
+  });
+
+  it("18歳までの方への窓口（子供SOSダイヤル・チャイルドライン）を別に持つ", () => {
+    expect(YOUTH_SUPPORT_LINES.map((line) => line.tel)).toEqual(["0120-0-78310", "0120-99-7777"]);
+    for (const line of YOUTH_SUPPORT_LINES) {
+      expect(line.name).toBeTruthy();
+      expect(line.tel).toMatch(/^[0-9-]+$/);
+      expect(line.hours).toContain("無料");
+    }
+    expect(YOUTH_SUPPORT_LINES[1].hours).toContain("18歳まで");
+  });
+
+  it("SupportCard は大人向けと18歳までの窓口を tel: リンクで出し、押せる高さを44px以上にする", () => {
+    const card = readFileSync(join(process.cwd(), "src/components/SupportCard.jsx"), "utf8");
+    expect(card).toContain("YOUTH_SUPPORT_LINES");
+    expect(card).toContain("18歳までの方へ");
+    expect(card).toContain("href={`tel:");
+    expect(card).toContain("min-h-11");
   });
 
   it("チャットの固定文は絵文字を含まない", () => {
