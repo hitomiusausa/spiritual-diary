@@ -128,3 +128,44 @@ describe("/privacy RevenueCat は起動時に送られる", () => {
     expect(t).toMatch(/日記・読み解き・会話/);
   });
 });
+
+// 2026-11-14 安全・法務の敵対的レビュー（A-1・A-9・B-3・B-4）。法律の文言は専門家の確認待ち。
+describe("法務ページの言葉の重心（A-1・4.3(b)）", () => {
+  it.each(Object.keys(PAGES))("%s の画面の文字に「占い」「占う」「運勢」「占術」を使わない", (name) => {
+    expect(TEXT[name]).not.toMatch(/占い|占う|占っ|運勢|占術/);
+  });
+
+  it("「気分の絵文字」という古い言い方を使わない（A-8・D-17）", () => {
+    for (const name of Object.keys(PAGES)) expect(TEXT[name]).not.toContain("気分の絵文字");
+  });
+});
+
+describe("/terms 緊急時と免責（A-9・B-4）", () => {
+  it("緊急時の相談窓口ではないことと、119・サポートページの窓口を案内する", () => {
+    expect(TEXT.terms).toContain("緊急時の相談窓口ではありません");
+    expect(TEXT.terms).toContain("119");
+    expect(TEXT.terms).toContain('href="/support"');
+  });
+
+  it("軽過失の責任を全部免除する書き方をしない（消費者契約法8条）", () => {
+    expect(TEXT.terms).not.toMatch(/故意または重過失による場合を除き、責任を負いません/);
+    expect(TEXT.terms).toContain("運営者に故意または過失がある場合");
+    expect(TEXT.terms).toContain("軽過失");
+  });
+});
+
+describe("/privacy 外国にある第三者への提供と要配慮個人情報（B-3）", () => {
+  const t = TEXT.privacy;
+  it("Anthropic, PBC と国名（アメリカ）と米国の制度の概要・相手の措置を書く", () => {
+    expect(t).toContain("Anthropic,PBC");
+    expect(t).toContain("外国にある第三者への提供");
+    expect(t).toMatch(/包括的な[^。]*法令はなく/);
+    expect(t).toContain("https://www.ppc.go.jp/personalinfo/legal/kaiseihogohou/#gaikoku");
+    expect(t).toMatch(/学習には使用されません|学習に使いません/);
+  });
+
+  it("日記に心身の状態が書かれている場合も、同意のうえで読み解きのために送ると書く", () => {
+    expect(t).toContain("心身の状態");
+    expect(t).toContain("要配慮個人情報");
+  });
+});

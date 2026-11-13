@@ -8,7 +8,7 @@ export const metadata = {
 
 export default function SupportPage() {
   return (
-    <DocPage title="サポート" updatedAt="2026-11-06">
+    <DocPage title="サポート" updatedAt="2026-11-14">
       <section>
         <h2>よくある質問</h2>
         <div className="space-y-4 mt-2">
@@ -55,7 +55,7 @@ export default function SupportPage() {
             </p>
           </div>
           <div>
-            <p className="font-bold text-white mb-1">Q. 同じ日にもう一度占うと、結果が同じなのはなぜですか？</p>
+            <p className="font-bold text-white mb-1">Q. 同じ日にもう一度読み解くと、結果が同じなのはなぜですか？</p>
             <p>
               仕様です。同じ日・同じ記録に対しては同じ読み解きを返すことで、
               その日の結果として安心して振り返れるようにしています。記録の内容を変えると読み解きも変わります。
@@ -102,10 +102,10 @@ export default function SupportPage() {
             </p>
           </div>
           <div>
-            <p className="font-bold text-white mb-1">Q. 占いの結果がつらく感じられます。</p>
+            <p className="font-bold text-white mb-1">Q. 読み解きの言葉がつらく感じられます。</p>
             <p>
               Kiriの言葉は傾向を映す読み物であり、あなたの未来や価値を決めるものではありません。
-              心がつらいときは、占いではなく人に頼ってください。厚生労働省の
+              心がつらいときは、Kiriの言葉より、人の声に頼ってください。厚生労働省の
               <a href="https://www.mhlw.go.jp/mamorouyokokoro/" target="_blank" rel="noopener noreferrer" className="underline">「まもろうよ こころ」</a>に、
               電話・SNSで相談できる窓口がまとまっています。
             </p>
