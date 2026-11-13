@@ -1,10 +1,14 @@
 import {
-  assertDataWritable, clearDataIssue, readStoredData, validBirthDate, validHistoryRecord, validProfile,
+  assertDataWritable, clearDataIssue, getDataIssues, getRecoveryRaw, readStoredData, validBirthDate, validHistoryRecord, validProfile,
 } from "./dataIntegrity";
 
 export const HISTORY_STORAGE_KEY = "spiritual-diary.history.v1";
 export const PROFILE_STORAGE_KEY = "spiritual-diary.profile.v1";
 export const MAX_HISTORY_ITEMS = 30;
+// 読み込めない記録の原本を、元のまま別に保管しておく場所（R2-03）。中身は [{ quarantinedAt, reason, raw }]。
+// 原本を消さずに、新しい読み解きの保存を続けるために使う。自動では消さない（消すのは「すべて削除」だけ）。
+export const HISTORY_QUARANTINE_KEY = "spiritual-diary.history.quarantine.v1";
+const MAX_QUARANTINE_ENTRIES = 5;
 
 export function toHistoryRecord({ result, entry, userProfile }) {
   return {
@@ -59,8 +63,10 @@ export function loadHistory(storage) {
   });
 }
 
-export function saveHistory(storage, record) {
+export function saveHistory(storage, record, { afterQuarantine = false } = {}) {
   const previous = loadHistory(storage);
+  // 原本がそっくり保管場所に入っているときだけ、読める記録＋新しい記録で書き直してよい（R2-03）
+  if (afterQuarantine && isHistoryRawQuarantined(storage)) clearDataIssue(storage, HISTORY_STORAGE_KEY);
   assertDataWritable(storage, HISTORY_STORAGE_KEY);
   if (!validHistoryRecord(record)) throw new Error("invalid history record");
   const history = [record, ...previous]
@@ -68,6 +74,70 @@ export function saveHistory(storage, record) {
     .slice(0, MAX_HISTORY_ITEMS);
   storage?.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history));
   return history;
+}
+
+// 保管した原本の一覧。保管場所そのものが読めないときは null（上書きしない）。
+export function loadHistoryQuarantine(storage) {
+  const raw = storage?.getItem(HISTORY_QUARANTINE_KEY) ?? null;
+  if (raw === null) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function hasQuarantinedHistory(storage) {
+  try {
+    return (storage?.getItem(HISTORY_QUARANTINE_KEY) ?? null) !== null;
+  } catch {
+    return false;
+  }
+}
+
+function isHistoryRawQuarantined(storage) {
+  const raw = getRecoveryRaw(storage, HISTORY_STORAGE_KEY);
+  const entries = loadHistoryQuarantine(storage);
+  return typeof raw === "string" && Array.isArray(entries) && entries.some((entry) => entry?.raw === raw);
+}
+
+// 記録に読み込めないものがあるとき、その原本（文字列そのまま）を保管場所へ写す。写せたら true。
+// 読み込み自体に失敗した（原本の中身が分からない）とき・保管場所が読めないとき・保管が上限のときは写さない（false）。
+export function quarantineUnreadableHistory(storage, now = new Date()) {
+  const issue = getDataIssues(storage).find(({ key }) => key === HISTORY_STORAGE_KEY);
+  if (!issue || issue.reason === "read_failed") return false;
+  const raw = getRecoveryRaw(storage, HISTORY_STORAGE_KEY);
+  if (typeof raw !== "string") return false;
+  const entries = loadHistoryQuarantine(storage);
+  if (!entries) return false;
+  if (!entries.some((entry) => entry?.raw === raw)) {
+    if (entries.length >= MAX_QUARANTINE_ENTRIES) return false;
+    entries.push({ quarantinedAt: now.toISOString(), reason: issue.reason, raw });
+  }
+  storage.setItem(HISTORY_QUARANTINE_KEY, JSON.stringify(entries));
+  return true;
+}
+
+// 新しい読み解きを保存する。読み込めない記録があるときは、原本を保管場所へ写して端末へ書き終えてから、
+// 読める記録＋新しい記録で保存を続ける（原本は消さない。保管の書き込みに失敗したら、元の記録は書き換えない）。
+// flush は storage.js の flushStorageWrites（循環 import を避けるため引数で受け取る）。
+export async function saveHistoryKeepingUnreadable(storage, record, { flush, now = new Date() } = {}) {
+  try {
+    const history = saveHistory(storage, record);
+    if (flush) await flush({ keys: [HISTORY_STORAGE_KEY] });
+    return { history, quarantined: false };
+  } catch (failure) {
+    if (failure?.code !== "data_recovery_required" || !quarantineUnreadableHistory(storage, now)) throw failure;
+  }
+  if (flush) await flush({ keys: [HISTORY_QUARANTINE_KEY] });
+  const history = saveHistory(storage, record, { afterQuarantine: true });
+  if (flush) await flush({ keys: [HISTORY_STORAGE_KEY] });
+  return { history, quarantined: true };
+}
+
+export function clearHistoryQuarantine(storage) {
+  storage?.removeItem(HISTORY_QUARANTINE_KEY);
 }
 
 export function deleteHistoryItem(storage, id) {

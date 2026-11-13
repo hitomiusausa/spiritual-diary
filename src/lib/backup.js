@@ -1,5 +1,5 @@
 // schema 1 の非破壊バックアップ。既存IDを保持し、空き枠だけを復元する（B-02/B-04）。
-import { HISTORY_STORAGE_KEY, MAX_HISTORY_ITEMS, loadHistory, loadProfile, PROFILE_STORAGE_KEY } from "./history";
+import { HISTORY_QUARANTINE_KEY, HISTORY_STORAGE_KEY, MAX_HISTORY_ITEMS, loadHistory, loadHistoryQuarantine, loadProfile, PROFILE_STORAGE_KEY } from "./history";
 import { CHAT_HISTORY_STORAGE_KEY, loadChatHistory } from "./chatHistory";
 import {
   MAX_DATA_JSON_CHARS, assertDataWritable, getDataIssues, getRecoveryRaw,
@@ -17,9 +17,14 @@ export function buildBackup(storage) {
   // A normal export must not quietly omit the quarantined original.
   const issue = getDataIssues(storage).find(({ key }) => BACKUP_KEYS.includes(key));
   if (issue) throw new DataRecoveryRequiredError(issue.key);
+  // 別に保管した読み込めない記録の原本（R2-03）も、黙って落とさず書き出しに入れる。
+  // 読み込み（parseBackup）はこの欄を使わない（壊れた原本を自動で取り込まない）。
+  const quarantine = loadHistoryQuarantine(storage);
+  if (quarantine === null) throw new DataRecoveryRequiredError(HISTORY_QUARANTINE_KEY);
   return {
     app: BACKUP_APP_NAME, schemaVersion: BACKUP_SCHEMA_VERSION,
     exportedAt: new Date().toISOString(), profile, history, chat,
+    ...(quarantine.length ? { unreadableHistory: quarantine } : {}),
   };
 }
 
@@ -28,7 +33,11 @@ export function buildBackup(storage) {
 export function buildRecoveryBackup(storage) {
   return {
     app: "spiritual-diary-recovery", schemaVersion: 1, exportedAt: new Date().toISOString(),
-    raw: Object.fromEntries(BACKUP_KEYS.map((key) => [key, getRecoveryRaw(storage, key)])),
+    raw: Object.fromEntries([
+      ...BACKUP_KEYS.map((key) => [key, getRecoveryRaw(storage, key)]),
+      // 保管した原本があるときだけ足す（R2-03）
+      ...((storage?.getItem(HISTORY_QUARANTINE_KEY) ?? null) !== null ? [[HISTORY_QUARANTINE_KEY, storage.getItem(HISTORY_QUARANTINE_KEY)]] : []),
+    ]),
   };
 }
 
