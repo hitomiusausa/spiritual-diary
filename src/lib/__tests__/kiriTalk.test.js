@@ -5,6 +5,7 @@ import {
   KIRI_TALK_NAME,
   kiriTalkPromises,
   KIRI_TALK_AI_NOTICE,
+  KIRI_TALK_AI_GENERATED_NOTE,
   KIRI_TALK_READ_ONLY_NOTE,
   KIRI_TALK_START_LABEL,
   chatErrorMessage,
@@ -248,5 +249,18 @@ describe("文言の規律", () => {
     for (const text of ["KIRI_TALK_NAME", "月額の自動更新サブスクリプション", "kiriTalkPromises", "priceLabel", "購入を復元", 'href="/terms"', 'href="/privacy"', "KIRI_TALK_AI_NOTICE", "サブスクリプションを管理", 'aria-modal="true"']) {
       expect(source).toContain(text);
     }
+  });
+});
+
+// A-5（2026-11-14 敵対的レビュー）: チャット欄に、AIがつくる言葉で未来の約束ではないことを常に小さく出す。
+describe("チャット欄のAI生成の表示", () => {
+  it("AIがつくる読みもので、未来を約束しないと書く", () => {
+    expect(KIRI_TALK_AI_GENERATED_NOTE).toContain("AIがつくる");
+    expect(KIRI_TALK_AI_GENERATED_NOTE).toContain("未来を約束するものではありません");
+  });
+
+  it("KiriChatPanel が会話の有無にかかわらずこの表示を出す", () => {
+    const panel = readFileSync(join(process.cwd(), "src/components/KiriChatPanel.jsx"), "utf8");
+    expect(panel).toContain("{KIRI_TALK_AI_GENERATED_NOTE}");
   });
 });

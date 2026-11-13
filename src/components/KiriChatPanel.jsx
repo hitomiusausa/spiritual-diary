@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { MessageCircle, Send, X, Trash2 } from 'lucide-react';
-import { KIRI_TALK_READ_ONLY_NOTE, KIRI_TALK_START_LABEL, PURCHASE_REFLECTION_NOTICE, chatErrorMessage } from '@/lib/kiriTalk';
+import { KIRI_TALK_AI_GENERATED_NOTE, KIRI_TALK_READ_ONLY_NOTE, KIRI_TALK_START_LABEL, PURCHASE_REFLECTION_NOTICE, chatErrorMessage } from '@/lib/kiriTalk';
 import { clearChatHistory, loadChatHistory, saveChatHistory } from '@/lib/chatHistory';
 import SupportCard from '@/components/SupportCard';
 import { apiUrl } from '@/lib/apiUrl';
@@ -150,6 +150,7 @@ export default function KiriChatPanel({ userProfile, entry, result, onClose, rea
           </div>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0" style={{ minHeight: 'min(12rem, 25dvh)' }}>
+          <p className="text-xs text-kiri-lilac-ink leading-relaxed">{KIRI_TALK_AI_GENERATED_NOTE}</p>
           {messages.length === 0 && (
             <p className="text-sm text-kiri-fog leading-relaxed">
               {readOnly ? 'まだ会話はありません。' : '今日のメッセージで、もう少し聞きたいところがあれば話して。ここでは答えを急がなくていいよ。'}

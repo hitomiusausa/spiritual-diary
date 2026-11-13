@@ -23,6 +23,8 @@ export function kiriTalkPromises() {
 // チャット欄の「読むだけ」（未購読・解約後。D-28）の案内とボタン。
 export const KIRI_TALK_READ_ONLY_NOTE = "これまでの会話は、いつでも読めます。続きを話すなら『Kiriと話す』で。";
 export const KIRI_TALK_START_LABEL = "Kiriと話すを始める";
+// チャット欄に常に小さく出す、AI生成の表示（A-5）。
+export const KIRI_TALK_AI_GENERATED_NOTE = "Kiriの言葉はAIがつくる読みものです。未来を約束するものではありません。";
 
 // 購入前に知らせる AI 送信の告知（Ruling 7。購入は同意の対価にしない＝同意が無くても購入画面は開ける）。
 export const KIRI_TALK_AI_NOTICE = "対話の言葉は Anthropic社のAI（Claude）に送られます（送信の同意はあとで設定から取り消せます）。";
