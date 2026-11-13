@@ -167,4 +167,27 @@ describe("saju calculation contract", () => {
       pillar: "丁卯",
     });
   });
+
+  // L-01 / L-02（レビュー例: 1988-02-15 12:00・女性。起運日は 1991-08-22）
+  it("switches the current taiun on its real start date, not on January 1", () => {
+    const at = (iso) => calculateSaju({ birthDate: "1988-02-15", birthTime: "12:00", gender: "female", now: new Date(iso) }).taiun;
+    expect(at("2030-12-31T03:00:00Z").pillar).toBe("庚戌");
+    expect(at("2031-01-01T03:00:00Z").pillar).toBe("庚戌");
+    expect(at("2031-08-21T03:00:00Z").pillar).toBe("庚戌");
+    expect(at("2031-08-22T03:00:00Z").pillar).toBe("己酉");
+    // JST で日付が変わった直後（UTC では前日）
+    expect(at("2031-08-21T15:30:00Z").pillar).toBe("己酉");
+  });
+
+  it("shows the full (man) age at the start of each taiun", () => {
+    const taiun = calculateSaju({ birthDate: "1988-02-15", birthTime: "12:00", gender: "female", now: new Date("2031-10-20T03:00:00Z") }).taiun;
+    expect(taiun.current).toMatchObject({ pillar: "己酉", startDate: "2031-08-22", startAge: 43 });
+    expect(taiun.age).toBe(43);
+    expect(taiun.periods[0]).toMatchObject({ startDate: "1991-08-22", startAge: 3 });
+  });
+
+  it("has no current taiun before the first start date", () => {
+    const taiun = calculateSaju({ birthDate: "1988-02-15", birthTime: "12:00", gender: "female", now: new Date("1991-08-20T03:00:00Z") }).taiun;
+    expect(taiun.current).toBeNull();
+  });
 });

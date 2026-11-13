@@ -8,6 +8,12 @@ const GENDER_FOR_YUN = {
   male: 1,
 };
 
+// 大運の数（lunar-javascript の getDaYun に渡す。先頭の起運前の1つを除いて使う）と1つの長さ。
+const DAYUN_COUNT = 12;
+const DAYUN_YEARS = 10;
+
+const pad2 = (value) => String(value).padStart(2, "0");
+
 const ELEMENT_BY_STEM = {
   甲: "木", 乙: "木", 丙: "火", 丁: "火", 戊: "土",
   己: "土", 庚: "金", 辛: "金", 壬: "水", 癸: "水",
@@ -116,6 +122,11 @@ export function jstParts(date = new Date()) {
   return values;
 }
 
+function jstDateString(date) {
+  const parts = jstParts(date);
+  return `${parts.year}-${pad2(parts.month)}-${pad2(parts.day)}`;
+}
+
 export function calculateCurrentChart(date = new Date()) {
   const parts = jstParts(date);
   const solar = Solar.fromYmdHms(
@@ -143,17 +154,29 @@ export function calculateDaYun({ birthChart, gender, now = new Date() }) {
 
   const yun = birthChart._eightChar.getYun(GENDER_FOR_YUN[normalizedGender], 2);
   const startSolar = yun.getStartSolar();
-  const currentYear = jstParts(now).year;
-  const periods = yun.getDaYun(12).slice(1).map((period) => ({
-    pillar: period.getGanZhi(),
-    startAge: period.getStartAge(),
-    endAge: period.getEndAge(),
-    startYear: period.getStartYear(),
-    endYear: period.getEndYear(),
-  }));
-  const current = periods.find(
-    (period) => currentYear >= period.startYear && currentYear <= period.endYear,
-  ) ?? null;
+  // 各大運は起運日の応当日（startYear-起運月-起運日）に始まり、次の大運の開始日の前日まで続く（L-02）。
+  // 年齢は日本の読み方に合わせて、その開始日の満年齢にする（ライブラリの getStartAge は数え年。L-01）。
+  const startMonthDay = `${pad2(startSolar.getMonth())}-${pad2(startSolar.getDay())}`;
+  const birthInput = birthChart.input;
+  const birthMonthDay = `${pad2(birthInput.month)}-${pad2(birthInput.day)}`;
+  const today = jstDateString(now);
+  const periods = yun.getDaYun(DAYUN_COUNT).slice(1).map((period) => {
+    const startYear = period.getStartYear();
+    const startAge = startYear - birthInput.year - (startMonthDay < birthMonthDay ? 1 : 0);
+    return {
+      pillar: period.getGanZhi(),
+      startDate: `${startYear}-${startMonthDay}`,
+      startAge,
+      endAge: startAge + DAYUN_YEARS - 1,
+      startYear,
+      endYear: period.getEndYear(),
+    };
+  });
+  const current = periods.find((period, index) => {
+    const nextStart = periods[index + 1]?.startDate
+      ?? `${period.startYear + DAYUN_YEARS}-${startMonthDay}`;
+    return today >= period.startDate && today < nextStart;
+  }) ?? null;
 
   return {
     available: true,
