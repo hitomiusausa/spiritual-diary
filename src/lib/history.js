@@ -4,7 +4,7 @@ import {
 
 export const HISTORY_STORAGE_KEY = "spiritual-diary.history.v1";
 export const PROFILE_STORAGE_KEY = "spiritual-diary.profile.v1";
-export const MAX_HISTORY_ITEMS = 30;
+export const MAX_HISTORY_ITEMS = 365; // D-44（振り返りの月の暦で約1年さかのぼれるように。1件は約3,700字）
 // 読み込めない記録の原本を、元のまま別に保管しておく場所（R2-03）。中身は [{ quarantinedAt, reason, raw }]。
 // 原本を消さずに、新しい読み解きの保存を続けるために使う。自動では消さない（消すのは「すべて削除」だけ）。
 export const HISTORY_QUARANTINE_KEY = "spiritual-diary.history.quarantine.v1";

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { createMemoryStorage, getStorage, initStorage, resetStorageForTests, retryStorageWrites } from "../storage";
-import { HISTORY_STORAGE_KEY, PROFILE_STORAGE_KEY, loadHistory, loadProfile, saveHistory, saveProfile, deleteHistoryItem } from "../history";
+import { HISTORY_STORAGE_KEY, MAX_HISTORY_ITEMS, PROFILE_STORAGE_KEY, loadHistory, loadProfile, saveHistory, saveProfile, deleteHistoryItem } from "../history";
 import { CHAT_HISTORY_STORAGE_KEY, loadChatHistory, saveChatHistory } from "../chatHistory";
 import { getDataIssues } from "../dataIntegrity";
 import { buildBackup, buildRecoveryBackup, parseBackup, applyBackup } from "../backup";
@@ -95,19 +95,19 @@ describe("B-04 quarantine preserves originals", () => {
 
 describe("B-02 non-destructive merge", () => {
   it("keeps every existing ID at capacity and reports the skipped unique import", () => {
-    const existing = Array.from({ length: 30 }, (_, i) => record(`e${i}`));
+    const existing = Array.from({ length: MAX_HISTORY_ITEMS }, (_, i) => record(`e${i}`));
     const storage = createMemoryStorage({ [HISTORY_STORAGE_KEY]: JSON.stringify(existing) });
     const summary = applyBackup(storage, { history: [record("new", "2026-11-06T00:00:00Z")], profile: null, chat: [] });
-    expect(summary).toMatchObject({ historyAdded: 0, historySkipped: 1, historyTotal: 30 });
+    expect(summary).toMatchObject({ historyAdded: 0, historySkipped: 1, historyTotal: MAX_HISTORY_ITEMS });
     expect(loadHistory(storage)).toEqual(existing);
   });
 
   it("deduplicates within imports and fills only the empty slot", () => {
-    const existing = Array.from({ length: 29 }, (_, i) => record(`e${i}`));
+    const existing = Array.from({ length: MAX_HISTORY_ITEMS - 1 }, (_, i) => record(`e${i}`));
     const storage = createMemoryStorage({ [HISTORY_STORAGE_KEY]: JSON.stringify(existing) });
     const imported = [record("e0"), record("a", "2026-11-06T00:00:00Z"), record("a"), record("b")];
     const summary = applyBackup(storage, { history: imported, profile: null, chat: [] });
-    expect(summary).toMatchObject({ historyAdded: 1, historySkipped: 1, historyDuplicates: 2, historyTotal: 30 });
+    expect(summary).toMatchObject({ historyAdded: 1, historySkipped: 1, historyDuplicates: 2, historyTotal: MAX_HISTORY_ITEMS });
     expect(loadHistory(storage).filter((item) => item.id.startsWith("e"))).toEqual(existing);
     expect(loadHistory(storage).some((item) => item.id === "a")).toBe(true);
   });

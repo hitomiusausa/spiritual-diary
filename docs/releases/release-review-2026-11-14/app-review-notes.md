@@ -10,7 +10,7 @@
 ## Notes for the reviewer (paste into App Store Connect)
 
 ```text
-Kiri is a Japanese-language journaling app for mood and daily reflection. Users write about their day (events, feelings and intuitions), keep their entries privately on the device, and look back on them in the Look Back (振り返り) screen [CONFIRM: describe the final design]. Kiri, an AI companion, responds to each entry with a short, gentle reflection that helps the user notice patterns in their own words.
+Kiri is a Japanese-language journaling app for mood and daily reflection. Users write about their day (events, feelings and intuitions), keep their entries privately on the device, and look back on them in the Look Back (振り返り) screen: a monthly calendar that shows the mood chosen on each day, the moods chosen most often that month, and the entries of the selected day. Kiri, an AI companion, responds to each entry with a short, gentle reflection that helps the user notice patterns in their own words.
 
 To shape the tone of these reflections, the app uses two traditional rhythm systems as a lens: a biorhythm cycle and the East Asian sexagenary calendar (known as Four Pillars). They appear only in collapsed "details" sections of the result screen. Kiri does not make predictions, and its words are not medical, financial or legal advice. The app states in the chat panel and in the Terms that Kiri's words are AI-generated.
 

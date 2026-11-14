@@ -64,24 +64,24 @@ describe("迷わない導線（05-ux）", () => {
     expect(diary).toMatch(/if \(step !== 'boot'\) window\.scrollTo\(0, 0\);/);
   });
 
-  it("最近の記録を開いた直後のフォーカスは、最初の記録か閉じるボタン（すべて削除ではない）", () => {
+  it("振り返りを開いた直後のフォーカスは、暦で選んである日か閉じるボタン（すべて削除ではない）", () => {
     const list = block("const renderHistoryListModal", "const renderConfirmDeleteModal");
     // 件数で selector を変えると ModalFrame の効果が作り直され、Escape 後のフォーカス復帰が外れる（独立検収 P2-3）。
     expect(list).toContain('initialFocus="[data-history-initial]"');
-    expect(list).toContain("data-history-initial={history.length === 0 || undefined}");
-    expect(list).toContain("data-history-initial={index === 0 || undefined}");
+    expect(list).toContain("data-history-initial={!lookbackDay || undefined}");
+    expect(diary).toContain("data-history-initial={selected || undefined}");
     // すべて削除は閉じる×の隣ではなく、一覧の下に44pxの高さで置く
     const header = list.slice(list.indexOf('<div className="p-4 border-b'), list.indexOf('<div className="flex-1 overflow-y-auto'));
     expect(header).not.toContain("すべて削除");
     expect(list).toMatch(/min-h-11[^"]*"\s*>\s*すべて削除/);
-    expect(list).toContain("記録は新しいものから30件まで残ります。");
+    expect(list).toContain("記録は新しいものから{MAX_HISTORY_ITEMS}件まで残ります。");
   });
 
   it("結果画面にも記録と設定を置き、削除の確認文は画面にある物だけを案内する", () => {
     const result = block("if (step === 'result') {", "const renderLockLayer");
     expect(result).toContain("renderSettingsModal()");
     expect(result).toContain('aria-label="設定"');
-    expect(result).toContain('aria-label="最近の記録"');
+    expect(result).toContain('aria-label="振り返り"');
     expect(diary).not.toContain("設定アイコン");
   });
 
@@ -95,7 +95,7 @@ describe("迷わない導線（05-ux）", () => {
   it("ヘッダーの小さなボタンは当たり判定を44pxにする", () => {
     for (const step of ["input", "result"]) {
       const screen = block(`if (step === '${step}') {`, step === "input" ? "if (step === 'loading')" : "const renderLockLayer");
-      expect(screen).toMatch(/aria-label="最近の記録"[\s\S]{0,200}className="kiri-hit /);
+      expect(screen).toMatch(/aria-label="振り返り"[\s\S]{0,200}className="kiri-hit /);
       expect(screen).toMatch(/aria-label="設定"[\s\S]{0,200}className="kiri-hit /);
     }
   });

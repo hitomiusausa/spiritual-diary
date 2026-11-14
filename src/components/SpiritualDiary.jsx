@@ -4,8 +4,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useState, useEffect, useLayoutEffect, useReducer, useRef } from 'react';
 import { flushSync } from 'react-dom';
-import { Sparkles, Lock, AlertCircle, X, ChevronRight, ChevronDown, ChevronUp, HelpCircle, Heart, Smile, Frown, Meh, Angry, Star, Sun, Moon, Cloud, Zap, CloudFog, Palette, Download, Upload, Settings, History, Laugh, Leaf, CloudRain, Droplet, Music, ShieldOff, Timer, EyeOff } from 'lucide-react';
-import { HISTORY_QUARANTINE_KEY, HISTORY_STORAGE_KEY, PROFILE_STORAGE_KEY, deleteHistoryItem, hasQuarantinedHistory, loadHistory, saveHistoryKeepingUnreadable, toHistoryRecord, loadProfile, saveProfile, initialStepFor, formatBirthDateJa, isSameReading } from '@/lib/history';
+import { Sparkles, Lock, AlertCircle, X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, HelpCircle, Heart, Smile, Frown, Meh, Angry, Star, Sun, Moon, Cloud, Zap, CloudFog, Palette, Download, Upload, Settings, History, Laugh, Leaf, CloudRain, Droplet, Music, ShieldOff, Timer, EyeOff } from 'lucide-react';
+import { HISTORY_QUARANTINE_KEY, HISTORY_STORAGE_KEY, MAX_HISTORY_ITEMS, PROFILE_STORAGE_KEY, deleteHistoryItem, hasQuarantinedHistory, loadHistory, saveHistoryKeepingUnreadable, toHistoryRecord, loadProfile, saveProfile, initialStepFor, formatBirthDateJa, isSameReading } from '@/lib/history';
 import { buildBackup, buildRecoveryBackup, backupFileName, parseBackup, applyBackup } from '@/lib/backup';
 import KiriChatPanel from '@/components/KiriChatPanel';
 import PaywallSheet from '@/components/PaywallSheet';
@@ -34,6 +34,7 @@ import { CONSENT_STORAGE_KEY, hasConsent, recordConsent, revokeConsent } from '@
 import ConsentModal from '@/components/ConsentModal';
 import { browserSessionStorage, saveEntryDraft, takeEntryDraft } from '@/lib/entryDraft';
 import { DEFAULT_MOOD, MOODS, findMood } from '@/lib/moods';
+import { WEEKDAY_LABELS, buildMonthGrid, compareMonth, dayKeyOf, formatDayJa, formatMonthJa, groupRecordsByDay, initialSelectedDay, kiriLineOf, monthOf, monthRange, recordDayKey, shiftMonth, topMoodsOfMonth } from '@/lib/lookback';
 import { describeAnalyzeFailure } from '@/lib/analyzeError';
 import { LOCK_STORAGE_KEY, DEFAULT_LOCK_SETTINGS, initialLockState, reduceLock, saveLockSettings } from '@/lib/appLock';
 import { createLockController } from '@/lib/lockController';
@@ -68,7 +69,7 @@ const TALK_NOT_ENTITLED = { entitled: false, expiresAt: null, willRenew: false, 
 const FOG_FADE_MS = 900;
 const FOG_HOLD_MS = 400;
 
-// 「最近の記録」の一覧で、同じ日の記録を見分けられるよう時刻まで出す（例「2026年11月14日 21:30」）
+// 振り返りの「すべての記録」で、同じ日の記録を見分けられるよう時刻まで出す（例「2026年11月14日 21:30」）
 function formatRecordTime(createdAt) {
   if (!createdAt || !Number.isFinite(Date.parse(createdAt))) return '';
   return new Date(createdAt).toLocaleString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -291,6 +292,9 @@ export default function SpiritualDiary() {
   const [openedRecord, setOpenedRecord] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showHistoryList, setShowHistoryList] = useState(false);
+  // 振り返り（月の暦。D-44）で見ている月と選んだ日。開くたびに、いちばん新しい記録の月・日から始める。
+  const [lookbackMonth, setLookbackMonth] = useState(() => monthOf(new Date()));
+  const [lookbackDay, setLookbackDay] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null); // null | { type: 'one', id } | { type: 'all' }
   const [deleteNotice, setDeleteNotice] = useState(null);
   const [deleteFailed, setDeleteFailed] = useState(false);
@@ -1391,58 +1395,152 @@ export default function SpiritualDiary() {
     );
   };
 
-  // 最近の記録の一覧（入力画面の左上・結果画面の左上と「今日の記録」の下から開く）
-  // 開いた直後のフォーカスは最初の記録（なければ閉じる）。消す操作を最初に選ばせない（UX P1-3）。
+  // 振り返り（D-44）。上に月の暦と選んだ日の記録、下に今までの一覧（入力画面の左上・結果画面の左上と「今日の記録」の下から開く）
+  // 開いた直後のフォーカスは暦で選んである日（記録がなければ閉じる）。消す操作を最初に選ばせない（UX P1-3）。
   // 「すべて削除」は閉じる×の隣から離し、一覧の下に44pxの高さで置く。
+  const openLookback = () => {
+    const newest = history.find((item) => recordDayKey(item?.createdAt));
+    const month = newest ? monthOf(new Date(newest.createdAt)) : monthOf(new Date());
+    setLookbackMonth(month);
+    setLookbackDay(initialSelectedDay(groupRecordsByDay(history), month));
+    setShowHistoryList(true);
+  };
+
+  const renderHistoryItem = (item, { dateLabel, kiriLine } = {}) => (
+    <div key={item.id} className="bg-black/15 rounded-lg flex items-stretch">
+      <button
+        type="button"
+        onClick={(event) => { event.currentTarget.focus(); setOpenedRecord(item); }}
+        className="flex-1 min-w-0 p-2.5 flex items-start gap-2 text-left rounded-l-lg hover:bg-white/5 transition-colors"
+      >
+        <span className="text-kiri-fog"><MoodIcon value={item.entry?.emoji || '✨'} className="w-5 h-5" /></span>
+        <span className="min-w-0 flex-1 block">
+          <span className="block text-xs text-kiri-lilac-ink">{dateLabel}</span>
+          <span className="block text-sm text-white truncate">{item.entry?.event || '記録なし'}</span>
+          {kiriLine && <span className="block text-xs text-kiri-gold font-display mt-0.5">「{kiriLine}」</span>}
+        </span>
+      </button>
+      <button
+        type="button"
+        aria-label="この記録を削除"
+        onClick={(event) => { event.currentTarget.focus(); setConfirmDelete({ type: 'one', id: item.id }); }}
+        className="min-w-11 flex items-center justify-center text-kiri-lilac-ink hover:text-white rounded-r-lg"
+      >
+        <X className="w-4 h-4" />
+      </button>
+    </div>
+  );
+
+  const formatClock = (createdAt) => {
+    if (!createdAt || !Number.isFinite(Date.parse(createdAt))) return '';
+    return new Date(createdAt).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const renderLookbackCalendar = (byDay) => {
+    const { earliest, latest } = monthRange(history);
+    const canPrev = compareMonth(lookbackMonth, earliest) > 0;
+    const canNext = compareMonth(lookbackMonth, latest) < 0;
+    const todayKey = recordDayKey(new Date().toISOString());
+    const moveMonth = (delta) => {
+      const next = shiftMonth(lookbackMonth, delta);
+      setLookbackMonth(next);
+      setLookbackDay(initialSelectedDay(byDay, next));
+    };
+    const navClass = 'kiri-hit p-1.5 rounded-full text-kiri-lilac-ink hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-transparent';
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <button type="button" className={navClass} disabled={!canPrev} aria-label="前の月" onClick={() => moveMonth(-1)}><ChevronLeft className="w-5 h-5" /></button>
+          <p className="font-display text-kiri-fog" aria-live="polite">{formatMonthJa(lookbackMonth)}</p>
+          <button type="button" className={navClass} disabled={!canNext} aria-label="次の月" onClick={() => moveMonth(1)}><ChevronRight className="w-5 h-5" /></button>
+        </div>
+        <div role="group" aria-label={`${formatMonthJa(lookbackMonth)}の記録`} className="grid grid-cols-7 gap-1 text-center">
+          {WEEKDAY_LABELS.map((label) => (
+            <span key={label} aria-hidden="true" className="text-[0.7rem] text-kiri-lilac-ink">{label}</span>
+          ))}
+          {buildMonthGrid(lookbackMonth).flat().map((day, index) => {
+            if (day === null) return <span key={`blank-${index}`} aria-hidden="true" />;
+            const key = dayKeyOf(lookbackMonth.year, lookbackMonth.month, day);
+            const records = byDay.get(key);
+            const isToday = key === todayKey;
+            if (!records) {
+              return (
+                <span key={key} aria-hidden="true" className={`aspect-square rounded-lg flex items-center justify-center text-[0.7rem] bg-black/15 ${isToday ? 'text-kiri-gold' : 'text-kiri-lilac-ink/70'}`}>{day}</span>
+              );
+            }
+            const selected = key === lookbackDay;
+            const moodLabel = findMood(records[0].entry?.emoji)?.label;
+            return (
+              <button
+                key={key}
+                type="button"
+                data-history-initial={selected || undefined}
+                aria-pressed={selected}
+                aria-label={`${formatDayJa(key)}${moodLabel ? `・${moodLabel}` : ''}・${records.length}件`}
+                onClick={(event) => { event.currentTarget.focus(); setLookbackDay(key); }}
+                className={`aspect-square rounded-lg flex flex-col items-center justify-center gap-0.5 text-[0.7rem] transition-colors ${selected ? 'bg-kiri-lilac/25 ring-1 ring-kiri-gold/70' : 'bg-kiri-gold/[0.08] hover:bg-white/15'} ${isToday ? 'text-kiri-gold' : 'text-kiri-fog'}`}
+              >
+                <span aria-hidden="true">{day}</span>
+                <span className="text-kiri-fog"><MoodIcon value={records[0].entry?.emoji || '✨'} className="w-4 h-4" /></span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   const renderHistoryListModal = () => {
     if (!showHistoryList) return null;
     const canDeleteAll = hasAnyRecords(history, getStorage());
+    const byDay = groupRecordsByDay(history);
+    const dayRecords = lookbackDay ? (byDay.get(lookbackDay) ?? []) : [];
+    const topMoods = topMoodsOfMonth(byDay, lookbackMonth);
     return (
-      <ModalFrame onClose={() => setShowHistoryList(false)} initialFocus="[data-history-initial]" className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-3 pt-[calc(0.75rem+env(safe-area-inset-top))] pb-[calc(0.75rem+env(safe-area-inset-bottom))]" onClick={() => setShowHistoryList(false)} role="dialog" aria-modal="true" aria-label="最近の記録">
+      <ModalFrame onClose={() => setShowHistoryList(false)} initialFocus="[data-history-initial]" className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-3 pt-[calc(0.75rem+env(safe-area-inset-top))] pb-[calc(0.75rem+env(safe-area-inset-bottom))]" onClick={() => setShowHistoryList(false)} role="dialog" aria-modal="true" aria-label="振り返り">
         <div className="kiri-card-strong kiri-dialog-card rounded-2xl w-full max-w-lg max-h-[88vh] flex flex-col overflow-hidden kiri-rise" onClick={(e) => e.stopPropagation()}>
           <div className="p-4 border-b border-white/10 flex items-center justify-between">
-            <h2 className="font-display font-bold text-kiri-gold">最近の記録</h2>
-            <button type="button" data-history-close data-history-initial={history.length === 0 || undefined} onClick={() => setShowHistoryList(false)} aria-label="閉じる" className="kiri-hit text-kiri-lilac-ink hover:text-white"><X className="w-5 h-5" /></button>
+            <h2 className="font-display font-bold text-kiri-gold">振り返り</h2>
+            <button type="button" data-history-close data-history-initial={!lookbackDay || undefined} onClick={() => setShowHistoryList(false)} aria-label="閉じる" className="kiri-hit text-kiri-lilac-ink hover:text-white"><X className="w-5 h-5" /></button>
           </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-2">
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {deleteNotice && (
               <p className="text-xs text-kiri-gold" role="status">{deleteNotice}</p>
             )}
-            {history.length === 0 && (
+            {history.length === 0 ? (
               <p className="text-sm text-kiri-lilac-ink leading-relaxed">まだ記録がありません。今日の記録が、最初のひとつになるよ。</p>
+            ) : (
+              <>
+                {renderLookbackCalendar(byDay)}
+                {topMoods.length > 0 && (
+                  <div className="space-y-1.5">
+                    <h3 className="text-xs text-kiri-lilac-ink">この月によく選んだ気分</h3>
+                    <ul className="flex flex-wrap gap-1.5">
+                      {topMoods.map((mood) => (
+                        <li key={mood.value} className="inline-flex items-center gap-1 rounded-full bg-white/[0.055] px-2.5 py-0.5 text-xs text-kiri-fog">
+                          <MoodIcon value={mood.value} className="w-3.5 h-3.5" />{mood.label} {mood.count}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {dayRecords.length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="text-xs text-kiri-lilac-ink">{formatDayJa(lookbackDay)}の記録</h3>
+                    {dayRecords.map((item) => renderHistoryItem(item, { dateLabel: formatClock(item.createdAt) || '時刻不明', kiriLine: kiriLineOf(item) }))}
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <h3 className="text-xs text-kiri-lilac-ink">すべての記録</h3>
+                  {history.map((item) => renderHistoryItem(item, { dateLabel: `記入日: ${formatRecordTime(item.createdAt) || '不明'}` }))}
+                </div>
+              </>
             )}
-            {history.map((item, index) => (
-              <div key={item.id} className="bg-black/15 rounded-lg flex items-stretch">
-                <button
-                  type="button"
-                  data-history-first={index === 0 || undefined}
-                  data-history-initial={index === 0 || undefined}
-                  onClick={(event) => { event.currentTarget.focus(); setOpenedRecord(item); }}
-                  className="flex-1 min-w-0 p-2.5 flex items-start gap-2 text-left rounded-l-lg hover:bg-white/5 transition-colors"
-                >
-                  <span className="text-kiri-fog"><MoodIcon value={item.entry?.emoji || '✨'} className="w-5 h-5" /></span>
-                  <span className="min-w-0 flex-1 block">
-                    <span className="block text-xs text-kiri-lilac-ink">
-                      記入日: {formatRecordTime(item.createdAt) || '不明'}
-                    </span>
-                    <span className="block text-sm text-white truncate">{item.entry?.event || '記録なし'}</span>
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  aria-label="この記録を削除"
-                  onClick={(event) => { event.currentTarget.focus(); setConfirmDelete({ type: 'one', id: item.id }); }}
-                  className="min-w-11 flex items-center justify-center text-kiri-lilac-ink hover:text-white rounded-r-lg"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            ))}
           </div>
           <div className="px-4 pt-2 pb-3 border-t border-white/10">
             <p className="text-[0.75rem] text-kiri-lilac-ink leading-relaxed">選ぶと、当時のKiriの読み解きを読み返せます。</p>
-            {/* 上限30件（D-06）は変えずに、使う人に見える所で正直に伝える（R2-02 の最低限） */}
-            <p className="text-[0.75rem] text-kiri-lilac-ink leading-relaxed">記録は新しいものから30件まで残ります。</p>
+            {/* 上限（D-44 で30件→365件）は、使う人に見える所で正直に伝える（R2-02） */}
+            <p className="text-[0.75rem] text-kiri-lilac-ink leading-relaxed">記録は新しいものから{MAX_HISTORY_ITEMS}件まで残ります。</p>
             {/* 日記の記録が0件でも、会話が残っていれば出す（すべて削除は会話も消す。F-B2） */}
             {canDeleteAll && (
               <div className="flex justify-end mt-1">
@@ -1730,7 +1828,7 @@ export default function SpiritualDiary() {
         <>
           {renderWhiteoutTransition()}
           {renderSettingsModal()}
-          {/* 読み解き前・オフラインでも履歴を読み返せるよう、入力画面にも「最近の記録」を置く（D-40） */}
+          {/* 読み解き前・オフラインでも履歴を読み返せるよう、入力画面にも「振り返り」（旧「最近の記録」）を置く（D-40・D-44） */}
           {renderHistoryListModal()}
           {renderConfirmDeleteModal()}
           {renderRecordDetail({ record: openedRecord, onClose: () => setOpenedRecord(null) })}
@@ -1747,12 +1845,13 @@ export default function SpiritualDiary() {
               <div className="text-center mb-4 pt-2 relative kiri-dt-header">
                 <button
                   type="button"
-                  aria-label="最近の記録"
-                  onClick={(event) => { event.currentTarget.focus(); setShowHistoryList(true); }}
-                  className="kiri-hit absolute top-0 left-0 inline-flex items-center gap-1 text-xs text-kiri-lilac-ink hover:text-white px-2 py-1.5 rounded-full hover:bg-white/10 transition-colors"
+                  aria-label="振り返り"
+                  // 「振り返り」は4文字あるので、アイコンの下に置いて中央の見出しと重ならないようにする（375px）
+                  onClick={(event) => { event.currentTarget.focus(); openLookback(); }}
+                  className="kiri-hit absolute top-0 left-0 inline-flex flex-col items-center gap-0.5 text-xs leading-none text-kiri-lilac-ink hover:text-white px-1 py-1 rounded-lg hover:bg-white/10 transition-colors"
                 >
                   <History className="w-5 h-5" aria-hidden="true" />
-                  <span aria-hidden="true">記録</span>
+                  <span aria-hidden="true">振り返り</span>
                 </button>
                 <button
                   type="button"
@@ -2068,12 +2167,13 @@ export default function SpiritualDiary() {
               <div className="text-center mb-4 pt-2 relative kiri-dt-header">
                 <button
                   type="button"
-                  aria-label="最近の記録"
-                  onClick={(event) => { event.currentTarget.focus(); setShowHistoryList(true); }}
-                  className="kiri-hit absolute top-0 left-0 inline-flex items-center gap-1 text-xs text-kiri-lilac-ink hover:text-white px-2 py-1.5 rounded-full hover:bg-white/10 transition-colors"
+                  aria-label="振り返り"
+                  // 「振り返り」は4文字あるので、アイコンの下に置いて中央の見出しと重ならないようにする（375px）
+                  onClick={(event) => { event.currentTarget.focus(); openLookback(); }}
+                  className="kiri-hit absolute top-0 left-0 inline-flex flex-col items-center gap-0.5 text-xs leading-none text-kiri-lilac-ink hover:text-white px-1 py-1 rounded-lg hover:bg-white/10 transition-colors"
                 >
                   <History className="w-5 h-5" aria-hidden="true" />
-                  <span aria-hidden="true">記録</span>
+                  <span aria-hidden="true">振り返り</span>
                 </button>
                 <button
                   type="button"
@@ -2346,10 +2446,10 @@ export default function SpiritualDiary() {
                   </div>
                   <button
                     type="button"
-                    onClick={(event) => { event.currentTarget.focus(); setShowHistoryList(true); }}
+                    onClick={(event) => { event.currentTarget.focus(); openLookback(); }}
                     className="mt-3 w-full min-h-11 flex items-center justify-center gap-2 bg-white/[0.055] hover:bg-white/20 active:scale-[0.98] text-white py-2.5 rounded-lg font-medium text-sm transition-all"
                   >
-                    <History className="w-4 h-4" />最近の記録
+                    <History className="w-4 h-4" />振り返り
                   </button>
                 </div>
 

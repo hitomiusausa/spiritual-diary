@@ -1,4 +1,4 @@
-// 「最近の記録」の「すべて削除」（F-B2）。日記の記録・端末に一時保存した読み解き（D-18）・Kiriとの会話をまとめて消す。
+// 「振り返り」の「すべて削除」（F-B2）。日記の記録・端末に一時保存した読み解き（D-18）・Kiriとの会話をまとめて消す。
 // プロフィール・AI 送信の同意・ロックの設定は消さない（記録ではないため）。プライバシーポリシーの削除の記述と対。
 import { clearCachedAnalyses } from "./analysisCache";
 import { clearChatHistory, loadChatHistory } from "./chatHistory";

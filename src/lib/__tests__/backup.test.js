@@ -89,13 +89,15 @@ describe("mergeHistories", () => {
   });
 
   it("createdAt降順に並べ、上限で切る", () => {
-    const existing = Array.from({ length: 20 }, (_, i) => record(`e${i}`, `2026-07-${String(i + 1).padStart(2, "0")}T00:00:00.000Z`));
-    const imported = Array.from({ length: 20 }, (_, i) => record(`i${i}`, `2026-06-${String(i + 1).padStart(2, "0")}T00:00:00.000Z`));
+    // 既存と取り込みを合わせると上限を20件こえる。取り込みのほうが古い日付
+    const day = (offset) => new Date(Date.UTC(2026, 10, 1) - offset * 86400000).toISOString();
+    const existing = Array.from({ length: MAX_HISTORY_ITEMS - 10 }, (_, i) => record(`e${i}`, day(i)));
+    const imported = Array.from({ length: 30 }, (_, i) => record(`i${i}`, day(MAX_HISTORY_ITEMS + i)));
     const merged = mergeHistories(existing, imported);
     expect(merged).toHaveLength(MAX_HISTORY_ITEMS);
     expect(merged[0].createdAt >= merged[1].createdAt).toBe(true);
-    // 新しい既存20件は必ず残る(古いインポート分から切られる)
-    expect(merged.filter((item) => item.id.startsWith("e"))).toHaveLength(20);
+    // 既存は必ず残る(古いインポート分から切られる)
+    expect(merged.filter((item) => item.id.startsWith("e"))).toHaveLength(MAX_HISTORY_ITEMS - 10);
   });
 });
 
