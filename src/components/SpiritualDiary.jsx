@@ -307,12 +307,13 @@ export default function SpiritualDiary() {
     if (inputCheckShownRef.current === null) { inputCheckShownRef.current = snapshot; return; }
     if (inputCheckShownRef.current !== snapshot) setError(null);
   }, [error, entry.emoji, entry.event, entry.intuition]);
-  // バイオリズム・四柱推命・テーマ別運勢は詳細を見たい人だけ開く（結果が長く、Kiriの読み解きまで進めないように見えるため。2026-10-10）
+  // バイオリズム・四柱推命・テーマ別運勢・今日のヒントは詳細を見たい人だけ開く（結果が長く、Kiriの読み解きまで進めないように見えるため。2026-10-10）
+  // 今日のヒントも閉じて始める（審査4.3(b)対策：結果画面の主役を読み解きの文にする。D-44）
   const [expandedSections, setExpandedSections] = useState({
     biorhythm: false,
     saju: false,
     themes: false,
-    hints: true
+    hints: false
   });
   const [showBioInfo, setShowBioInfo] = useState(false);
   const [showSajuInfo, setShowSajuInfo] = useState(false);
@@ -975,7 +976,7 @@ export default function SpiritualDiary() {
         };
         setResult(nextResult);
         // 新しい読み解きでは、バイオリズムとテーマ別運勢を閉じた状態から始める（寄り添いモードで点数を開かない D-15 もこれで満たす）
-        setExpandedSections((sections) => ({ ...sections, biorhythm: false, saju: false, themes: false }));
+        setExpandedSections((sections) => ({ ...sections, biorhythm: false, saju: false, themes: false, hints: false }));
         const record = toHistoryRecord({
           result: nextResult,
           entry,
@@ -1596,7 +1597,7 @@ export default function SpiritualDiary() {
                 <Sparkles className="w-12 h-12 text-kiri-gold mx-auto mb-3" />
                 <h1 className="font-display text-2xl font-bold text-white mb-1">Mind & Energy Note</h1>
                 {/* 語の途中で割れないよう、まとまりごとに inline-block で包む（手動の改行は入れない） */}
-                <p className="text-sm text-kiri-lilac-ink"><span className="inline-block">バイオリズム×四柱推命から</span><span className="inline-block">読み解く心の分析ノート</span></p>
+                <p className="text-sm text-kiri-lilac-ink"><span className="inline-block">気分と出来事を書きとめて、</span><span className="inline-block">Kiriと静かに振り返るノート</span></p>
               </div>
 
               {/* Kiriの紹介 */}
@@ -1615,7 +1616,7 @@ export default function SpiritualDiary() {
                   </div>
                 </div>
                 <p className="text-sm text-white/90 leading-relaxed">
-                  Kiriは、心のエネルギーを読み解き、あなたの日々にそっと寄り添います
+                  書きとめた気持ちを、四柱推命とバイオリズムの暦のリズムに重ねて、Kiriがやわらかく読み解きます
                 </p>
               </div>
 
@@ -2045,7 +2046,7 @@ export default function SpiritualDiary() {
             onClose={() => setShowHintInfo({...showHintInfo, direction: false})}
             title="今日の方角について"
           >
-            <p>この方角は、五行の方位論（風水）から導いています。</p>
+            <p>この方角は、五行の方位の考え方から導いています。</p>
             <p className="mt-2">五行（木火土金水）にはそれぞれ方角があり、今日の巡りの五行とバイオリズムから、Kiriが感じた方向をお伝えしています。</p>
             <p className="mt-2 text-kiri-lilac-ink text-xs">気にしなくても大丈夫。気が向いたときだけ、Kiriと視線を合わせてみてください。</p>
           </InfoPopup>

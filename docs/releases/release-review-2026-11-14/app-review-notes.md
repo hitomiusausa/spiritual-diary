@@ -2,6 +2,7 @@
 
 - Source: adversarial safety/legal/App Store review (B-1, B-2, B-6), building on `docs/releases/app-store-2026-10-16.md`.
 - D-27: describe the app honestly as a journal with reflective readings. Do not write "NOT a fortune-telling app".
+- D-44 (4.3(b)): lead with journaling, look-back, safety and on-device storage. Do not use the word "Destiny". Screenshots: write → look back → Kiri's reflection → chat → lock/backup; do not show the hint (color/number/direction) or score sections. Category: Health & Fitness. If rejected, reply with the template in `07-appstore-4.3b.md` §6.
 - Before submitting, confirm the items marked [CONFIRM] against the actual build and App Store Connect.
 
 ---
@@ -9,7 +10,9 @@
 ## Notes for the reviewer (paste into App Store Connect)
 
 ```text
-Kiri is a Japanese-language journal with AI-generated reflections. The user records their mood and daily events. The app combines these entries with Four Pillars of Destiny (shichusuimei) and biorhythm calculations to generate reflective readings. The Four Pillars chart and biorhythm are visible in expandable sections of the result screen. Readings are presented as reflective prompts, not predictions, and are not medical, financial, or legal advice. The app states in the chat panel and in the Terms that Kiri's words are AI-generated.
+Kiri is a Japanese-language journaling app for mood and daily reflection. Users write about their day (events, feelings and intuitions), keep their entries privately on the device, and look back on them in the Look Back (振り返り) screen [CONFIRM: describe the final design]. Kiri, an AI companion, responds to each entry with a short, gentle reflection that helps the user notice patterns in their own words.
+
+To shape the tone of these reflections, the app uses two traditional rhythm systems as a lens: a biorhythm cycle and the East Asian sexagenary calendar (known as Four Pillars). They appear only in collapsed "details" sections of the result screen. Kiri does not make predictions, and its words are not medical, financial or legal advice. The app states in the chat panel and in the Terms that Kiri's words are AI-generated.
 
 No account or sign-in is required for the diary. The UI is bundled in the app. Native features include persistent on-device storage, backup export through the iOS share sheet, backup import, haptics, and App Lock with iOS authentication. A privacy screen can hide the app's content in the app switcher.
 

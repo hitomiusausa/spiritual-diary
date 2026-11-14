@@ -21,7 +21,7 @@ const zenKakuGothic = Zen_Kaku_Gothic_New({
 
 export const metadata = {
   title: "Mind & Energy Note | Kiri",
-  description: "バイオリズムと四柱推命から、Kiriが今日の心の流れをやわらかく読み解くノート",
+  description: "気分と出来事を書きとめて、Kiriと静かに振り返るノート。四柱推命とバイオリズムの暦のリズムに重ねて、やわらかく読み解きます",
 };
 
 // iOS アプリ（Capacitor）でノッチ・ホームバーの下まで夜色を広げ、本文は env(safe-area-inset-*) で避ける。
