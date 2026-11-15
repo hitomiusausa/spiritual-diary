@@ -193,7 +193,7 @@ export function findPreviewUiInExport(outDir) {
   return problems;
 }
 
-export const REQUIRED_PAGES = Object.freeze(["index.html", "privacy/index.html", "terms/index.html", "support/index.html"]);
+export const REQUIRED_PAGES = Object.freeze(["index.html", "privacy/index.html", "terms/index.html", "support/index.html", "legal/index.html"]);
 
 // ビルド後の検査をまとめる。問題の一覧を返す（空なら OK）。本番向け（production）ではプレビュー UI も検査する。
 export function verifyExport(outDir, { secretValues = [], production = true } = {}) {

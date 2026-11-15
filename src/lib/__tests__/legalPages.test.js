@@ -14,7 +14,7 @@ const stripComments = (source) =>
     .replace(/(^|[^:])\/\/.*$/gm, "$1");
 const compact = (source) => stripComments(source).replace(/\s+/g, "");
 
-const PAGES = { terms: "src/app/terms/page.js", support: "src/app/support/page.js", privacy: "src/app/privacy/page.js" };
+const PAGES = { terms: "src/app/terms/page.js", support: "src/app/support/page.js", privacy: "src/app/privacy/page.js", legal: "src/app/legal/page.js" };
 const TEXT = Object.fromEntries(Object.entries(PAGES).map(([name, path]) => [name, compact(read(path))]));
 
 describe("法務ページ共通", () => {
@@ -23,7 +23,7 @@ describe("法務ページ共通", () => {
     expect(TEXT[name]).not.toContain("開発プレビュー");
   });
 
-  it.each(["terms", "support"])("%s に価格の数字を書かない（価格はアプリ内の購入画面に表示）", (name) => {
+  it.each(["terms", "support", "legal"])("%s に価格の数字を書かない（価格はアプリ内の購入画面に表示）", (name) => {
     expect(TEXT[name]).not.toMatch(/480|[¥￥]|[0-9,]+円/);
     expect(TEXT[name]).toContain("アプリ内の購入画面に表示");
   });
@@ -167,5 +167,15 @@ describe("/privacy 外国にある第三者への提供と要配慮個人情報�
   it("日記に心身の状態が書かれている場合も、同意のうえで読み解きのために送ると書く", () => {
     expect(t).toContain("心身の状態");
     expect(t).toContain("要配慮個人情報");
+  });
+});
+
+describe("/legal 特商法表記（D-45）", () => {
+  it("必要な項目をそろえ、代表者・所在地・電話は請求時に開示とする", () => {
+    for (const item of ["販売事業者", "運営責任者", "所在地", "電話番号", "メールアドレス", "販売価格", "支払方法", "支払時期", "提供時期", "申込みの撤回・解約", "動作環境"]) {
+      expect(TEXT.legal).toContain(item);
+    }
+    expect(TEXT.legal).toContain("ご請求があれば、遅滞なく開示します。");
+    expect(TEXT.legal).not.toContain("要記入");
   });
 });

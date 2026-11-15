@@ -209,7 +209,7 @@ describe("verifyExport（ビルド後の検査のまとめ）", () => {
   let dir;
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), "kiri-out-"));
-    for (const page of ["privacy", "terms", "support"]) {
+    for (const page of ["privacy", "terms", "support", "legal"]) {
       mkdirSync(join(dir, page), { recursive: true });
       writeFileSync(join(dir, page, "index.html"), "<html></html>");
     }
@@ -302,7 +302,7 @@ describe("本番の書き出しにモック購入が混ざらない", () => {
   let dir;
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), "kiri-out-"));
-    for (const page of ["privacy", "terms", "support"]) {
+    for (const page of ["privacy", "terms", "support", "legal"]) {
       mkdirSync(join(dir, page), { recursive: true });
       writeFileSync(join(dir, page, "index.html"), "<html></html>");
     }

@@ -143,6 +143,7 @@ export default function PaywallSheet({ open, offering, entitled = false, onPurch
           )}
           <Link href="/terms" className="inline-flex min-h-11 items-center px-2 text-xs text-kiri-fog underline underline-offset-4">利用規約</Link>
           <Link href="/privacy" className="inline-flex min-h-11 items-center px-2 text-xs text-kiri-fog underline underline-offset-4">プライバシーポリシー</Link>
+          <Link href="/legal" className="inline-flex min-h-11 items-center px-2 text-xs text-kiri-fog underline underline-offset-4">特商法表記</Link>
         </div>
       </div>
     </ModalFrame>

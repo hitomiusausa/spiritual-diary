@@ -1819,6 +1819,7 @@ export default function SpiritualDiary() {
                 <Link href="/privacy" className="kiri-hit hover:text-white">プライバシー</Link>
                 <Link href="/terms" className="kiri-hit hover:text-white">利用規約</Link>
                 <Link href="/support" className="kiri-hit hover:text-white">サポート</Link>
+                <Link href="/legal" className="kiri-hit hover:text-white">特商法表記</Link>
               </div>
             </div>
           </div>
