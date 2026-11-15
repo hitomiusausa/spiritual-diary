@@ -18,6 +18,14 @@ export const YOUTH_SUPPORT_LINES = [
   { name: "チャイルドライン", tel: "0120-99-7777", hours: "18歳まで・毎日16時〜21時（無料・12/29〜1/3は休み）" },
 ];
 
+// 暴力・虐待の窓口（D-45）。2026-11-16 に公式ページで確認した（soudanplus.jp・kodomoshien.cfa.go.jp/no-gyakutai/189/）。
+// 公式ページに無料・受付時間の記載がないものは書かない（DV相談プラスは「24時間受付」だけ、189は時間の記載なし）。
+export const VIOLENCE_SUPPORT_LINES_CHECKED_AT = "2026-11-16";
+export const VIOLENCE_SUPPORT_LINES = [
+  { name: "DV相談プラス（内閣府）", tel: "0120-279-889", hours: "24時間受付（チャットは12時〜22時）" },
+  { name: "児童相談所虐待対応ダイヤル", tel: "189", hours: "お近くの児童相談所につながります（匿名でも相談できます）" },
+];
+
 // normalizeForSafety() を通した文字列（ひらがな化・小文字化・空白除去済み）に当てる。
 // 後読み（lookbehind）は使わない。iOS 15.5 の Safari は対応しておらず、モジュールごと構文エラーになる（F-03）。
 const CRISIS_PATTERNS = [

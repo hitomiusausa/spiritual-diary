@@ -1,5 +1,5 @@
 import { Phone } from 'lucide-react';
-import { SUPPORT_LINES, SUPPORT_LINES_CHECKED_AT, SUPPORT_LINES_SOURCE_URL, YOUTH_SUPPORT_LINES } from '@/lib/kiriSafety';
+import { SUPPORT_LINES, SUPPORT_LINES_CHECKED_AT, SUPPORT_LINES_SOURCE_URL, VIOLENCE_SUPPORT_LINES, VIOLENCE_SUPPORT_LINES_CHECKED_AT, YOUTH_SUPPORT_LINES } from '@/lib/kiriSafety';
 
 function SupportLineList({ lines }) {
   return (
@@ -42,8 +42,10 @@ export default function SupportCard({ compact = false }) {
       <SupportLineList lines={SUPPORT_LINES} />
       <h3 className="mt-3 mb-2 text-xs font-bold text-kiri-fog">18歳までの方へ</h3>
       <SupportLineList lines={YOUTH_SUPPORT_LINES} />
+      <h3 className="mt-3 mb-2 text-xs font-bold text-kiri-fog">暴力や虐待のこと</h3>
+      <SupportLineList lines={VIOLENCE_SUPPORT_LINES} />
       <p className="mt-3 text-xs text-kiri-lilac-ink leading-relaxed">地域やIP電話によって、別の番号になる場合があります。つながらないときやSNSで相談したいときは、<a href={SUPPORT_LINES_SOURCE_URL} target="_blank" rel="noopener noreferrer" className="text-kiri-gold underline underline-offset-2">厚生労働省の相談窓口案内</a>をご覧ください。</p>
-      <p className="mt-1 text-[0.75rem] text-kiri-lilac-ink">窓口情報は{SUPPORT_LINES_CHECKED_AT.replace(/-/g, '/')}に厚生労働省の案内で確認しました。</p>
+      <p className="mt-1 text-[0.75rem] text-kiri-lilac-ink">窓口情報は{SUPPORT_LINES_CHECKED_AT.replace(/-/g, '/')}に厚生労働省の案内で、暴力や虐待の窓口は{VIOLENCE_SUPPORT_LINES_CHECKED_AT.replace(/-/g, '/')}に内閣府・こども家庭庁の案内で確認しました。</p>
     </section>
   );
 }

@@ -6,6 +6,7 @@ import {
   SUPPORT_LINES,
   SUPPORT_LINES_CHECKED_AT,
   YOUTH_SUPPORT_LINES,
+  VIOLENCE_SUPPORT_LINES,
   detectCrisis,
   entryNeedsSupport,
   normalizeForSafety,
@@ -164,6 +165,14 @@ describe("相談窓口", () => {
       expect(line.hours).toContain("無料");
     }
     expect(YOUTH_SUPPORT_LINES[1].hours).toContain("18歳まで");
+  });
+
+  it("暴力・虐待の窓口（DV相談プラス・189）を持ち、公式ページにない無料・時間は書かない（D-45・2026-11-16確認）", () => {
+    expect(VIOLENCE_SUPPORT_LINES.map((line) => line.tel)).toEqual(["0120-279-889", "189"]);
+    for (const line of VIOLENCE_SUPPORT_LINES) expect(line.hours).not.toContain("無料");
+    const card = readFileSync(join(process.cwd(), "src/components/SupportCard.jsx"), "utf8");
+    expect(card).toContain("VIOLENCE_SUPPORT_LINES");
+    expect(card).toContain("暴力や虐待のこと");
   });
 
   it("SupportCard は大人向けと18歳までの窓口を tel: リンクで出し、押せる高さを44px以上にする", () => {
