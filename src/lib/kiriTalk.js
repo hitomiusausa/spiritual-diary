@@ -4,6 +4,7 @@
 // Web の本番ではこのモジュールは使われず、バンドルから消える（D-24・F-B6）。消えるように、モジュールの直下には
 // 文字列リテラルと関数だけを置く（配列・オブジェクト・変数を埋め込んだ文字列は、使われていなくても Web の
 // バンドルに残る＝next 16 の本番ビルドで確認。Object.freeze も同じ）。scripts/check-web-bundle.mjs が検査する。
+import { deviceTimeZone } from "./localTime";
 
 export const KIRI_TALK_NAME = "Kiriと話す";
 export const KIRI_TALK_KIND = "月額の自動更新サブスクリプション";
@@ -109,11 +110,11 @@ export function restoreNotice(result) {
   return "有効な購読が見つかりませんでした。";
 }
 
-// 次の更新・終了の日付（日本時間の「11月17日」）。
-export function formatRenewalDate(iso) {
+// 次の更新・終了の日付（端末の地域の「11月17日」。D-45）。
+export function formatRenewalDate(iso, timeZone = deviceTimeZone()) {
   const time = Date.parse(iso ?? "");
   if (!Number.isFinite(time)) return null;
-  const parts = new Intl.DateTimeFormat("ja-JP", { timeZone: "Asia/Tokyo", month: "numeric", day: "numeric" }).formatToParts(new Date(time));
+  const parts = new Intl.DateTimeFormat("ja-JP", { timeZone, month: "numeric", day: "numeric" }).formatToParts(new Date(time));
   const get = (type) => parts.find((part) => part.type === type)?.value;
   return `${get("month")}月${get("day")}日`;
 }

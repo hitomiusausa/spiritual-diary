@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { preflightResponse, withCors } from "@/lib/cors";
 import { calculateSaju, parseBirthInput } from "@/lib/saju";
+import { calculateBiorhythm } from "@/lib/biorhythm";
+import { normalizeTimeZone, zonedHour } from "@/lib/localTime";
 import { KIRI_PERSONA } from "@/lib/kiriPersonality";
 import { extractReplyText } from "@/lib/claudeResponse";
 import { CRISIS_FORTUNE_GUIDANCE, SAFETY_GUIDANCE, entryNeedsSupport } from "@/lib/kiriSafety";
@@ -126,11 +128,6 @@ function calculateThemeScores(birthSaju, todaySaju, biorhythm, userMood, hasBirt
 
 
 
-function jstHour() {
-  return new Date(
-    new Date().toLocaleString("en-US", { timeZone: "Asia/Tokyo" })
-  ).getHours();
-}
 
 async function handlePost(request) {
   try {
@@ -154,9 +151,12 @@ async function handlePost(request) {
     }
 
     const body = await readBoundedJson(request, ANALYZE_BODY_MAX_BYTES);
-    const { userProfile, biorhythm, entry } = body || {};
+    const { userProfile, entry } = body || {};
+    const clientBiorhythm = body?.biorhythm;
+    // 利用者の端末の地域。使えない値は日本時間に倒す（D-45）。
+    const timeZone = normalizeTimeZone(body?.timeZone);
 
-    const bioValues = [biorhythm?.p, biorhythm?.e, biorhythm?.i];
+    const bioValues = [clientBiorhythm?.p, clientBiorhythm?.e, clientBiorhythm?.i];
     const validBio = bioValues.every((value) => typeof value === "number" && Number.isFinite(value) && value >= -100 && value <= 100);
     const validEntry = entry && typeof entry === "object"
       && typeof entry.event === "string" && entry.event.trim().length > 0 && entry.event.length <= ENTRY_EVENT_MAX_CHARS
@@ -195,7 +195,9 @@ async function handlePost(request) {
     const now = new Date();
     const model = process.env.CLAUDE_MODEL || "claude-sonnet-5-5";
 
-    const saju = calculateSaju({ birthDate, birthTime, gender, now });
+    const saju = calculateSaju({ birthDate, birthTime, gender, now, timeZone });
+    // バイオリズムは四柱と同じ時計（サーバーの now）と同じ地域で数え直す。端末の値は形の確認だけに使う（L-07）。
+    const biorhythm = calculateBiorhythm(birthDate, now, timeZone);
     const ipQuota = await IP_DAILY_QUOTA.consume(clientKey);
     if (!ipQuota.allowed) {
       // IP やそのハッシュはログに出さない。
@@ -235,7 +237,7 @@ async function handlePost(request) {
       taiun.available ? "" : "。大運は性別未入力のため保留"
     );
 
-    const hourNowJST = jstHour();
+    const hourNowLocal = zonedHour(now, timeZone);
     // ニックネームは利用者の入力なので、指示の中には生のまま入れない（S-09）。名前は【呼びかけ】に JSON 文字列で1回だけ置く。
     const namePrefix = nickname ? "【呼びかけ】の名前＋「さん、」" : "「あなたへ、」";
 
@@ -256,7 +258,7 @@ ${nickname ? JSON.stringify(nickname) + "さん" : "あなた"}
 年運: ${todaySaju.year} ← 今年全体の流れ
 月運: ${todaySaju.month} ← 今月の流れ
 日運: ${todaySaju.day} ← 今日の流れ（特に影響が出やすい部分）
-${hasBirthTime ? `時運: ${todayHourPillar} ← 現在時刻(${hourNowJST}時)の巡り` : ''}
+${hasBirthTime ? `時運: ${todayHourPillar} ← 現在時刻(${hourNowLocal}時)の巡り` : ''}
 
 【大運（10年周期の中長期の巡り）】
 ${taiun.available
@@ -284,8 +286,8 @@ ${taiun.available
 ※このスコアは、四柱推命（日柱と日運の相性が中心）とバイオリズムを主に、気分と時運を小さな補正として算出しています。配分の数字は本文に書かないでください。
 ※特にスコアが高いテーマ（70%以上）や低いテーマ（40%以下）については、メッセージとアドバイスで必ず言及してください。
 
-【現在時刻（JST）】
-${hourNowJST}時
+【現在時刻（利用者の地域）】
+${hourNowLocal}時
 
 【ユーザーのアウトプット】
 気分: ${moodLabel(entry.emoji) || entry.emoji}

@@ -1,28 +1,26 @@
 // 分析結果の端末内キャッシュ（DECISIONS.md D-16, D-18）。
-// 同じJST日・同じ入力ならAPIを呼ばずに前回の結果を返し、文章を安定させる。
+// 同じ暦日（利用者の地域の日付・D-45）・同じ入力ならAPIを呼ばずに前回の結果を返し、文章を安定させる。
 // サーバーには日記由来のデータを保存しない方針のため、キャッシュは利用者の端末にだけ置く。
 // キーは正規化入力のSHA-256で、日記本文を平文のキーとして持たない。履歴（history.js）とは別物。
 
 import { MAX_DATA_JSON_CHARS, validAnalysisPayload } from "./dataIntegrity";
+import { DEFAULT_TIME_ZONE, normalizeTimeZone, zonedDateKey } from "./localTime";
 
 export const ANALYSIS_CACHE_STORAGE_KEY = "kiri-analysis-cache-v1";
 export const MAX_ANALYSIS_CACHE_ITEMS = 10;
 
-const JST_TIME_ZONE = "Asia/Tokyo";
-
-export function jstDateKey(date) {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: JST_TIME_ZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date);
+// 暦日のキー。timeZone は利用者の端末の地域（既定は日本時間）。
+export function jstDateKey(date, timeZone = DEFAULT_TIME_ZONE) {
+  return zonedDateKey(date, timeZone);
 }
 
 // 結果に影響する入力だけを固定の順序で並べる（サーバーへ送る値と同じもの）。
-function normalizedInput({ userProfile = {}, biorhythm = {}, entry = {} }, date) {
+// timeZone は端末の地域。地域が変われば「今日」も変わるので、キーにも含める（D-45）。
+function normalizedInput({ userProfile = {}, biorhythm = {}, entry = {}, timeZone }, date) {
+  const zone = normalizeTimeZone(timeZone);
   return JSON.stringify({
-    date: jstDateKey(date),
+    date: jstDateKey(date, zone),
+    timeZone: zone,
     userProfile: {
       birthDate: userProfile.birthDate || "",
       birthTime: userProfile.birthTime || "",
@@ -73,10 +71,10 @@ function writeEntries(storage, entries) {
   }
 }
 
-// 今日（JST）以外のエントリは読み込み時に捨てる。
-export function loadCachedAnalysis(storage, key, date = new Date()) {
+// 今日（利用者の地域の暦日）以外のエントリは読み込み時に捨てる。
+export function loadCachedAnalysis(storage, key, date = new Date(), timeZone = DEFAULT_TIME_ZONE) {
   if (!storage || !key) return null;
-  const today = jstDateKey(date);
+  const today = jstDateKey(date, timeZone);
   let raw;
   try {
     raw = storage.getItem(ANALYSIS_CACHE_STORAGE_KEY);
@@ -90,9 +88,9 @@ export function loadCachedAnalysis(storage, key, date = new Date()) {
 }
 
 // 上限を超えたら古い順（挿入順）に削除する。
-export function saveCachedAnalysis(storage, key, payload, date = new Date()) {
+export function saveCachedAnalysis(storage, key, payload, date = new Date(), timeZone = DEFAULT_TIME_ZONE) {
   if (!storage || !key) return;
-  const today = jstDateKey(date);
+  const today = jstDateKey(date, timeZone);
   const entries = readTodayEntries(storage, today);
   delete entries[key];
   entries[key] = { date: today, payload };

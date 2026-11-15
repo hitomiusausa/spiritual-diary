@@ -5,6 +5,7 @@ import {
   MAX_DATA_JSON_CHARS, assertDataWritable, getDataIssues, getRecoveryRaw,
   DataRecoveryRequiredError, validateBackupData,
 } from "./dataIntegrity";
+import { deviceTimeZone, zonedDateKey } from "./localTime";
 
 export const BACKUP_APP_NAME = "spiritual-diary";
 export const BACKUP_SCHEMA_VERSION = 1;
@@ -41,11 +42,9 @@ export function buildRecoveryBackup(storage) {
   };
 }
 
-export function backupFileName(now = new Date()) {
-  const jstDate = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit",
-  }).format(now);
-  return `kiri-backup-${jstDate}.json`;
+// ファイル名の日付は端末の地域の暦日（D-45）。
+export function backupFileName(now = new Date(), timeZone = deviceTimeZone()) {
+  return `kiri-backup-${zonedDateKey(now, timeZone)}.json`;
 }
 
 export function parseBackup(text) {

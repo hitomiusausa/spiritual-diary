@@ -1,4 +1,5 @@
 import { Solar } from "lunar-javascript";
+import { DEFAULT_TIME_ZONE, zonedParts } from "./localTime";
 
 const DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 const TIME_PATTERN = /^(\d{2}):(\d{2})$/;
@@ -105,30 +106,18 @@ export function calculateBirthChart({ birthDate, birthTime = "" }) {
   };
 }
 
-export function jstParts(date = new Date()) {
-  const values = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Tokyo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(date).reduce((result, part) => {
-    if (part.type !== "literal") result[part.type] = Number(part.value);
-    return result;
-  }, {});
-
-  return values;
+// 利用者の地域（timeZone・既定は日本時間）の年月日時分（D-45）。
+export function jstParts(date = new Date(), timeZone = DEFAULT_TIME_ZONE) {
+  return zonedParts(date, timeZone);
 }
 
-function jstDateString(date) {
-  const parts = jstParts(date);
+function jstDateString(date, timeZone = DEFAULT_TIME_ZONE) {
+  const parts = jstParts(date, timeZone);
   return `${parts.year}-${pad2(parts.month)}-${pad2(parts.day)}`;
 }
 
-export function calculateCurrentChart(date = new Date()) {
-  const parts = jstParts(date);
+export function calculateCurrentChart(date = new Date(), timeZone = DEFAULT_TIME_ZONE) {
+  const parts = jstParts(date, timeZone);
   const solar = Solar.fromYmdHms(
     parts.year,
     parts.month,
@@ -140,7 +129,7 @@ export function calculateCurrentChart(date = new Date()) {
   return { ...chartFromSolar(solar), solar, parts };
 }
 
-export function calculateDaYun({ birthChart, gender, now = new Date() }) {
+export function calculateDaYun({ birthChart, gender, now = new Date(), timeZone = DEFAULT_TIME_ZONE }) {
   const normalizedGender = normalizeGender(gender);
   if (!normalizedGender) {
     return {
@@ -159,7 +148,7 @@ export function calculateDaYun({ birthChart, gender, now = new Date() }) {
   const startMonthDay = `${pad2(startSolar.getMonth())}-${pad2(startSolar.getDay())}`;
   const birthInput = birthChart.input;
   const birthMonthDay = `${pad2(birthInput.month)}-${pad2(birthInput.day)}`;
-  const today = jstDateString(now);
+  const today = jstDateString(now, timeZone);
   const periods = yun.getDaYun(DAYUN_COUNT).slice(1).map((period) => {
     const startYear = period.getStartYear();
     const startAge = startYear - birthInput.year - (startMonthDay < birthMonthDay ? 1 : 0);
@@ -195,10 +184,10 @@ export function calculateDaYun({ birthChart, gender, now = new Date() }) {
   };
 }
 
-export function calculateSaju({ birthDate, birthTime = "", gender, now = new Date() }) {
+export function calculateSaju({ birthDate, birthTime = "", gender, now = new Date(), timeZone = DEFAULT_TIME_ZONE }) {
   const birth = calculateBirthChart({ birthDate, birthTime });
-  const today = calculateCurrentChart(now);
-  const taiun = calculateDaYun({ birthChart: birth, gender, now });
+  const today = calculateCurrentChart(now, timeZone);
+  const taiun = calculateDaYun({ birthChart: birth, gender, now, timeZone });
 
   return {
     birth: stripInternalChart(birth),

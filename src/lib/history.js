@@ -1,6 +1,7 @@
 import {
   assertDataWritable, clearDataIssue, getDataIssues, getRecoveryRaw, readStoredData, validBirthDate, validHistoryRecord, validProfile,
 } from "./dataIntegrity";
+import { deviceTimeZone, zonedDateKey } from "./localTime";
 
 export const HISTORY_STORAGE_KEY = "spiritual-diary.history.v1";
 export const PROFILE_STORAGE_KEY = "spiritual-diary.profile.v1";
@@ -38,14 +39,13 @@ export function toHistoryRecord({ result, entry, userProfile }) {
   };
 }
 
-const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
-
-function jstDay(iso) {
+// 端末の地域の暦日（D-45）。
+function jstDay(iso, timeZone = deviceTimeZone()) {
   const time = Date.parse(iso);
-  return Number.isFinite(time) ? new Date(time + JST_OFFSET_MS).toISOString().slice(0, 10) : "";
+  return Number.isFinite(time) ? zonedDateKey(new Date(time), timeZone) : "";
 }
 
-// 同じJST日に、同じ基本情報・同じ記録で、Kiriの言葉も同じ（＝端末キャッシュの結果を見直しただけ）か。
+// 同じ暦日（端末の地域）に、同じ基本情報・同じ記録で、Kiriの言葉も同じ（＝端末キャッシュの結果を見直しただけ）か。
 // 「読み解く」を押し直すたびに同じ記録が履歴へ増えないよう、保存前の判定に使う（T13）。
 export function isSameReading(a, b) {
   if (!a || !b) return false;

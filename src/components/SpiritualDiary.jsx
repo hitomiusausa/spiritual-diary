@@ -55,6 +55,7 @@ import LockScreen from '@/components/LockScreen';
 import ModalFrame, { ModalLockContext } from '@/components/ModalFrame';
 import { createConsentFlow } from '@/lib/consentFlow';
 import { calculateBiorhythm } from '@/lib/biorhythm';
+import { deviceTimeZone, zonedHour } from '@/lib/localTime';
 import { NICKNAME_MAX_CHARS, ENTRY_EVENT_MAX_CHARS, ENTRY_INTUITION_MAX_CHARS, isBirthDateNotFuture } from '@/lib/inputContract';
 import { ANALYSIS_CACHE_STORAGE_KEY, analysisCacheKey, clearCachedAnalyses, loadCachedAnalysis, saveCachedAnalysis } from '@/lib/analysisCache';
 
@@ -922,15 +923,16 @@ export default function SpiritualDiary() {
 
     try {
       const now = new Date();
-      const bio = calculateBiorhythm(birthDate, now);
+      const timeZone = deviceTimeZone();
+      const bio = calculateBiorhythm(birthDate, now, timeZone);
 
       const userProfile = { birthDate, birthTime, gender, nickname };
 
-      // 同じJST日・同じ入力なら端末内の前回結果を使い、APIを呼ばない（D-16, D-18）。
+      // 同じ暦日（端末の地域・D-45）・同じ入力なら端末内の前回結果を使い、APIを呼ばない（D-16, D-18）。
       // 成功した結果だけを保存する（寄り添いモードの結果も同日同入力なら同じ文を返す）。
-      const cacheKey = await analysisCacheKey({ userProfile, biorhythm: bio, entry }, now);
+      const cacheKey = await analysisCacheKey({ userProfile, biorhythm: bio, entry, timeZone }, now);
       const cacheStorage = getStorage();
-      const cached = loadCachedAnalysis(cacheStorage, cacheKey, now);
+      const cached = loadCachedAnalysis(cacheStorage, cacheKey, now, timeZone);
       let data;
       if (!checkCurrent()) return;
       if (cached) {
@@ -944,6 +946,7 @@ export default function SpiritualDiary() {
             userProfile,
             biorhythm: bio,
             entry: entry,
+            timeZone,
             timestamp: now.toISOString()
           })
         });
@@ -954,7 +957,7 @@ export default function SpiritualDiary() {
         else data.status = response.status;
         if (!checkCurrent()) return;
         if (data.success && data.data) {
-          saveCachedAnalysis(cacheStorage, cacheKey, data.data, now);
+          saveCachedAnalysis(cacheStorage, cacheKey, data.data, now, timeZone);
         }
       }
 
@@ -966,7 +969,7 @@ export default function SpiritualDiary() {
         const avg = (bio.p + bio.e + bio.i) / 3;
         const originalDate = new Date(data.data.analyzedAt || (cached ? NaN : now));
         const snapshotDate = Number.isFinite(originalDate.getTime()) ? originalDate : now;
-        const h = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Tokyo', hour: '2-digit', hourCycle: 'h23' }).format(snapshotDate));
+        const h = zonedHour(snapshotDate, timeZone);
         const energy = avg > 30 ? '高揚' : avg > -30 ? '調和' : '内省';
         const time = h < 11 ? '朝' : h < 16 ? '昼' : '夜';
 
