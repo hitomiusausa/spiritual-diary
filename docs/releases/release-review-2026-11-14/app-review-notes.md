@@ -27,12 +27,13 @@ A network connection is required for a new AI reading. The server has request an
 Privacy policy: https://kiri.kugainc.com/privacy
 Terms: https://kiri.kugainc.com/terms
 Support: https://kiri.kugainc.com/support
+Legal notice (特定商取引法に基づく表記): https://kiri.kugainc.com/legal
 ```
 
 ## Before submitting (owner checklist)
 
-- [CONFIRM] The global analysis limit (`DAILY_LIMIT_ANALYZE: "30"` in `wrangler.jsonc`) is shared by all users. Raise it, or exempt the reviewer, around the review and launch dates so the reviewer is not blocked (B-6).
-- [CONFIRM] Age rating: 13+ or higher is recommended (diary free text, low mood, AI conversation). Check the current questionnaire items about AI and wellness in App Store Connect (B-5).
-- [CONFIRM] App Privacy answers match the subscription build (RevenueCat anonymous ID, purchases, device information) (B-7).
-- [CONFIRM] Add a link to the 特定商取引法に基づく表記 page once it exists (see `tokushoho-draft.md`).
+- [CONFIRM] The global analysis limit is now 60/day (`DAILY_LIMIT_ANALYZE: "60"`, D-45) and 10/day per IP. Around the review date, raise the Kiri workspace spend cap if needed so the reviewer is not blocked (B-6).
+- [DECIDED D-45] Age rating: **13+**. Still check the questionnaire items. Was: 13+ or higher is recommended (diary free text, low mood, AI conversation). Check the current questionnaire items about AI and wellness in App Store Connect (B-5).
+- [CONFIRM] App Privacy answers follow the table in `docs/releases/app-store-2026-10-16.md`「App Privacy の回答（D-45）」 and match `ios/App/App/PrivacyInfo.xcprivacy` (B-7).
+- [DONE D-45] 特商法 page is `/legal` (linked from the start screen and the paywall). Disclosure of representative, address and phone is "on request".
 - [CONFIRM] Put the EULA / Terms link in the App Store description.
