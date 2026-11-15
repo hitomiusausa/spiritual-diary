@@ -356,7 +356,8 @@ ${hourNowLocal}時
       console.error("[kiri-analyze] upstream status", response.status, upstreamFailure);
       return NextResponse.json({ success: false, error: "Fortune analysis failed" }, { status: 502 });
     }
-
+    // 単価の実測用（本文は出さない）。公開後の値で DAILY_LIMIT_ANALYZE とワークスペースの上限を見直す（D-45）。
+    console.log("[kiri-usage] analyze tokens", Number.isFinite(data?.usage?.input_tokens) ? data.usage.input_tokens : 0, Number.isFinite(data?.usage?.output_tokens) ? data.usage.output_tokens : 0);
 
     if (data?.stop_reason === "refusal" || data?.stop_reason === "max_tokens") {
       console.error("[kiri-analyze] no usable text", "upstream_unusable");

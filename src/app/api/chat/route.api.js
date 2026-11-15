@@ -123,7 +123,9 @@ async function handlePost(request) {
       );
     }
 
-    const apiKey = process.env.CLAUDE_API_KEY;
+    // チャットは有料の利用者のためのもの。無料の読み解きで枠が尽きても止まらないよう、
+    // 別のワークスペースのキー（CLAUDE_API_KEY_CHAT）があればそちらを使う（S-02・D-45）。
+    const apiKey = process.env.CLAUDE_API_KEY_CHAT || process.env.CLAUDE_API_KEY;
     if (!apiKey) {
       return NextResponse.json({ success: false, error: "Chat is not configured" }, { status: 503 });
     }

@@ -601,6 +601,37 @@ describe("server-side adversarial review fixes (D-41)", () => {
     expect(JSON.parse(upstream.mock.calls[1][1].body).model).toBe("claude-haiku-test");
   });
 
+  // S-02・D-45
+  it("chat uses CLAUDE_API_KEY_CHAT when set, analyze keeps CLAUDE_API_KEY", async () => {
+    env(); vi.stubEnv("CLAUDE_API_KEY_CHAT", "chat-only-key");
+    const upstream = vi.fn(async (_url, init) => (JSON.parse(init.body).model === "claude-haiku-5-5" ? anthropicOk() : fortuneOk()));
+    vi.stubGlobal("fetch", upstream);
+    expect((await chatPOST(jsonRequest({ messages: [{ role: "user", content: "こんにちは" }] }))).status).toBe(200);
+    expect(upstream.mock.calls[0][1].headers["x-api-key"]).toBe("chat-only-key");
+    expect((await analyzePOST(jsonRequest(analysisInput(), { "x-real-ip": "198.51.100.220" }))).status).toBe(200);
+    expect(upstream.mock.calls[1][1].headers["x-api-key"]).toBe("test-key");
+    vi.stubEnv("CLAUDE_API_KEY_CHAT", "");
+    await chatPOST(jsonRequest({ messages: [{ role: "user", content: "こんにちは" }] }));
+    expect(upstream.mock.calls[2][1].headers["x-api-key"]).toBe("test-key");
+  });
+
+  // D-45
+  it("analyze reads the hour in the device time zone and recounts biorhythm on the server", async () => {
+    env(); vi.useFakeTimers(); vi.setSystemTime(new Date("2026-11-15T02:00:00Z")); // LA 18時・日本 11時
+    try {
+      const upstream = vi.fn(async () => fortuneOk()); vi.stubGlobal("fetch", upstream);
+      const body = { ...analysisInput(), timeZone: "America/Los_Angeles" };
+      expect((await analyzePOST(jsonRequest(body, { "x-real-ip": "198.51.100.221" }))).status).toBe(200);
+      const prompt = JSON.parse(upstream.mock.calls[0][1].body).messages[0].content;
+      expect(prompt).toMatch(/【現在時刻（利用者の地域）】\s*18時/);
+      const bad = { ...analysisInput(), timeZone: "Mars/Olympus" };
+      expect((await analyzePOST(jsonRequest(bad, { "x-real-ip": "198.51.100.222" }))).status).toBe(200);
+      expect(JSON.parse(upstream.mock.calls[1][1].body).messages[0].content).toMatch(/【現在時刻（利用者の地域）】\s*11時/);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   // S-09
   it("analyze quotes the nickname everywhere it appears in the prompt", async () => {
     env(); const upstream = vi.fn(async () => fortuneOk()); vi.stubGlobal("fetch", upstream);

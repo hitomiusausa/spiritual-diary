@@ -27,9 +27,12 @@
 	// Redis か KIRI_STORE_SECRET が欠けていれば /api/analyze と /api/chat は503になる。
 	// DAILY_LIMIT_ANALYZE / DAILY_LIMIT_CHAT: 1日の読み解き・チャット回数の全体の上限。ダッシュボードの平文変数はデプロイで上書きされるためここで固定する。
 	// チャットの 500 は設計書 Ruling 6（最悪でも約 $0.5/日）。購読者ごとの上限（既定60）はコード側の定数。
+	// 読み解きの 60 は D-45（1回最大約$0.1の見積もり。ワークスペースの月の上限で止まるので自腹にはならない）。
+	// 実際の単価は [kiri-usage] analyze tokens のログで測って見直す。
+	// チャット用の秘密 CLAUDE_API_KEY_CHAT（別ワークスペース）があればチャットはそちらを使う。無ければ CLAUDE_API_KEY。
 	"vars": {
 		"KIRI_DEPLOY_ENV": "production",
-		"DAILY_LIMIT_ANALYZE": "30",
+		"DAILY_LIMIT_ANALYZE": "60",
 		"DAILY_LIMIT_CHAT": "500"
 	},
 	// 運用ログ（console.log/warn/error。日記本文・IP・秘密は出さない実装）だけを残す。
