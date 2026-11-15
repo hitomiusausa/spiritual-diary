@@ -45,6 +45,12 @@ describe("consent", () => {
     expect(s.getItem("spiritual-diary.consent.v1")).not.toBeNull();
   });
 
+  it("asks again on a v2 record so the user sees the US-company wording (D-45)", () => {
+    const s = createMemoryStorage({ [CONSENT_STORAGE_KEY]: JSON.stringify({ version: 2, acceptedAt: "2026-11-01T00:00:00Z" }) });
+    expect(CONSENT_VERSION).toBe(3);
+    expect(hasConsent(s)).toBe(false);
+  });
+
   it("is false after revoking", () => {
     const s = createMemoryStorage();
     recordConsent(s);

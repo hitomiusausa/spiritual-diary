@@ -31,10 +31,10 @@ export default function ConsentModal({ show, onAccept, onDecline, onReadPolicy, 
         </div>
         <div className="text-white text-sm leading-relaxed space-y-3">
           <p>
-            「Kiriに読み解いてもらう」を押すと、基本情報（生年月日・出生時刻・性別・ニックネーム）と今日の記録（気分・出来事・直感）が、くうが株式会社のサーバーを経由して <strong className="text-kiri-gold">Anthropic社のAI（Claude）</strong> に送られ、<span className="inline-block">Kiriの言葉を生成します。</span>
+            「Kiriに読み解いてもらう」を押すと、基本情報（生年月日・出生時刻・性別・ニックネーム）と今日の記録（気分・出来事・直感）が、くうが株式会社のサーバーを経由して <strong className="text-kiri-gold">米国の会社 Anthropic社のAI（Claude）</strong> に送られ、<span className="inline-block">Kiriの言葉を生成します。</span>
           </p>
           {CHAT_ENABLED && (
-            <p>会話で「送信」を押すと、ニックネーム・今日の記録・読み解き結果・直近の会話も、同じ経路でAnthropic社へ送られます。保存済みの会話すべてを送ることはありません。</p>
+            <p>会話で「送信」を押すと、ニックネーム・今日の記録・読み解き結果・直近の会話も、同じ経路で米国のAnthropic社へ送られます。保存済みの会話すべてを送ることはありません。</p>
           )}
           <ul className="list-disc pl-5 space-y-1 text-kiri-lilac-ink">
             <li>{CHAT_ENABLED ? '送信は「Kiriに読み解いてもらう」または会話の「送信」を押したときです。' : '送信は「Kiriに読み解いてもらう」を押したときです。'}運営者のサーバーには、日記・読み解き結果・会話を保存しません。</li>

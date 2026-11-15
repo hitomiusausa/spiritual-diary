@@ -1,6 +1,6 @@
 // 第三者AI(Anthropic社のClaude)への送信に対する同意。App Store審査ガイドライン5.1.2(i)対応。
 // 端末ごとの同意なのでバックアップには含めない。文言を変えて再同意が必要になったら CONSENT_VERSION を上げる。
-export const CONSENT_VERSION = 2;
+export const CONSENT_VERSION = 3; // v3: 送信先が米国の会社であることを明記（D-45）
 export const CONSENT_STORAGE_KEY = "spiritual-diary.consent.v1";
 let revokedThisSession = false;
 
